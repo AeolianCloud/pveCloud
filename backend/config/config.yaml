@@ -1,0 +1,27 @@
+server:
+  port: "8080"
+
+database:
+  dsn: "root:password@tcp(127.0.0.1:3306)/idc_cloud?charset=utf8mb4&parseTime=True&loc=Local"
+
+jwt:
+  secret: "please-change-this-secret-in-production"
+  access_token_expire_hours: 2
+  refresh_token_expire_days: 7
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+pve_client_mode: "mock"
+
+pve:
+  base_url: "https://pve-api.example.com"
+  api_key: "replace-with-real-api-key"
+  api_secret: "replace-with-real-api-secret"
+  timeout_seconds: 8
+  max_retries: 2
+  retry_backoff_ms: 200
+  circuit_failure_threshold: 5
+  circuit_open_seconds: 30
