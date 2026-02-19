@@ -4,9 +4,8 @@
 - 生成完代码之后根据当前生成的代码给我推荐下类似的，可改进，更好的功能让我参考是否需要
 - 不需要测试只需要给我说出来如何测试，我自己测试，
 - 不需要编译，出错了我自己给你说
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 - 前端设计要走扁平化风格进行设计，简约，不要自定义颜色，
-- 数据库连接信息 mysql:root:mysql_QtPESi@tcp(182.92.170.242:3306)/df?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
 
 # 视觉设计关键词
 - 现代化、简洁、专业、科技感、高效、清晰、一致、优雅、流畅、直观
@@ -43,6 +42,3 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 问题诊断: 优先考虑最简单、最常见的原因，而非罕见的边缘情况
 - 依赖管理: 能用标准库解决的，不引入第三方库
 
-# 新功能开发流程
-- 新功能统一使用 Skill：`.codex/skills/fullstack-feature-flow/SKILL.md`
-- 默认顺序：数据库 -> 后端 -> 后台前端 -> 博客前端 -> 收尾
