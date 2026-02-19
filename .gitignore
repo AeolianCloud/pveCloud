@@ -1,0 +1,14 @@
+.claude
+.codex
+openspec
+node_modules
+dist
+coverage
+.env
+.DS_Store
+*.log
+apps/*/dist
+apps/*/node_modules
+packages/*/dist
+packages/*/node_modules
+apps/api-server/bin
