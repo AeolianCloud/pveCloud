@@ -1,0 +1,28 @@
+# 开发环境配置
+# 启动方式：APP_ENV=dev go run cmd/server/main.go
+
+# ─── 服务器 ───────────────────────────────────────────────
+server:
+  port: 8080   # 监听端口
+  mode: debug  # 开发模式，开启 Gin 详细日志
+
+# ─── 数据库（MariaDB / MySQL）────────────────────────────
+database:
+  host: 127.0.0.1    # 本地数据库地址
+  port: 3306         # 数据库端口
+  user: pvecloud         # 开发用账号
+  password: "bWhbdFFazxkh8XT7"       # 开发密码（本地可为空）
+  name: pvecloud # 开发库，与生产库隔离
+  charset: utf8mb4   # 字符集，支持 emoji
+  max_open_conns: 20 # 开发环境连接数较小
+  max_idle_conns: 5  # 最大空闲连接数
+
+# ─── JWT 认证 ─────────────────────────────────────────────
+jwt:
+  secret: "dev-secret-change-me"  # 开发专用密钥，切勿用于生产
+  expire_hours: 72                # 开发环境 Token 有效期延长到 3 天，减少重登
+
+# ─── 日志 ─────────────────────────────────────────────────
+log:
+  level: debug    # 开发环境输出最详细日志
+  encoding: console # 控制台彩色输出，便于阅读
