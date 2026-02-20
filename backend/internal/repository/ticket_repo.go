@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 	"pvecloud/backend/internal/model"
@@ -10,6 +11,20 @@ import (
 // TicketRepository 封装工单及回复的数据访问。
 type TicketRepository struct {
 	db *gorm.DB
+}
+
+// AdminTicketView 表示后台工单列表项，附带用户信息。
+type AdminTicketView struct {
+	ID         uint      `json:"id"`
+	UserID     uint      `json:"user_id"`
+	UserEmail  string    `json:"user_email"`
+	InstanceID *uint     `json:"instance_id"`
+	Title      string    `json:"title"`
+	Content    string    `json:"content"`
+	Priority   string    `json:"priority"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // NewTicketRepository 创建工单仓储。
@@ -48,14 +63,17 @@ func (r *TicketRepository) ListUserTickets(ctx context.Context, userID uint, sta
 	return tickets, err
 }
 
-// ListAdminTickets 查询后台工单。
-func (r *TicketRepository) ListAdminTickets(ctx context.Context, status string) ([]model.Ticket, error) {
-	var tickets []model.Ticket
-	query := r.db.WithContext(ctx).Model(&model.Ticket{})
+// ListAdminTickets 查询后台工单，并附带提交用户信息。
+func (r *TicketRepository) ListAdminTickets(ctx context.Context, status string) ([]AdminTicketView, error) {
+	var tickets []AdminTicketView
+	query := r.db.WithContext(ctx).
+		Table("tickets t").
+		Select("t.id, t.user_id, t.instance_id, t.title, t.content, t.priority, t.status, t.created_at, t.updated_at, u.email AS user_email").
+		Joins("LEFT JOIN users u ON u.id = t.user_id")
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("t.status = ?", status)
 	}
-	err := query.Order("created_at DESC").Find(&tickets).Error
+	err := query.Order("t.created_at DESC").Find(&tickets).Error
 	return tickets, err
 }
 

@@ -46,6 +46,10 @@ func (h *InstanceHandler) Detail(c *gin.Context) {
 	instanceID := parseUintParam(c, "id")
 	item, err := h.service.GetUserInstance(c.Request.Context(), userID, instanceID)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40352, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40052, err.Error())
 		return
 	}
@@ -72,6 +76,10 @@ func (h *InstanceHandler) operate(c *gin.Context, action string) {
 	instanceID := parseUintParam(c, "id")
 	result, err := h.service.Operate(c.Request.Context(), userID, instanceID, action)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40353, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40053, err.Error())
 		return
 	}
@@ -84,6 +92,10 @@ func (h *InstanceHandler) Console(c *gin.Context) {
 	instanceID := parseUintParam(c, "id")
 	info, err := h.service.GetConsole(c.Request.Context(), userID, instanceID)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40354, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40054, err.Error())
 		return
 	}

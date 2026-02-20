@@ -12,3 +12,4 @@ apps/*/node_modules
 packages/*/dist
 packages/*/node_modules
 apps/api-server/bin
+backend/tmp

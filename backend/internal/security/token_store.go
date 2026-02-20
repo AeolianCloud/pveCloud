@@ -119,6 +119,43 @@ func (s *TokenStore) GetForceLogoutTime(ctx context.Context, userID uint) (time.
 	return time.Unix(unixSeconds, 0), nil
 }
 
+// SaveEmailVerificationToken 保存邮箱验证 token 到 Redis，value 为 userID。
+func (s *TokenStore) SaveEmailVerificationToken(ctx context.Context, token string, userID uint, ttl time.Duration) error {
+	if !s.Enabled() {
+		return nil
+	}
+	if token == "" {
+		return errors.New("email verification token is empty")
+	}
+	return s.client.Set(ctx, s.emailVerifyKey(token), strconv.FormatUint(uint64(userID), 10), ttl).Err()
+}
+
+// ConsumeEmailVerificationToken 消费邮箱验证 token，成功返回 userID 并删除 token。
+func (s *TokenStore) ConsumeEmailVerificationToken(ctx context.Context, token string) (uint, error) {
+	if !s.Enabled() {
+		return 0, errors.New("token store is not enabled")
+	}
+	if token == "" {
+		return 0, errors.New("email verification token is empty")
+	}
+	key := s.emailVerifyKey(token)
+	value, err := s.client.Get(ctx, key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return 0, errors.New("email verification token not found or expired")
+		}
+		return 0, err
+	}
+	if delErr := s.client.Del(ctx, key).Err(); delErr != nil {
+		return 0, delErr
+	}
+	parsed, convErr := strconv.ParseUint(value, 10, 64)
+	if convErr != nil {
+		return 0, fmt.Errorf("parse email verification user id: %w", convErr)
+	}
+	return uint(parsed), nil
+}
+
 func (s *TokenStore) refreshTokenKey(userID uint, tokenID string) string {
 	return fmt.Sprintf("auth:refresh:%d:%s", userID, tokenID)
 }
@@ -129,4 +166,8 @@ func (s *TokenStore) blacklistKey(tokenID string) string {
 
 func (s *TokenStore) forceLogoutKey(userID uint) string {
 	return fmt.Sprintf("auth:force-logout:%d", userID)
+}
+
+func (s *TokenStore) emailVerifyKey(token string) string {
+	return fmt.Sprintf("auth:email-verify:%s", token)
 }

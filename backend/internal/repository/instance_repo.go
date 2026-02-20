@@ -57,3 +57,10 @@ func (r *InstanceRepository) ListHourlyBillingTargets(ctx context.Context) ([]mo
 	err := r.db.WithContext(ctx).Where("status IN ?", []string{"running", "suspended"}).Find(&list).Error
 	return list, err
 }
+
+// ListForStatusSync 查询需要进行状态同步的实例（排除已删除实例）。
+func (r *InstanceRepository) ListForStatusSync(ctx context.Context) ([]model.Instance, error) {
+	var list []model.Instance
+	err := r.db.WithContext(ctx).Where("status <> ?", "deleted").Find(&list).Error
+	return list, err
+}

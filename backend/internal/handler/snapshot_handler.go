@@ -33,6 +33,10 @@ func (h *SnapshotHandler) List(c *gin.Context) {
 	instanceID := parseUintParam(c, "id")
 	list, err := h.service.ListSnapshots(c.Request.Context(), userID, instanceID)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40361, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40061, err.Error())
 		return
 	}
@@ -52,6 +56,10 @@ func (h *SnapshotHandler) Create(c *gin.Context) {
 	}
 	result, err := h.service.CreateSnapshot(c.Request.Context(), userID, instanceID, req.Name)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40362, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40062, err.Error())
 		return
 	}
@@ -65,6 +73,10 @@ func (h *SnapshotHandler) Delete(c *gin.Context) {
 	name := c.Param("name")
 	result, err := h.service.DeleteSnapshot(c.Request.Context(), userID, instanceID, name)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40363, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40063, err.Error())
 		return
 	}
@@ -78,6 +90,10 @@ func (h *SnapshotHandler) Restore(c *gin.Context) {
 	name := c.Param("name")
 	result, err := h.service.RestoreSnapshot(c.Request.Context(), userID, instanceID, name)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40364, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40064, err.Error())
 		return
 	}

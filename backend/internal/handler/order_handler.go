@@ -71,6 +71,10 @@ func (h *OrderHandler) Detail(c *gin.Context) {
 	id := parseUintParam(c, "id")
 	order, err := h.service.GetOrderDetail(c.Request.Context(), userID, id)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40331, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40033, err.Error())
 		return
 	}
@@ -89,6 +93,10 @@ func (h *OrderHandler) Renew(c *gin.Context) {
 		return
 	}
 	if err := h.service.RenewOrder(c.Request.Context(), userID, id, req.Amount); err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40332, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40034, err.Error())
 		return
 	}
@@ -98,8 +106,9 @@ func (h *OrderHandler) Renew(c *gin.Context) {
 // AdminList 后台订单列表。
 func (h *OrderHandler) AdminList(c *gin.Context) {
 	status := c.Query("status")
+	dateRange := c.Query("date_range")
 	userID, _ := strconv.ParseUint(c.DefaultQuery("user_id", "0"), 10, 64)
-	orders, err := h.service.ListAdminOrders(c.Request.Context(), uint(userID), status)
+	orders, err := h.service.ListAdminOrders(c.Request.Context(), uint(userID), status, dateRange)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, 40035, err.Error())
 		return

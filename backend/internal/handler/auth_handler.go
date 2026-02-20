@@ -24,6 +24,7 @@ func NewAuthHandler(userService *service.UserService, limiter *middleware.LoginR
 // RegisterRoutes 注册认证相关路由。
 func (h *AuthHandler) RegisterRoutes(pub *gin.RouterGroup, user *gin.RouterGroup) {
 	pub.POST("/register", h.Register)
+	pub.POST("/verify-email", h.VerifyEmail)
 	pub.POST("/login", h.limiter.Middleware(), h.Login)
 	user.POST("/refresh-token", h.RefreshToken)
 	user.POST("/logout", h.Logout)
@@ -43,7 +44,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 40002, err.Error())
 		return
 	}
-	response.OK(c, gin.H{"message": "注册成功，请前往邮箱完成验证（TODO）"})
+	response.OK(c, gin.H{"message": "注册成功，请前往邮箱完成验证"})
+}
+
+// VerifyEmail 消费验证 token，完成邮箱验证。
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Token == "" {
+		response.Error(c, http.StatusBadRequest, 40001, "请求参数错误")
+		return
+	}
+	if err := h.userService.VerifyEmail(c.Request.Context(), req.Token); err != nil {
+		response.Error(c, http.StatusBadRequest, 40004, err.Error())
+		return
+	}
+	response.OK(c, gin.H{"message": "邮箱验证成功"})
 }
 
 // Login 校验账号密码并返回 token 对。

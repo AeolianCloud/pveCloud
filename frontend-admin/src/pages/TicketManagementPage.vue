@@ -15,7 +15,9 @@
       <thead>
         <tr>
           <th align="left">ID</th>
+          <th align="left">用户</th>
           <th align="left">标题</th>
+          <th align="left">优先级</th>
           <th align="left">状态</th>
           <th align="left">操作</th>
         </tr>
@@ -23,7 +25,9 @@
       <tbody>
         <tr v-for="t in tickets" :key="t.id">
           <td>{{ t.id }}</td>
+          <td>{{ t.user_email }}</td>
           <td>{{ t.title }}</td>
+          <td>{{ t.priority }}</td>
           <td>{{ t.status }}</td>
           <td style="display: flex; gap: 8px;">
             <button class="btn" @click="reply(t.id)">回复</button>
@@ -38,12 +42,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import http from '../api/http';
+import type { AdminTicketItem, ApiResponse } from '../types/api';
 
 const status = ref('');
-const tickets = ref<any[]>([]);
+const tickets = ref<AdminTicketItem[]>([]);
 
 async function load(): Promise<void> {
-  const res = await http.get('/admin/tickets', { params: { status: status.value } });
+  const res = await http.get<ApiResponse<AdminTicketItem[]>>('/admin/tickets', { params: { status: status.value } });
   tickets.value = res.data.data ?? [];
 }
 

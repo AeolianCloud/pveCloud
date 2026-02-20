@@ -77,6 +77,10 @@ func (h *TicketHandler) UserReply(c *gin.Context) {
 		return
 	}
 	if err := h.service.AddReply(c.Request.Context(), userID, ticketID, false, req.Content); err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40373, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40073, err.Error())
 		return
 	}
@@ -95,6 +99,10 @@ func (h *TicketHandler) AdminReply(c *gin.Context) {
 		return
 	}
 	if err := h.service.AddReply(c.Request.Context(), adminID, ticketID, true, req.Content); err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40374, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40074, err.Error())
 		return
 	}
@@ -103,9 +111,14 @@ func (h *TicketHandler) AdminReply(c *gin.Context) {
 
 // Replies 查询工单回复线程。
 func (h *TicketHandler) Replies(c *gin.Context) {
+	userID := middleware.UserIDFromContext(c)
 	ticketID := parseUintParam(c, "id")
-	replies, err := h.service.ListReplies(c.Request.Context(), ticketID)
+	replies, err := h.service.ListReplies(c.Request.Context(), userID, ticketID, false)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40375, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40075, err.Error())
 		return
 	}

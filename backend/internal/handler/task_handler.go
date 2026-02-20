@@ -30,6 +30,10 @@ func (h *TaskHandler) Status(c *gin.Context) {
 	taskID := parseUintParam(c, "id")
 	task, err := h.service.GetTaskStatus(c.Request.Context(), userID, taskID)
 	if err != nil {
+		if service.IsForbidden(err) {
+			response.Error(c, http.StatusForbidden, 40341, err.Error())
+			return
+		}
 		response.Error(c, http.StatusBadRequest, 40041, err.Error())
 		return
 	}

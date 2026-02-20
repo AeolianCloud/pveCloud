@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"pvecloud/backend/internal/model"
@@ -18,6 +19,7 @@ var (
 	errInsufficientBalance = errors.New("余额不足，请充值")
 	errProductUnavailable  = errors.New("商品已下架")
 	errOrderNotFound       = errors.New("订单不存在")
+	errInvalidBillingCycle = errors.New("无效计费周期")
 )
 
 // OrderService 封装下单、续费、任务异步处理等流程。
@@ -66,9 +68,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uint, req CreateO
 
 	// 使用数据库事务确保订单创建的原子性
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 获取产品信息
-		product, err := s.productRepo.GetProductByID(ctx, req.ProductID)
-		if err != nil {
+		var product model.Product
+		if err := tx.WithContext(ctx).First(&product, req.ProductID).Error; err != nil {
 			return err
 		}
 		// 检查产品是否可用
@@ -76,11 +77,19 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uint, req CreateO
 			return errProductUnavailable
 		}
 
-		// 获取产品价格列表
-		prices, err := s.productRepo.ListPrices(ctx, req.ProductID)
+		cpu, memoryGB, diskGB, err := resolveOrderSpec(&product, req)
 		if err != nil {
 			return err
 		}
+		req.CPU = cpu
+		req.MemoryGB = memoryGB
+		req.DiskGB = diskGB
+
+		var prices []model.ProductPrice
+		if err := tx.WithContext(ctx).Where("product_id = ?", req.ProductID).Find(&prices).Error; err != nil {
+			return err
+		}
+
 		var unitPrice float64 // 单价
 		found := false        // 是否找到匹配的计费周期
 		// 查找匹配的计费周期价格
@@ -92,24 +101,14 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uint, req CreateO
 			}
 		}
 		if !found {
-			return errors.New("无效计费周期")
-		}
-
-		// 获取用户钱包信息
-		wallet, err := s.walletRepo.GetByUserID(ctx, userID)
-		if err != nil {
-			return err
-		}
-		// 检查余额是否充足
-		if wallet.Balance < unitPrice {
-			return errInsufficientBalance
+			return errInvalidBillingCycle
 		}
 
 		// 创建配置快照
 		snapshotMap := map[string]interface{}{
-			"cpu":           req.CPU,
-			"memory":        req.MemoryGB,
-			"disk":          req.DiskGB,
+			"cpu":           cpu,
+			"memory":        memoryGB,
+			"disk":          diskGB,
 			"bandwidth":     product.BandwidthMbps,
 			"os":            req.OS,
 			"unit_price":    unitPrice,
@@ -126,7 +125,10 @@ func (s *OrderService) CreateOrder(ctx context.Context, userID uint, req CreateO
 
 		// 扣除用户余额
 		orderID := createdOrder.ID
-		if err := s.walletRepo.ChangeBalance(ctx, userID, -unitPrice, "consume", &orderID, "下单扣费"); err != nil {
+		if err := s.walletRepo.ChangeBalanceWithTx(ctx, tx, userID, -unitPrice, "consume", &orderID, "下单扣费"); err != nil {
+			if strings.Contains(err.Error(), "insufficient balance") {
+				return errInsufficientBalance
+			}
 			return err
 		}
 
@@ -220,7 +222,7 @@ func (s *OrderService) GetOrderDetail(ctx context.Context, userID uint, orderID 
 		return nil, errOrderNotFound
 	}
 	if order.UserID != userID {
-		return nil, errors.New("无权限访问该订单")
+		return nil, WrapForbidden("无权限访问该订单")
 	}
 	return order, nil
 }
@@ -232,7 +234,7 @@ func (s *OrderService) RenewOrder(ctx context.Context, userID uint, orderID uint
 		return errOrderNotFound
 	}
 	if order.UserID != userID {
-		return errors.New("无权限续费该订单")
+		return WrapForbidden("无权限续费该订单")
 	}
 	if order.Status != "active" {
 		return errors.New("仅 active 订单可续费")
@@ -264,12 +266,56 @@ func (s *OrderService) GetTaskStatus(ctx context.Context, userID uint, taskID ui
 		return nil, err
 	}
 	if task.UserID != userID {
-		return nil, errors.New("无权限查看该任务")
+		return nil, WrapForbidden("无权限查看该任务")
 	}
 	return task, nil
 }
 
 // ListAdminOrders 查询后台订单列表。
-func (s *OrderService) ListAdminOrders(ctx context.Context, userID uint, status string) ([]model.Order, error) {
-	return s.orderRepo.ListForAdmin(ctx, userID, status)
+func (s *OrderService) ListAdminOrders(ctx context.Context, userID uint, status string, dateRange string) ([]model.Order, error) {
+	return s.orderRepo.ListForAdmin(ctx, userID, status, dateRange)
+}
+
+func resolveOrderSpec(product *model.Product, req CreateOrderRequest) (int, int, int, error) {
+	// 非自定义商品强制使用商品默认规格，避免客户端伪造参数。
+	if !product.IsCustomizable {
+		return product.CPU, product.MemoryGB, product.DiskGB, nil
+	}
+
+	cpu := req.CPU
+	memoryGB := req.MemoryGB
+	diskGB := req.DiskGB
+	if cpu == 0 {
+		cpu = product.CPU
+	}
+	if memoryGB == 0 {
+		memoryGB = product.MemoryGB
+	}
+	if diskGB == 0 {
+		diskGB = product.DiskGB
+	}
+
+	if err := validateRange("CPU", cpu, product.MinCPU, product.MaxCPU); err != nil {
+		return 0, 0, 0, err
+	}
+	if err := validateRange("内存", memoryGB, product.MinMemoryGB, product.MaxMemoryGB); err != nil {
+		return 0, 0, 0, err
+	}
+	if err := validateRange("磁盘", diskGB, product.MinDiskGB, product.MaxDiskGB); err != nil {
+		return 0, 0, 0, err
+	}
+	return cpu, memoryGB, diskGB, nil
+}
+
+func validateRange(label string, value int, min int, max int) error {
+	if min <= 0 && max <= 0 {
+		if value <= 0 {
+			return fmt.Errorf("%s 规格无效", label)
+		}
+		return nil
+	}
+	if value < min || value > max {
+		return fmt.Errorf("%s 超出可选范围(%d-%d)", label, min, max)
+	}
+	return nil
 }

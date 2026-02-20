@@ -35,7 +35,7 @@ func (s *InstanceService) GetUserInstance(ctx context.Context, userID uint, inst
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	status, err := s.pve.GetInstanceStatus(ctx, inst.PVEInstanceID)
 	if err == nil {
@@ -53,7 +53,7 @@ func (s *InstanceService) Operate(ctx context.Context, userID uint, instanceID u
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限操作该实例")
+		return nil, WrapForbidden("无权限操作该实例")
 	}
 
 	var result *pveclient.TaskResult
@@ -84,7 +84,7 @@ func (s *InstanceService) GetConsole(ctx context.Context, userID uint, instanceI
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	return s.pve.GetConsoleToken(ctx, inst.PVEInstanceID)
 }
@@ -96,7 +96,7 @@ func (s *InstanceService) ListSnapshots(ctx context.Context, userID uint, instan
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	return s.snapshotRepo.ListByInstance(ctx, instanceID)
 }
@@ -108,7 +108,7 @@ func (s *InstanceService) CreateSnapshot(ctx context.Context, userID uint, insta
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	result, err := s.pve.CreateSnapshot(ctx, inst.PVEInstanceID, name)
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *InstanceService) RestoreSnapshot(ctx context.Context, userID uint, inst
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	return s.pve.RestoreSnapshot(ctx, inst.PVEInstanceID, name)
 }
@@ -138,7 +138,7 @@ func (s *InstanceService) DeleteSnapshot(ctx context.Context, userID uint, insta
 		return nil, err
 	}
 	if inst.UserID != userID {
-		return nil, errors.New("无权限访问该实例")
+		return nil, WrapForbidden("无权限访问该实例")
 	}
 	result, err := s.pve.DeleteSnapshot(ctx, inst.PVEInstanceID, name)
 	if err != nil {

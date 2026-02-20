@@ -14,6 +14,7 @@ import (
 type AdminHandler struct {
 	userRepo   *repository.UserRepository
 	orderRepo  *repository.OrderRepository
+	ticketRepo *repository.TicketRepository
 	tokenStore *security.TokenStore
 	pve        pveclient.PVEClient
 }
@@ -22,10 +23,11 @@ type AdminHandler struct {
 func NewAdminHandler(
 	userRepo *repository.UserRepository,
 	orderRepo *repository.OrderRepository,
+	ticketRepo *repository.TicketRepository,
 	tokenStore *security.TokenStore,
 	pve pveclient.PVEClient,
 ) *AdminHandler {
-	return &AdminHandler{userRepo: userRepo, orderRepo: orderRepo, tokenStore: tokenStore, pve: pve}
+	return &AdminHandler{userRepo: userRepo, orderRepo: orderRepo, ticketRepo: ticketRepo, tokenStore: tokenStore, pve: pve}
 }
 
 // RegisterRoutes 注册后台管理路由。
@@ -40,7 +42,7 @@ func (h *AdminHandler) RegisterRoutes(admin *gin.RouterGroup) {
 // Users 查询后台用户列表。
 func (h *AdminHandler) Users(c *gin.Context) {
 	keyword := c.Query("keyword")
-	users, err := h.userRepo.List(c.Request.Context(), keyword)
+	users, err := h.userRepo.ListWithStats(c.Request.Context(), keyword)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, 40081, err.Error())
 		return
@@ -92,15 +94,12 @@ func (h *AdminHandler) ForceLogoutUser(c *gin.Context) {
 // Dashboard 返回后台关键统计指标。
 func (h *AdminHandler) Dashboard(c *gin.Context) {
 	users, _ := h.userRepo.List(c.Request.Context(), "")
-	orders, _ := h.orderRepo.ListForAdmin(c.Request.Context(), 0, "")
+	orders, _ := h.orderRepo.ListForAdmin(c.Request.Context(), 0, "", "")
+	tickets, _ := h.ticketRepo.ListAdminTickets(c.Request.Context(), "open")
 
-	pendingTickets := 0
 	activeInstances := 0
 	todayRevenue := 0.0
 	for _, order := range orders {
-		if order.Status == "pending" {
-			pendingTickets++
-		}
 		if order.Status == "active" {
 			activeInstances++
 			todayRevenue += order.Amount
@@ -111,7 +110,7 @@ func (h *AdminHandler) Dashboard(c *gin.Context) {
 		"total_users":      len(users),
 		"active_instances": activeInstances,
 		"today_revenue":    todayRevenue,
-		"pending_tickets":  pendingTickets,
+		"pending_tickets":  len(tickets),
 	})
 }
 

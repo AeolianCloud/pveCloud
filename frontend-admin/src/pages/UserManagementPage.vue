@@ -13,6 +13,8 @@
           <th align="left">邮箱</th>
           <th align="left">角色</th>
           <th align="left">状态</th>
+          <th align="left">余额</th>
+          <th align="left">实例数</th>
           <th align="left">操作</th>
         </tr>
       </thead>
@@ -22,6 +24,8 @@
           <td>{{ u.email }}</td>
           <td>{{ u.role }}</td>
           <td>{{ u.status }}</td>
+          <td>{{ u.balance }}</td>
+          <td>{{ u.instance_count }}</td>
           <td style="display: flex; gap: 8px;">
             <BaseButton @click="toggle(u.id)">禁用/启用</BaseButton>
             <BaseButton @click="forceLogout(u.id)">强制下线</BaseButton>
@@ -37,12 +41,13 @@ import { onMounted, ref } from 'vue';
 import http from '../api/http';
 import BaseInput from '../components/ui/BaseInput.vue';
 import BaseButton from '../components/ui/BaseButton.vue';
+import type { AdminUserItem, ApiResponse } from '../types/api';
 
 const keyword = ref('');
-const users = ref<any[]>([]);
+const users = ref<AdminUserItem[]>([]);
 
 async function load(): Promise<void> {
-  const res = await http.get('/admin/users', { params: { keyword: keyword.value } });
+  const res = await http.get<ApiResponse<AdminUserItem[]>>('/admin/users', { params: { keyword: keyword.value } });
   users.value = res.data.data ?? [];
 }
 

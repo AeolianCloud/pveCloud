@@ -40,7 +40,7 @@ func (s *TicketService) AddReply(ctx context.Context, userID uint, ticketID uint
 		return errors.New("工单已关闭，无法继续回复")
 	}
 	if !isAdmin && ticket.UserID != userID {
-		return errors.New("无权限回复该工单")
+		return WrapForbidden("无权限回复该工单")
 	}
 	if isAdmin && ticket.Status == "open" {
 		ticket.Status = "processing"
@@ -66,11 +66,18 @@ func (s *TicketService) ListUserTickets(ctx context.Context, userID uint, status
 }
 
 // ListAdminTickets 查询后台工单。
-func (s *TicketService) ListAdminTickets(ctx context.Context, status string) ([]model.Ticket, error) {
+func (s *TicketService) ListAdminTickets(ctx context.Context, status string) ([]repository.AdminTicketView, error) {
 	return s.ticketRepo.ListAdminTickets(ctx, status)
 }
 
-// ListReplies 查询工单回复。
-func (s *TicketService) ListReplies(ctx context.Context, ticketID uint) ([]model.TicketReply, error) {
+// ListReplies 查询工单回复，普通用户仅可查看自己的工单回复。
+func (s *TicketService) ListReplies(ctx context.Context, userID uint, ticketID uint, isAdmin bool) ([]model.TicketReply, error) {
+	ticket, err := s.ticketRepo.GetTicketByID(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin && ticket.UserID != userID {
+		return nil, WrapForbidden("无权限查看该工单回复")
+	}
 	return s.ticketRepo.ListReplies(ctx, ticketID)
 }
