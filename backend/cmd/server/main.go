@@ -14,9 +14,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"pvecloud/backend/internal/config"
 	"pvecloud/backend/internal/database"
+	"pvecloud/backend/internal/router"
 	"pvecloud/backend/internal/security"
 	"pvecloud/backend/internal/session"
-	"pvecloud/backend/internal/router"
 )
 
 func main() {
@@ -49,8 +49,9 @@ func main() {
 	// 启动时做一次连通性检查，避免运行中才暴露问题
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := rdb.Ping(ctx).Err(); err != nil {
+		err := rdb.Ping(ctx).Err()
+		cancel()
+		if err != nil {
 			log.Fatal("Redis 连接失败", zap.Error(err), zap.String("地址", cfg.Redis.Addr()))
 		}
 	}

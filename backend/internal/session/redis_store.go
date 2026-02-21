@@ -17,6 +17,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"strconv"
 	"time"
 
@@ -56,13 +57,13 @@ func (s *RedisStore) Create(userID uint, expiresAt time.Time, meta LoginMeta) (u
 
 	nowUnix := time.Now().Unix()
 	fields := map[string]any{
-		"user_id":     strconv.FormatUint(uint64(userID), 10),
-		"refresh_jti": refreshJTI,
-		"expires_at":  strconv.FormatInt(expiresAt.Unix(), 10),
-		"revoked_at":  "0",
+		"user_id":      strconv.FormatUint(uint64(userID), 10),
+		"refresh_jti":  refreshJTI,
+		"expires_at":   strconv.FormatInt(expiresAt.Unix(), 10),
+		"revoked_at":   "0",
 		"last_used_at": strconv.FormatInt(nowUnix, 10),
-		"ip":          meta.IP,
-		"ua":          meta.UserAgent,
+		"ip":           meta.IP,
+		"ua":           meta.UserAgent,
 	}
 
 	pipe := s.rdb.Pipeline()
@@ -116,49 +117,70 @@ func (s *RedisStore) RotateRefreshJTI(sessionID uint, expected, newJTI string, m
 	key := s.sessKey(sessionID)
 	nowUnix := time.Now().Unix()
 
-	// Lua：比较 refresh_jti，若一致则更新；否则返回 0
-	// 返回值：
-	// - 1：成功
-	// - -1：key 不存在
-	// - -2：已撤销
-	// - 0：refresh_jti 不匹配
-	script := redis.NewScript(`
-local key = KEYS[1]
-if redis.call("EXISTS", key) == 0 then
-  return -1
-end
-local revoked = redis.call("HGET", key, "revoked_at")
-if revoked and tonumber(revoked) and tonumber(revoked) > 0 then
-  return -2
-end
-local cur = redis.call("HGET", key, "refresh_jti")
-if cur ~= ARGV[1] then
-  return 0
-end
-redis.call("HSET", key,
-  "refresh_jti", ARGV[2],
-  "last_used_at", ARGV[5],
-  "ip", ARGV[3],
-  "ua", ARGV[4]
-)
-return 1
-`)
+	// 使用 WATCH + TxPipelined 实现 compare-and-set（无 Lua）：
+	// 1) 校验 key 存在且未撤销
+	// 2) 校验当前 refresh_jti 与 expected 一致
+	// 3) 原子写入新的 refresh_jti 和最近使用信息
+	for attempt := 0; attempt < 5; attempt++ {
+		err := s.rdb.Watch(ctx, func(tx *redis.Tx) error {
+			exists, err := tx.Exists(ctx, key).Result()
+			if err != nil {
+				return err
+			}
+			if exists == 0 {
+				return ErrNotFound
+			}
 
-	res, err := script.Run(ctx, s.rdb, []string{key}, expected, newJTI, meta.IP, meta.UserAgent, strconv.FormatInt(nowUnix, 10)).Int()
-	if err != nil {
+			vals, err := tx.HMGet(ctx, key, "refresh_jti", "revoked_at").Result()
+			if err != nil {
+				return err
+			}
+			if len(vals) != 2 {
+				return ErrNotFound
+			}
+
+			curJTI, _ := vals[0].(string)
+			if curJTI == "" {
+				return ErrNotFound
+			}
+			if curJTI != expected {
+				return ErrRefreshJTINotMatch
+			}
+
+			revokedAtStr := "0"
+			if vals[1] != nil {
+				revokedAtStr = toString(vals[1])
+			}
+			revokedAt, parseErr := strconv.ParseInt(revokedAtStr, 10, 64)
+			if parseErr != nil {
+				return parseErr
+			}
+			if revokedAt > 0 {
+				return ErrRevoked
+			}
+
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				pipe.HSet(ctx, key, map[string]any{
+					"refresh_jti":  newJTI,
+					"last_used_at": strconv.FormatInt(nowUnix, 10),
+					"ip":           meta.IP,
+					"ua":           meta.UserAgent,
+				})
+				return nil
+			})
+			return err
+		}, key)
+
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, redis.TxFailedErr) {
+			continue
+		}
 		return err
 	}
 
-	switch res {
-	case 1:
-		return nil
-	case -1:
-		return ErrNotFound
-	case -2:
-		return ErrRevoked
-	default:
-		return ErrRefreshJTINotMatch
-	}
+	return redis.TxFailedErr
 }
 
 // Revoke 撤销会话：直接删除 key，保证 Access/Refresh 立即失效。
@@ -187,4 +209,15 @@ func newJTI() string {
 		return "jti_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	}
 	return hex.EncodeToString(b)
+}
+
+func toString(v any) string {
+	switch value := v.(type) {
+	case string:
+		return value
+	case []byte:
+		return string(value)
+	default:
+		return ""
+	}
 }

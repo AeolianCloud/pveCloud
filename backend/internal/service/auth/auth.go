@@ -13,8 +13,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"pvecloud/backend/internal/middleware"
-	"pvecloud/backend/internal/session"
 	"pvecloud/backend/internal/model"
+	"pvecloud/backend/internal/session"
 )
 
 // Service 认证服务。
@@ -209,7 +209,12 @@ func (s *Service) Logout(sessionID uint) error {
 		return ErrSessionNotFound
 	}
 	if err := s.sessStore.Revoke(sessionID); err != nil {
-		return ErrSessionNotFound
+		// 退出登录按幂等语义处理：会话已过期/已删除时也视为成功
+		if errors.Is(err, session.ErrNotFound) {
+			return nil
+		}
+		// Redis 等基础设施异常仍然向上返回，便于排查
+		return err
 	}
 	return nil
 }
@@ -217,9 +222,9 @@ func (s *Service) Logout(sessionID uint) error {
 // signAccessToken 签发 Access Token（JWT），写入 user_id、username、role 和 session_id。
 func (s *Service) signAccessToken(userID uint, username, role string, sessionID uint) (string, error) {
 	claims := middleware.Claims{
-		UserID:   userID,
-		Username: username,
-		Role:     role,
+		UserID:    userID,
+		Username:  username,
+		Role:      role,
 		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        newJTI(),

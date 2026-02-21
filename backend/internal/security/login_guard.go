@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,37 +139,62 @@ func (g *LoginGuard) RecordFailure(username, ip string) error {
 	failTTL := time.Duration(g.cfg.FailWindowMinutes) * time.Minute
 	lockTTL := time.Duration(g.cfg.LockMinutes) * time.Minute
 
-	// Lua：INCR + 首次设置 EXPIRE；达到阈值后 SETEX lockKey
-	script := redis.NewScript(`
-local failKey = KEYS[1]
-local lockKey = KEYS[2]
-local failTTL = tonumber(ARGV[1])
-local threshold = tonumber(ARGV[2])
-local lockTTL = tonumber(ARGV[3])
+	// 使用 WATCH + TxPipelined 实现无 Lua 的原子更新：
+	// 1) 检查是否已锁定
+	// 2) 失败计数 +1，首次失败设置窗口 TTL
+	// 3) 达到阈值时写入锁定 key（TTL 自动解锁）
+	//
+	// 并发冲突时会触发 redis.TxFailedErr，按有限重试处理。
+	for attempt := 0; attempt < 5; attempt++ {
+		err := g.rdb.Watch(ctx, func(tx *redis.Tx) error {
+			locked, err := tx.Exists(ctx, lockKey).Result()
+			if err != nil {
+				return err
+			}
+			if locked > 0 {
+				// 已锁定无需重复操作
+				return nil
+			}
 
--- 如果已锁定就直接返回 -1
-if redis.call("EXISTS", lockKey) == 1 then
-  return -1
-end
+			current := int64(0)
+			val, err := tx.Get(ctx, failKey).Result()
+			switch {
+			case err == redis.Nil:
+				current = 0
+			case err != nil:
+				return err
+			default:
+				n, convErr := strconv.ParseInt(val, 10, 64)
+				if convErr != nil {
+					return convErr
+				}
+				current = n
+			}
 
-local n = redis.call("INCR", failKey)
-if n == 1 then
-  redis.call("EXPIRE", failKey, failTTL)
-end
+			next := current + 1
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				pipe.Incr(ctx, failKey)
+				if current == 0 {
+					pipe.Expire(ctx, failKey, failTTL)
+				}
+				if next >= int64(g.cfg.FailThreshold) {
+					pipe.Set(ctx, lockKey, "1", lockTTL)
+				}
+				return nil
+			})
+			return err
+		}, failKey, lockKey)
 
-if n >= threshold then
-  redis.call("SET", lockKey, "1", "EX", lockTTL)
-  return -2
-end
-return n
-`)
-
-	res, err := script.Run(ctx, g.rdb, []string{failKey, lockKey}, int(failTTL.Seconds()), g.cfg.FailThreshold, int(lockTTL.Seconds())).Int()
-	if err != nil {
+		if err == nil {
+			return nil
+		}
+		if err == redis.TxFailedErr {
+			continue
+		}
 		return err
 	}
-	_ = res // 目前不需要返回值，留作后续扩展（比如把剩余次数返回给前端）
-	return nil
+
+	return redis.TxFailedErr
 }
 
 // RecordSuccess 登录成功：清理失败计数与锁定（避免用户输错一次后长期受影响）。
@@ -210,16 +236,16 @@ func (g *LoginGuard) lockKey(username, ip string) string {
 
 // incrWithTTL 计数器自增并确保设置 TTL（首次写入时才设置 TTL）。
 func (g *LoginGuard) incrWithTTL(ctx context.Context, key string, ttl time.Duration) (int64, error) {
-	// 用 Lua 保证 INCR 与 EXPIRE 的原子性，避免并发下漏设置 TTL
-	script := redis.NewScript(`
-local key = KEYS[1]
-local ttl = tonumber(ARGV[1])
-local n = redis.call("INCR", key)
-if n == 1 then
-  redis.call("EXPIRE", key, ttl)
-end
-return n
-`)
-	return script.Run(ctx, g.rdb, []string{key}, int(ttl.Seconds())).Int64()
+	// 使用事务保证 INCR 与 EXPIRE 一起提交（无 Lua）。
+	// 这里每次都刷新 TTL，结合按分钟分桶 key，不影响限流语义。
+	var incrCmd *redis.IntCmd
+	_, err := g.rdb.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		incrCmd = pipe.Incr(ctx, key)
+		pipe.Expire(ctx, key, ttl)
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return incrCmd.Val(), nil
 }
-
