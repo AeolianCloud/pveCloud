@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
+import { h, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useMessage, NTag, NButton } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listOpLogs } from '@/api/opLog'
 import type { OpLog } from '@/api/opLog'
 
 const message = useMessage()
+
+// ── 响应式滚动宽度：列宽合计约 900px ─────────────────────
+const MIN_TABLE_WIDTH = 900
+const scrollX = ref<number | undefined>(
+  window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+)
+function onResize() {
+  scrollX.value = window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+}
 
 // ── 列表状态 ──────────────────────────────────────────────
 const loading = ref(false)
@@ -157,7 +166,14 @@ const columns: DataTableColumns<OpLog> = [
   },
 ]
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', onResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
+})
 </script>
 
 <template>
@@ -197,7 +213,7 @@ onMounted(loadData)
         :data="tableData"
         :loading="loading"
         :pagination="false"
-        :scroll-x="900"
+        :scroll-x="scrollX"
         size="small"
         striped
       />

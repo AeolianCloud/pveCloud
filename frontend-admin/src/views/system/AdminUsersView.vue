@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted } from 'vue'
+import { h, ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useMessage, useDialog, NTag, NButton, NSpace } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
@@ -17,6 +17,15 @@ import { useAuthStore } from '@/store/auth'
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+
+// ── 响应式滚动宽度：列宽合计约 1000px，窗口不够时启用横向滚动 ──
+const MIN_TABLE_WIDTH = 1000
+const scrollX = ref<number | undefined>(
+  window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+)
+function onResize() {
+  scrollX.value = window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+}
 
 // ── 列表状态 ──────────────────────────────────────────────
 const loading = ref(false)
@@ -164,15 +173,31 @@ async function handleSubmit() {
 }
 
 // ── 状态切换 ──────────────────────────────────────────────
-async function handleToggleStatus(row: AdminUser) {
+function handleToggleStatus(row: AdminUser) {
   const next = row.status === 1 ? 0 : 1
   const label = next === 1 ? '启用' : '禁用'
-  try {
-    await setAdminUserStatus(row.id, next as 0 | 1)
-    message.success(`已${label}`)
-    loadData()
-  } catch (err: unknown) {
-    message.error(err instanceof Error ? err.message : '操作失败')
+
+  // 禁用操作需要二次确认，启用直接执行
+  const doToggle = async () => {
+    try {
+      await setAdminUserStatus(row.id, next as 0 | 1)
+      message.success(`已${label}`)
+      loadData()
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : '操作失败')
+    }
+  }
+
+  if (next === 0) {
+    dialog.warning({
+      title: '确认禁用',
+      content: `确认禁用管理员「${row.nickname || row.username}」？禁用后该账号将无法登录。`,
+      positiveText: '确认禁用',
+      negativeText: '取消',
+      onPositiveClick: doToggle,
+    })
+  } else {
+    doToggle()
   }
 }
 
@@ -275,6 +300,11 @@ const columns: DataTableColumns<AdminUser> = [
 onMounted(() => {
   loadData()
   loadRoleOptions()
+  window.addEventListener('resize', onResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
 })
 </script>
 
@@ -306,7 +336,7 @@ onMounted(() => {
         :data="tableData"
         :loading="loading"
         :pagination="false"
-        :scroll-x="1000"
+        :scroll-x="scrollX"
         size="small"
         striped
       />

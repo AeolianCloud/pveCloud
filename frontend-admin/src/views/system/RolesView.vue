@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, ref, reactive, computed, onMounted } from 'vue'
+import { h, ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useMessage, useDialog, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { KeyOutline } from '@vicons/ionicons5'
@@ -12,6 +12,15 @@ import { useAuthStore } from '@/store/auth'
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
+
+// ── 响应式滚动宽度：列宽合计约 900px ──────────────────────
+const MIN_TABLE_WIDTH = 900
+const scrollX = ref<number | undefined>(
+  window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+)
+function onResize() {
+  scrollX.value = window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
+}
 
 // ── 列表 ──────────────────────────────────────────────────
 const loading = ref(false)
@@ -240,7 +249,14 @@ const columns: DataTableColumns<AdminRole> = [
   },
 ]
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', onResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize)
+})
 </script>
 
 <template>
@@ -271,7 +287,7 @@ onMounted(loadData)
         :data="tableData"
         :loading="loading"
         :pagination="false"
-        :scroll-x="900"
+        :scroll-x="scrollX"
         size="small"
         striped
       />

@@ -57,10 +57,12 @@ export const router = createRouter({
         },
       ],
     },
-    // 未匹配路由重定向到首页
+    // 未匹配路由显示 404
     {
       path: '/:pathMatch(.*)*',
-      redirect: '/',
+      name: 'NotFound',
+      component: () => import('@/views/error/NotFoundView.vue'),
+      meta: { requiresAuth: false },
     },
   ],
 })
