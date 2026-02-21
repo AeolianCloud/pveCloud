@@ -290,7 +290,6 @@ onMounted(loadData)
       :title="modalMode === 'create' ? '新建角色' : '编辑角色'"
       preset="card"
       style="width: 460px;"
-      :mask-closable="false"
     >
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <n-form-item label="角色标识" path="name">
@@ -325,7 +324,6 @@ onMounted(loadData)
       v-model:show="drawerVisible"
       :width="480"
       placement="right"
-      :mask-closable="false"
     >
       <n-drawer-content :title="`分配权限：${drawerRole?.label ?? ''}`" closable>
         <n-spin :show="drawerLoading">

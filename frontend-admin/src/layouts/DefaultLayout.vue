@@ -219,7 +219,6 @@ async function handleUserMenu(key: string) {
     title="修改密码"
     preset="card"
     style="width: 420px;"
-    :mask-closable="false"
   >
     <n-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-placement="left" label-width="90">
       <n-form-item label="新密码" path="newPassword">

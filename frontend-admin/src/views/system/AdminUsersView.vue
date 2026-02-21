@@ -340,7 +340,6 @@ onMounted(() => {
       :title="modalMode === 'create' ? '新建管理员' : '编辑管理员'"
       preset="card"
       style="width: 480px;"
-      :mask-closable="false"
     >
       <n-form ref="formRef" :model="form" :rules="rules" label-placement="left" label-width="80">
         <n-form-item label="用户名" path="username">
