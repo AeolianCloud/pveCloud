@@ -21,6 +21,7 @@ const (
 	UserNotFound      Code = 30001
 	UserAlreadyExists Code = 30002
 	PasswordWrong     Code = 30003
+	UserDisabled      Code = 30004
 
 	// 订单
 	OrderNotFound   Code = 40001
@@ -43,6 +44,7 @@ var messages = map[Code]string{
 	UserNotFound:      "用户不存在",
 	UserAlreadyExists: "用户已存在",
 	PasswordWrong:     "密码错误",
+	UserDisabled:      "账号已被禁用",
 
 	OrderNotFound:  "订单不存在",
 	OrderStatusErr: "订单状态异常",

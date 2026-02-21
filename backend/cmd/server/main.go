@@ -37,7 +37,7 @@ func main() {
 	os.Setenv("GIN_MODE", cfg.Server.Mode)
 
 	// 构建路由
-	r := router.New(db, log, cfg.JWT.Secret)
+	r := router.New(db, log, cfg)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
