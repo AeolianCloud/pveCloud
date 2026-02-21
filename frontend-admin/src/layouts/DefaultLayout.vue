@@ -154,7 +154,11 @@ async function handleUserMenu(key: string) {
 
       <!-- 内容区 -->
       <n-layout-content class="main-content">
-        <router-view />
+        <router-view v-slot="{ Component, route }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </router-view>
       </n-layout-content>
     </n-layout>
   </n-layout>
@@ -235,5 +239,21 @@ async function handleUserMenu(key: string) {
   padding: 24px;
   background: #f7f8fa;
   min-height: calc(100vh - 56px);
+}
+
+/* ========== 页面切换过渡 ========== */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>
