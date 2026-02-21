@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// 根组件，提供 Naive UI 全局配置
+import { zhCN, dateZhCN } from 'naive-ui'
+// 根组件，提供 Naive UI 全局配置（中文语言包）
 </script>
 
 <template>
-  <n-config-provider>
+  <n-config-provider :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <n-dialog-provider>
         <router-view />
