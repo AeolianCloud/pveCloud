@@ -1,21 +1,16 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { h, ref, reactive, onMounted } from 'vue'
 import { useMessage, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listLoginLogs } from '@/api/loginLog'
 import type { LoginLog } from '@/api/loginLog'
-import EmptyState from '@/components/EmptyState.vue'
+import { useTableScroll } from '@/composables/useTableScroll'
+import { formatTime } from '@/utils/format'
+import TableCard from '@/components/TableCard.vue'
 
 const message = useMessage()
 
-// ── 响应式滚动宽度：列宽合计约 1000px ────────────────────
-const MIN_TABLE_WIDTH = 1000
-const scrollX = ref<number | undefined>(
-  window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
-)
-function onResize() {
-  scrollX.value = window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
-}
+const { scrollX } = useTableScroll(1000)
 
 // ── 列表状态 ──────────────────────────────────────────────
 const loading = ref(false)
@@ -64,14 +59,6 @@ function handleReset() {
   loadData()
 }
 
-// 格式化时间
-function formatTime(t: string) {
-  return new Date(t).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
-}
-
 // 简化 User-Agent，只取浏览器名+版本
 function shortUA(ua: string) {
   if (!ua) return '—'
@@ -114,18 +101,11 @@ const columns: DataTableColumns<LoginLog> = [
   },
 ]
 
-onMounted(() => {
-  loadData()
-  window.addEventListener('resize', onResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
-})
+onMounted(loadData)
 </script>
 
 <template>
-  <div class="login-logs">
+  <div class="page-container">
     <!-- 搜索栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
@@ -149,39 +129,24 @@ onUnmounted(() => {
     </div>
 
     <!-- 数据表格 -->
-    <n-card :bordered="false" class="table-card">
-      <n-data-table
-        :columns="columns"
-        :data="tableData"
-        :loading="loading"
-        :pagination="false"
-        :scroll-x="scrollX"
-        size="small"
-        striped
-      >
-        <template #empty>
-          <EmptyState description="暂无登录记录" />
-        </template>
-      </n-data-table>
-
-      <div class="pagination">
-        <n-pagination
-          v-model:page="query.page_num"
-          v-model:page-size="query.page_size"
-          :item-count="total"
-          :page-sizes="[20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
-          @update:page="loadData"
-          @update:page-size="() => { query.page_num = 1; loadData() }"
-        />
-      </div>
-    </n-card>
+    <TableCard
+      :columns="columns"
+      :data="tableData"
+      :loading="loading"
+      :scroll-x="scrollX"
+      :total="total"
+      :page="query.page_num"
+      :page-size="query.page_size"
+      empty-text="暂无登录记录"
+      @update:page="(p) => (query.page_num = p)"
+      @update:page-size="(s) => (query.page_size = s)"
+      @load="loadData"
+    />
   </div>
 </template>
 
 <style scoped>
-.login-logs {
+.page-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -206,16 +171,5 @@ onUnmounted(() => {
 .total-tip {
   font-size: 13px;
   color: #909399;
-}
-
-.table-card {
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-}
-
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 </style>

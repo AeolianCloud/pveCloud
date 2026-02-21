@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, ref, reactive, onMounted, onUnmounted } from 'vue'
+import { h, ref, reactive, onMounted } from 'vue'
 import { useMessage, useDialog, NTag, NButton, NSpace } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { AddOutline } from '@vicons/ionicons5'
@@ -13,20 +13,14 @@ import {
 import { listRoles } from '@/api/role'
 import type { AdminUser } from '@/types'
 import { useAuthStore } from '@/store/auth'
-import EmptyState from '@/components/EmptyState.vue'
+import { useTableScroll } from '@/composables/useTableScroll'
+import TableCard from '@/components/TableCard.vue'
 
 const message = useMessage()
 const dialog = useDialog()
 const authStore = useAuthStore()
 
-// ── 响应式滚动宽度：列宽合计约 1000px，窗口不够时启用横向滚动 ──
-const MIN_TABLE_WIDTH = 1000
-const scrollX = ref<number | undefined>(
-  window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
-)
-function onResize() {
-  scrollX.value = window.innerWidth < MIN_TABLE_WIDTH + 260 ? MIN_TABLE_WIDTH : undefined
-}
+const { scrollX } = useTableScroll(1000)
 
 // ── 列表状态 ──────────────────────────────────────────────
 const loading = ref(false)
@@ -134,7 +128,7 @@ function openEdit(row: AdminUser) {
     username: row.username,
     password: '',
     nickname: row.nickname,
-    // email 可能为 null（后端允许 NULL），表单里用空字符串表示“未填写”
+    // email 可能为 null（后端允许 NULL），表单里用空字符串表示"未填写"
     email: row.email ?? '',
     role_ids: row.roles?.map((r) => r.id) ?? [],
   })
@@ -301,16 +295,11 @@ const columns: DataTableColumns<AdminUser> = [
 onMounted(() => {
   loadData()
   loadRoleOptions()
-  window.addEventListener('resize', onResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
 })
 </script>
 
 <template>
-  <div class="admin-users">
+  <div class="page-container">
     <!-- 搜索栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
@@ -331,35 +320,19 @@ onUnmounted(() => {
     </div>
 
     <!-- 数据表格 -->
-    <n-card :bordered="false" class="table-card">
-      <n-data-table
-        :columns="columns"
-        :data="tableData"
-        :loading="loading"
-        :pagination="false"
-        :scroll-x="scrollX"
-        size="small"
-        striped
-      >
-        <template #empty>
-          <EmptyState description="暂无管理员账号" />
-        </template>
-      </n-data-table>
-
-      <!-- 分页 -->
-      <div class="pagination">
-        <n-pagination
-          v-model:page="query.page_num"
-          v-model:page-size="query.page_size"
-          :item-count="total"
-          :page-sizes="[20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
-          @update:page="loadData"
-          @update:page-size="() => { query.page_num = 1; loadData() }"
-        />
-      </div>
-    </n-card>
+    <TableCard
+      :columns="columns"
+      :data="tableData"
+      :loading="loading"
+      :scroll-x="scrollX"
+      :total="total"
+      :page="query.page_num"
+      :page-size="query.page_size"
+      empty-text="暂无管理员账号"
+      @update:page="(p) => (query.page_num = p)"
+      @update:page-size="(s) => (query.page_size = s)"
+      @load="loadData"
+    />
 
     <!-- 新建/编辑弹窗 -->
     <n-modal
@@ -418,13 +391,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.admin-users {
+.page-container {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* 搜索工具栏 */
 .toolbar {
   display: flex;
   align-items: center;
@@ -439,18 +411,5 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-/* 表格卡片 */
-.table-card {
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-}
-
-/* 分页 */
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 </style>
