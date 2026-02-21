@@ -4,6 +4,7 @@ import { useMessage, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listLoginLogs } from '@/api/loginLog'
 import type { LoginLog } from '@/api/loginLog'
+import EmptyState from '@/components/EmptyState.vue'
 
 const message = useMessage()
 
@@ -157,7 +158,11 @@ onUnmounted(() => {
         :scroll-x="scrollX"
         size="small"
         striped
-      />
+      >
+        <template #empty>
+          <EmptyState description="暂无登录记录" />
+        </template>
+      </n-data-table>
 
       <div class="pagination">
         <n-pagination

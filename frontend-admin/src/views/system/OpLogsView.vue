@@ -4,6 +4,7 @@ import { useMessage, NTag, NButton } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { listOpLogs } from '@/api/opLog'
 import type { OpLog } from '@/api/opLog'
+import EmptyState from '@/components/EmptyState.vue'
 
 const message = useMessage()
 
@@ -216,7 +217,11 @@ onUnmounted(() => {
         :scroll-x="scrollX"
         size="small"
         striped
-      />
+      >
+        <template #empty>
+          <EmptyState description="暂无操作记录" />
+        </template>
+      </n-data-table>
       <div class="pagination">
         <n-pagination
           v-model:page="query.page_num"

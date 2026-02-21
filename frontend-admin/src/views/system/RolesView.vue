@@ -8,6 +8,7 @@ import { listPermissions } from '@/api/permission'
 import type { AdminRole } from '@/types'
 import type { GroupedPermissions } from '@/api/permission'
 import { useAuthStore } from '@/store/auth'
+import EmptyState from '@/components/EmptyState.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -290,7 +291,11 @@ onUnmounted(() => {
         :scroll-x="scrollX"
         size="small"
         striped
-      />
+      >
+        <template #empty>
+          <EmptyState description="暂无角色" />
+        </template>
+      </n-data-table>
       <div class="pagination">
         <n-pagination
           v-model:page="query.page_num"

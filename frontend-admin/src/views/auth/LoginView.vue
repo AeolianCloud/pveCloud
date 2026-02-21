@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { login } from '@/api/auth'
@@ -10,6 +10,10 @@ const message = useMessage()
 const authStore = useAuthStore()
 
 const loading = ref(false)
+// 记住用户名开关
+const rememberMe = ref(false)
+
+const REMEMBER_KEY = 'pvecloud_remember_username'
 
 const form = reactive({
   username: '',
@@ -31,6 +35,15 @@ const rules = {
 
 const formRef = ref()
 
+// 页面加载时恢复记住的用户名
+onMounted(() => {
+  const saved = localStorage.getItem(REMEMBER_KEY)
+  if (saved) {
+    form.username = saved
+    rememberMe.value = true
+  }
+})
+
 async function handleLogin() {
   // 表单校验
   await formRef.value?.validate()
@@ -39,6 +52,13 @@ async function handleLogin() {
   try {
     const res = await login(form.username, form.password)
     const { token, refresh_token, user } = res.data.data
+
+    // 记住用户名处理
+    if (rememberMe.value) {
+      localStorage.setItem(REMEMBER_KEY, form.username)
+    } else {
+      localStorage.removeItem(REMEMBER_KEY)
+    }
 
     // 保存 access token + refresh token + 用户信息
     // 注意：refresh_token 用于 access token 过期后的自动刷新
@@ -141,6 +161,10 @@ async function handleLogin() {
               </template>
             </n-input>
           </n-form-item>
+
+          <div class="form-options">
+            <n-checkbox v-model:checked="rememberMe">记住用户名</n-checkbox>
+          </div>
 
           <n-button
             type="primary"
@@ -318,6 +342,13 @@ export default { components: { PersonOutline, LockClosedOutline } }
 .form-subtitle {
   font-size: 14px;
   color: #909399;
+}
+
+/* 记住用户名行 */
+.form-options {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 /* ========== 响应式适配（小屏隐藏左侧） ========== */

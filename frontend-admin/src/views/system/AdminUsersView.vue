@@ -13,6 +13,7 @@ import {
 import { listRoles } from '@/api/role'
 import type { AdminUser } from '@/types'
 import { useAuthStore } from '@/store/auth'
+import EmptyState from '@/components/EmptyState.vue'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -339,7 +340,11 @@ onUnmounted(() => {
         :scroll-x="scrollX"
         size="small"
         striped
-      />
+      >
+        <template #empty>
+          <EmptyState description="暂无管理员账号" />
+        </template>
+      </n-data-table>
 
       <!-- 分页 -->
       <div class="pagination">

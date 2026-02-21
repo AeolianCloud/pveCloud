@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { h, computed } from 'vue'
+import { h, ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useMessage } from 'naive-ui'
+import { useMessage, useDialog } from 'naive-ui'
 import { GridOutline, PersonOutline, ChevronDownOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { useAuthStore } from '@/store/auth'
+import { updateAdminUser } from '@/api/adminUser'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog()
 
 // 当前页面标题，从路由 meta 取
 const pageTitle = computed(() => (route.meta.title as string) || '')
@@ -82,11 +84,59 @@ function handleMenuUpdate(key: string) {
 // ── 用户下拉菜单 ──────────────────────────────────────────
 
 const userMenuOptions = [
+  { label: '修改密码', key: 'change-password' },
   { label: '退出登录', key: 'logout' },
 ]
 
+// ── 修改密码弹窗 ──────────────────────────────────────────
+const pwdModalVisible = ref(false)
+const pwdLoading = ref(false)
+const pwdFormRef = ref()
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+const pwdRules = {
+  oldPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '新密码至少 6 位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (_rule: unknown, value: string) =>
+        value === pwdForm.value.newPassword || new Error('两次输入的密码不一致'),
+      trigger: 'blur',
+    },
+  ],
+}
+
+function openChangePwd() {
+  pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+  pwdModalVisible.value = true
+}
+
+async function handleChangePwd() {
+  await pwdFormRef.value?.validate()
+  if (!authStore.user) return
+  pwdLoading.value = true
+  try {
+    await updateAdminUser(authStore.user.id, { password: pwdForm.value.newPassword })
+    message.success('密码修改成功，请重新登录')
+    pwdModalVisible.value = false
+    // 密码变更后退出登录，强制重新认证
+    await authStore.logout()
+    router.push('/login')
+  } catch (err: unknown) {
+    message.error(err instanceof Error ? err.message : '修改失败')
+  } finally {
+    pwdLoading.value = false
+  }
+}
+
 async function handleUserMenu(key: string) {
-  if (key === 'logout') {
+  if (key === 'change-password') {
+    openChangePwd()
+  } else if (key === 'logout') {
     await authStore.logout()
     message.success('已退出登录')
     router.push('/login')
@@ -162,6 +212,42 @@ async function handleUserMenu(key: string) {
       </n-layout-content>
     </n-layout>
   </n-layout>
+
+  <!-- 修改密码弹窗 -->
+  <n-modal
+    v-model:show="pwdModalVisible"
+    title="修改密码"
+    preset="card"
+    style="width: 420px;"
+    :mask-closable="false"
+  >
+    <n-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-placement="left" label-width="90">
+      <n-form-item label="新密码" path="newPassword">
+        <n-input
+          v-model:value="pwdForm.newPassword"
+          type="password"
+          show-password-on="click"
+          placeholder="至少 6 位"
+        />
+      </n-form-item>
+      <n-form-item label="确认新密码" path="confirmPassword">
+        <n-input
+          v-model:value="pwdForm.confirmPassword"
+          type="password"
+          show-password-on="click"
+          placeholder="再次输入新密码"
+        />
+      </n-form-item>
+    </n-form>
+    <template #footer>
+      <n-space justify="end">
+        <n-button @click="pwdModalVisible = false">取消</n-button>
+        <n-button type="primary" :loading="pwdLoading" @click="handleChangePwd">
+          确认修改
+        </n-button>
+      </n-space>
+    </template>
+  </n-modal>
 </template>
 
 <style scoped>
