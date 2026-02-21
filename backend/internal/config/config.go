@@ -9,6 +9,8 @@ import (
 type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
+	Redis    RedisConfig    `mapstructure:"redis"`
+	Security SecurityConfig `mapstructure:"security"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Log      LogConfig      `mapstructure:"log"`
 }
@@ -34,9 +36,51 @@ func (d DatabaseConfig) DSN() string {
 		d.User, d.Password, d.Host, d.Port, d.Name, d.Charset)
 }
 
+// RedisConfig Redis 连接配置。
+// 用途：存储管理后台登录会话（session），支持退出登录立即失效 + Refresh Token 刷新。
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+	// KeyPrefix key 前缀，用于多环境/多实例隔离（可选）
+	KeyPrefix string `mapstructure:"key_prefix"`
+}
+
+// Addr 返回 host:port。
+func (r RedisConfig) Addr() string {
+	return fmt.Sprintf("%s:%d", r.Host, r.Port)
+}
+
 type JWTConfig struct {
 	Secret      string `mapstructure:"secret"`
 	ExpireHours int    `mapstructure:"expire_hours"`
+	// RefreshExpireHours Refresh Token 有效期（小时）。
+	// 说明：Refresh Token 用于刷新 Access Token，建议比 expire_hours 长。
+	RefreshExpireHours int `mapstructure:"refresh_expire_hours"`
+}
+
+// SecurityConfig 安全相关配置。
+type SecurityConfig struct {
+	Login LoginSecurityConfig `mapstructure:"login"`
+}
+
+// LoginSecurityConfig 登录限流/防爆破配置（基于 Redis）。
+type LoginSecurityConfig struct {
+	// Enabled 是否开启登录安全守卫（限流+防爆破）
+	Enabled bool `mapstructure:"enabled"`
+
+	// PerIPPerMinute 单 IP 每分钟最大登录请求数（包含成功/失败）
+	PerIPPerMinute int `mapstructure:"per_ip_per_minute"`
+	// PerUserPerMinute 单用户名每分钟最大登录请求数（包含成功/失败）
+	PerUserPerMinute int `mapstructure:"per_user_per_minute"`
+
+	// FailWindowMinutes 失败计数窗口（分钟），在该窗口内累计失败次数
+	FailWindowMinutes int `mapstructure:"fail_window_minutes"`
+	// FailThreshold 失败次数阈值（达到后锁定）
+	FailThreshold int `mapstructure:"fail_threshold"`
+	// LockMinutes 锁定时长（分钟）
+	LockMinutes int `mapstructure:"lock_minutes"`
 }
 
 type LogConfig struct {

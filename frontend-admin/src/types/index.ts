@@ -37,7 +37,7 @@ export interface AdminUser {
   username: string
   nickname: string
   avatar: string
-  email: string
+  email: string | null
   status: number
   last_login_at: string | null
   roles: AdminRole[]
@@ -47,5 +47,12 @@ export interface AdminUser {
 // 登录响应
 export interface LoginResult {
   token: string
+  refresh_token: string
   user: AdminUser
+}
+
+// 刷新 Token 响应
+export interface RefreshResult {
+  token: string
+  refresh_token: string
 }

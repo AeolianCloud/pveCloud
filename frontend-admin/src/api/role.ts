@@ -25,6 +25,11 @@ export function listRoles(params?: RoleListParams) {
   return request.get<ApiResponse<PageResult<AdminRole>>>('/roles', { params })
 }
 
+// 获取角色详情（含 permissions）
+export function getRoleByID(id: number) {
+  return request.get<ApiResponse<AdminRole>>(`/roles/${id}`)
+}
+
 // 新建角色
 export function createRole(data: CreateRoleReq) {
   return request.post<ApiResponse<AdminRole>>('/roles', data)

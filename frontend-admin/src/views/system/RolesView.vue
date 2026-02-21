@@ -3,7 +3,7 @@ import { h, ref, reactive, computed, onMounted } from 'vue'
 import { useMessage, useDialog, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { KeyOutline } from '@vicons/ionicons5'
-import { listRoles, createRole, updateRole, deleteRole, assignPermissions } from '@/api/role'
+import { listRoles, getRoleByID, createRole, updateRole, deleteRole, assignPermissions } from '@/api/role'
 import { listPermissions } from '@/api/permission'
 import type { AdminRole } from '@/types'
 import type { GroupedPermissions } from '@/api/permission'
@@ -125,17 +125,14 @@ async function openPermDrawer(row: AdminRole) {
   drawerVisible.value = true
   drawerLoading.value = true
   try {
-    // 并行加载全部权限 + 角色当前权限
+    // 并行加载：全部权限 + 角色详情（含 permissions）
     const [permRes, roleRes] = await Promise.all([
       listPermissions(),
-      listRoles({ page_num: 1, page_size: 1, keyword: '' }),  // 仅用于获取该角色最新权限
+      getRoleByID(row.id),
     ])
-    permGroups.value = permRes.data.data
 
-    // 从列表中重新查找该角色的最新权限（含 permissions 字段）
-    const fullRes = await listRoles({ page_num: 1, page_size: 9999 })
-    const found = fullRes.data.data.list.find((r) => r.id === row.id)
-    checkedPermIds.value = new Set((found?.permissions ?? []).map((p) => p.id))
+    permGroups.value = permRes.data.data
+    checkedPermIds.value = new Set((roleRes.data.data.permissions ?? []).map((p) => p.id))
   } catch (err: unknown) {
     message.error(err instanceof Error ? err.message : '加载权限失败')
   } finally {

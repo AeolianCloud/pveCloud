@@ -17,10 +17,30 @@ database:
   max_open_conns: 20 # 开发环境连接数较小
   max_idle_conns: 5  # 最大空闲连接数
 
+# ─── Redis（会话存储）─────────────────────────────────────
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""
+  db: 0
+  key_prefix: "pvecloud:dev:"
+
+# ─── 安全（限流/防爆破）────────────────────────────────────
+security:
+  login:
+    enabled: true
+    # 开发环境可以适当放宽，避免频繁触发
+    per_ip_per_minute: 120
+    per_user_per_minute: 60
+    fail_window_minutes: 10
+    fail_threshold: 10
+    lock_minutes: 5
+
 # ─── JWT 认证 ─────────────────────────────────────────────
 jwt:
   secret: "dev-secret-change-me"  # 开发专用密钥，切勿用于生产
   expire_hours: 72                # 开发环境 Token 有效期延长到 3 天，减少重登
+  refresh_expire_hours: 720       # 开发环境 Refresh Token 有效期 30 天，减少频繁登录
 
 # ─── 日志 ─────────────────────────────────────────────────
 log:

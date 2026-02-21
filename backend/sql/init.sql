@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `admin_users` (
   `password`      VARCHAR(128)     NOT NULL                       COMMENT 'bcrypt 哈希密码，不可逆',
   `nickname`      VARCHAR(64)      NOT NULL DEFAULT ''            COMMENT '显示昵称',
   `avatar`        VARCHAR(255)     NOT NULL DEFAULT ''            COMMENT '头像图片 URL',
-  `email`         VARCHAR(128)     NOT NULL DEFAULT ''            COMMENT '邮箱地址，唯一，允许为空字符串',
+  `email`         VARCHAR(128)              DEFAULT NULL          COMMENT '邮箱地址，唯一，可为 NULL（未填写）',
   `status`        TINYINT(1)       NOT NULL DEFAULT 1             COMMENT '账号状态：1 启用  0 禁用',
   `last_login_at` DATETIME                  DEFAULT NULL          COMMENT '最后一次登录时间',
   `created_at`    DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

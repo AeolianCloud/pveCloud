@@ -86,7 +86,7 @@ router.beforeEach(async (to) => {
       await authStore.fetchUser()
     } catch {
       // token 已失效，清除登录态跳登录页
-      authStore.logout()
+      authStore.logoutLocal()
       return { name: 'Login' }
     }
   }

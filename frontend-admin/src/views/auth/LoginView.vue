@@ -38,10 +38,11 @@ async function handleLogin() {
   loading.value = true
   try {
     const res = await login(form.username, form.password)
-    const { token, user } = res.data.data
+    const { token, refresh_token, user } = res.data.data
 
-    // 保存 token 和用户信息
-    authStore.setToken(token)
+    // 保存 access token + refresh token + 用户信息
+    // 注意：refresh_token 用于 access token 过期后的自动刷新
+    authStore.setTokens(token, refresh_token)
     authStore.user = user
 
     message.success(`欢迎回来，${user.nickname || user.username}`)

@@ -85,9 +85,9 @@ const userMenuOptions = [
   { label: '退出登录', key: 'logout' },
 ]
 
-function handleUserMenu(key: string) {
+async function handleUserMenu(key: string) {
   if (key === 'logout') {
-    authStore.logout()
+    await authStore.logout()
     message.success('已退出登录')
     router.push('/login')
   }

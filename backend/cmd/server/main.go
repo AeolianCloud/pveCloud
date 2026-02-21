@@ -9,10 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"pvecloud/backend/internal/config"
 	"pvecloud/backend/internal/database"
+	"pvecloud/backend/internal/security"
+	"pvecloud/backend/internal/session"
 	"pvecloud/backend/internal/router"
 )
 
@@ -36,8 +39,26 @@ func main() {
 
 	os.Setenv("GIN_MODE", cfg.Server.Mode)
 
+	// 初始化 Redis（会话存储）
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Addr(),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	defer rdb.Close() // 关闭连接池（不影响优雅退出逻辑）
+	// 启动时做一次连通性检查，避免运行中才暴露问题
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			log.Fatal("Redis 连接失败", zap.Error(err), zap.String("地址", cfg.Redis.Addr()))
+		}
+	}
+	sessStore := session.NewRedisStore(rdb, cfg.Redis.KeyPrefix)
+	loginGuard := security.NewLoginGuard(rdb, cfg.Redis.KeyPrefix, cfg.Security.Login)
+
 	// 构建路由
-	r := router.New(db, log, cfg)
+	r := router.New(db, log, cfg, sessStore, loginGuard)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),

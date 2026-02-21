@@ -124,7 +124,8 @@ function openEdit(row: AdminUser) {
     username: row.username,
     password: '',
     nickname: row.nickname,
-    email: row.email,
+    // email 可能为 null（后端允许 NULL），表单里用空字符串表示“未填写”
+    email: row.email ?? '',
     role_ids: row.roles?.map((r) => r.id) ?? [],
   })
   modalVisible.value = true

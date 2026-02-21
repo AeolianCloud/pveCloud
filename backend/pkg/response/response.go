@@ -40,7 +40,9 @@ func FailMsg(c *gin.Context, code errcode.Code, msg string) {
 
 // BadRequest 参数错误 400
 func BadRequest(c *gin.Context, msg string) {
-	c.JSON(http.StatusBadRequest, Response{
+	// 统一规范：参数错误也使用 HTTP 200 返回，由 code 区分业务失败
+	// 这样前端只需要处理一套 JSON 响应结构即可。
+	c.JSON(http.StatusOK, Response{
 		Code:    errcode.InvalidParams.Int(),
 		Message: msg,
 	})
@@ -67,5 +69,14 @@ func InternalError(c *gin.Context, msg string) {
 	c.JSON(http.StatusInternalServerError, Response{
 		Code:    errcode.ServerError.Int(),
 		Message: msg,
+	})
+}
+
+// NotFound 接口不存在 404
+// 说明：用于 NoRoute/NoMethod，确保不返回 HTML。
+func NotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, Response{
+		Code:    errcode.NotFound.Int(),
+		Message: errcode.NotFound.Msg(),
 	})
 }

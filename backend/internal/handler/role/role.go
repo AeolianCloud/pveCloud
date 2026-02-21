@@ -41,6 +41,28 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, pagination.NewResult(&req.Page, total, roles))
 }
 
+// GetByID 获取角色详情（含权限列表）。
+// GET /api/v1/roles/:id
+func (h *Handler) GetByID(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Fail(c, errcode.InvalidParams)
+		return
+	}
+
+	role, err := h.svc.GetByID(id)
+	if err != nil {
+		if errors.Is(err, svcrole.ErrRoleNotFound) {
+			response.Fail(c, errcode.NotFound)
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+
+	response.Success(c, role)
+}
+
 // Create 新建角色。
 // POST /api/v1/roles
 func (h *Handler) Create(c *gin.Context) {
