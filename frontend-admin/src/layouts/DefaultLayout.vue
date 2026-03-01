@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { h, ref, computed } from 'vue'
+import { h, ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, useDialog } from 'naive-ui'
+import type { Component } from 'vue'
 import { GridOutline, PersonOutline, ChevronDownOutline } from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import { useAuthStore } from '@/store/auth'
 import { updateAdminUser } from '@/api/adminUser'
+import { getMyMenus } from '@/api/menu'
+import type { AdminMenuNode } from '@/types'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -23,63 +26,74 @@ function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-// 系统管理子菜单定义，每项附带所需权限标识
-const systemChildren = [
-  { label: '管理员账号', key: 'admin-users', permission: 'admin:list' },
-  { label: '角色管理',   key: 'roles',       permission: 'role:list'  },
-  { label: '登录日志',   key: 'login-logs',  permission: 'log:list'   },
-  { label: '操作日志',   key: 'op-logs',     permission: 'op:list'    },
-]
+// 动态菜单：由后端按当前用户权限裁剪后下发（/menus/my）
+const menuTree = ref<AdminMenuNode[]>([])
 
-// 动态菜单：根据当前用户权限过滤子菜单项
-const menuOptions = computed<MenuOption[]>(() => {
-  const filteredChildren = systemChildren.filter(item =>
-    authStore.hasPermission(item.permission)
-  )
-
-  const menus: MenuOption[] = [
-    {
-      label: '控制台',
-      key: 'dashboard',
-      icon: renderIcon(GridOutline),
-    },
-  ]
-
-  // 只有存在至少一个可见子菜单时才显示"系统管理"
-  if (filteredChildren.length > 0) {
-    menus.push({
-      label: '系统管理',
-      key: 'system',
-      icon: renderIcon(PersonOutline),
-      children: filteredChildren.map(({ label, key }) => ({ label, key })),
-    })
+function iconComponent(name?: string | null): Component | null {
+  // icon 字段是后端与前端的“约定字符串”，不直接传 SVG/组件，避免接口携带实现细节。
+  switch (name) {
+    case 'dashboard':
+      return GridOutline
+    case 'system':
+      return PersonOutline
+    default:
+      return null
   }
+}
 
-  return menus
+function toMenuOptions(nodes: AdminMenuNode[]): MenuOption[] {
+  return nodes.map((n) => {
+    const icon = iconComponent(n.icon)
+    const children = n.children?.length ? toMenuOptions(n.children) : undefined
+
+    // 约定：叶子节点 key 使用 path（便于高亮与跳转）；目录节点使用稳定的虚拟 key。
+    const key = n.path ? n.path : `dir:${n.id}`
+
+    const opt: MenuOption = {
+      label: n.title,
+      key,
+      ...(icon ? { icon: renderIcon(icon) } : {}),
+      ...(children ? { children } : {}),
+    }
+    return opt
+  })
+}
+
+const menuOptions = computed<MenuOption[]>(() => {
+  // 防御性兜底：即使菜单表为空，也至少给一个控制台入口，避免“登录后无路可走”。
+  const fallback: MenuOption[] = [{
+    label: '控制台',
+    key: '/dashboard',
+    icon: renderIcon(GridOutline),
+  }]
+
+  if (!menuTree.value || menuTree.value.length === 0) return fallback
+  return toMenuOptions(menuTree.value)
 })
 
-// 路由路径 → 菜单 key 映射，用于高亮当前菜单项
-const routeKeyMap: Record<string, string> = {
-  '/dashboard': 'dashboard',
-  '/system/admin-users': 'admin-users',
-  '/system/roles': 'roles',
-  '/system/login-logs': 'login-logs',
-  '/system/op-logs': 'op-logs',
-}
+const activeMenuKey = computed(() => route.path ?? '')
 
-const activeMenuKey = computed(() => routeKeyMap[route.path] ?? '')
-
-// 菜单点击 → 跳转路由
+// 菜单点击 → 跳转路由（只有 key 为 /xxx 才认为是可跳转的叶子节点）
 function handleMenuUpdate(key: string) {
-  const pathMap: Record<string, string> = {
-    dashboard: '/dashboard',
-    'admin-users': '/system/admin-users',
-    'roles': '/system/roles',
-    'login-logs': '/system/login-logs',
-    'op-logs': '/system/op-logs',
+  if (typeof key === 'string' && key.startsWith('/')) {
+    router.push(key)
   }
-  if (pathMap[key]) router.push(pathMap[key])
 }
+
+async function loadMenus() {
+  try {
+    const res = await getMyMenus()
+    menuTree.value = res.data.data
+  } catch (err: unknown) {
+    // 菜单加载失败不阻塞布局渲染，但会导致侧边栏展示兜底菜单。
+    message.error(err instanceof Error ? err.message : '菜单加载失败')
+    menuTree.value = []
+  }
+}
+
+onMounted(() => {
+  loadMenus()
+})
 
 // ── 用户下拉菜单 ──────────────────────────────────────────
 
@@ -203,7 +217,7 @@ async function handleUserMenu(key: string) {
       </n-layout-header>
 
       <!-- 内容区 -->
-      <n-layout-content class="main-content">
+      <n-layout-content class="main-content" :native-scrollbar="false">
         <router-view v-slot="{ Component, route }">
           <Transition name="page" mode="out-in">
             <component :is="Component" :key="route.path" />
@@ -323,22 +337,18 @@ async function handleUserMenu(key: string) {
 .main-content {
   padding: 24px;
   background: #f7f8fa;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
+  overflow-y: auto;
 }
 
 /* ========== 页面切换过渡 ========== */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.15s ease;
 }
 
-.page-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
+.page-enter-from,
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
 }
 </style>

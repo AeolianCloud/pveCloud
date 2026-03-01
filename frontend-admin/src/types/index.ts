@@ -56,3 +56,21 @@ export interface RefreshResult {
   token: string
   refresh_token: string
 }
+
+// 菜单树节点（后端动态下发）。
+//
+// 说明：
+// - children 用于树形展示（侧边栏/菜单管理页）。
+// - path 为空（null）时表示目录节点（只用于分组/展开，不直接跳转）。
+export interface AdminMenuNode {
+  id: number
+  parent_id: number
+  title: string
+  path: string | null
+  permission: string | null
+  super_admin_only: number
+  icon: string | null
+  sort: number
+  visible: number
+  children?: AdminMenuNode[]
+}

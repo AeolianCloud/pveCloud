@@ -69,3 +69,51 @@ SELECT u.id, r.id
 FROM `admin_users` u
 JOIN `admin_roles` r ON r.`name` = 'super_admin'
 WHERE u.`username` = 'admin';
+
+
+-- -------------------------------------------------------------
+-- 5. 初始菜单数据（动态下发）
+--    说明：
+--    - 一套全局菜单结构，后端会按当前用户权限裁剪后返回给前端
+--    - super_admin_only=1 的菜单只对超级管理员可见（例如“菜单管理”）
+-- -------------------------------------------------------------
+-- 5.1 顶级菜单（先插父节点，便于子节点通过子查询关联 parent_id）
+INSERT INTO `admin_menus` (`parent_id`, `title`, `path`, `permission`, `super_admin_only`, `icon`, `sort`, `visible`) VALUES
+  (0, '控制台',   '/dashboard', NULL, 0, 'dashboard', 0, 1),
+  (0, '系统管理', NULL,         NULL, 0, 'system',   10, 1)
+ON DUPLICATE KEY UPDATE
+  `parent_id` = VALUES(`parent_id`),
+  `title` = VALUES(`title`),
+  `path` = VALUES(`path`),
+  `permission` = VALUES(`permission`),
+  `super_admin_only` = VALUES(`super_admin_only`),
+  `icon` = VALUES(`icon`),
+  `sort` = VALUES(`sort`),
+  `visible` = VALUES(`visible`);
+
+-- 5.2 系统管理子菜单
+-- 注意：MySQL 不允许在同一条 INSERT 语句中既写入又从目标表做子查询（Error 1093）。
+-- 因此这里分两步：先查出父菜单 ID 存入变量，再批量插入子菜单。
+SET @system_menu_id := (
+  SELECT id
+    FROM admin_menus
+   WHERE title = '系统管理' AND parent_id = 0 AND deleted_at IS NULL
+   ORDER BY id ASC
+   LIMIT 1
+);
+
+INSERT INTO `admin_menus` (`parent_id`, `title`, `path`, `permission`, `super_admin_only`, `icon`, `sort`, `visible`) VALUES
+  (@system_menu_id, '管理员账号', '/system/admin-users', 'admin:list', 0, NULL, 0,  1),
+  (@system_menu_id, '角色管理',   '/system/roles',       'role:list',  0, NULL, 10, 1),
+  (@system_menu_id, '登录日志',   '/system/login-logs',  'log:list',   0, NULL, 20, 1),
+  (@system_menu_id, '操作日志',   '/system/op-logs',     'op:list',    0, NULL, 30, 1),
+  (@system_menu_id, '菜单管理',   '/system/menus',       NULL,         1, NULL, 40, 1)
+ON DUPLICATE KEY UPDATE
+  `parent_id` = VALUES(`parent_id`),
+  `title` = VALUES(`title`),
+  `path` = VALUES(`path`),
+  `permission` = VALUES(`permission`),
+  `super_admin_only` = VALUES(`super_admin_only`),
+  `icon` = VALUES(`icon`),
+  `sort` = VALUES(`sort`),
+  `visible` = VALUES(`visible`);

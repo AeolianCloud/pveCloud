@@ -140,6 +140,11 @@ func prefetchTargetLabel(db *gorm.DB, module string, targetID uint) string {
 		var label string
 		_ = db.Table("admin_roles").Select("label").Where("id = ?", targetID).Scan(&label).Error
 		return label
+	case "menu":
+		var title string
+		// 菜单管理：target_label 用 title，便于审计记录“改了哪个菜单”
+		_ = db.Table("admin_menus").Select("title").Where("id = ?", targetID).Scan(&title).Error
+		return title
 	default:
 		return ""
 	}
@@ -169,6 +174,13 @@ func extractTargetLabelFromBody(module, action string, body []byte) string {
 			return v
 		}
 		if v, ok := m["name"].(string); ok {
+			return v
+		}
+	}
+
+	// menu:create 通常包含 title
+	if module == "menu" && action == "create" {
+		if v, ok := m["title"].(string); ok {
 			return v
 		}
 	}

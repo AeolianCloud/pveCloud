@@ -11,6 +11,8 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    EmptyState: typeof import('./../components/EmptyState.vue')['default']
+    ErrorPage: typeof import('./../components/ErrorPage.vue')['default']
     NAvatar: typeof import('naive-ui')['NAvatar']
     NButton: typeof import('naive-ui')['NButton']
     NCard: typeof import('naive-ui')['NCard']
@@ -41,7 +43,9 @@ declare module 'vue' {
     NSpace: typeof import('naive-ui')['NSpace']
     NSpin: typeof import('naive-ui')['NSpin']
     NTag: typeof import('naive-ui')['NTag']
+    NTree: typeof import('naive-ui')['NTree']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TableCard: typeof import('./../components/TableCard.vue')['default']
   }
 }

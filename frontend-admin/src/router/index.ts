@@ -55,6 +55,13 @@ export const router = createRouter({
           component: () => import('@/views/system/OpLogsView.vue'),
           meta: { title: '操作日志', permission: 'op:list' },
         },
+        {
+          path: 'system/menus',
+          name: 'Menus',
+          component: () => import('@/views/system/MenusView.vue'),
+          // 仅超级管理员可访问（后端也会做强制校验）
+          meta: { title: '菜单管理', superAdmin: true },
+        },
       ],
     },
     // 未匹配路由显示 404
@@ -95,6 +102,11 @@ router.beforeEach(async (to) => {
 
   // 权限检查：路由 meta 有 permission 字段时才校验
   if (to.meta.permission && !authStore.hasPermission(to.meta.permission as string)) {
+    return { path: '/403' }
+  }
+
+  // 超管路由：只允许 super_admin（前端拦截，避免用户进入后才看到 403）
+  if (to.meta.superAdmin && !authStore.isSuperAdmin) {
     return { path: '/403' }
   }
 })

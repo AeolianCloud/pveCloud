@@ -9,6 +9,7 @@ import (
 	handleradmin      "pvecloud/backend/internal/handler/admin"
 	handlerauth       "pvecloud/backend/internal/handler/auth"
 	handlerloginlog   "pvecloud/backend/internal/handler/loginlog"
+	handlermenu       "pvecloud/backend/internal/handler/menu"
 	handleroplog      "pvecloud/backend/internal/handler/oplog"
 	handlerpermission "pvecloud/backend/internal/handler/permission"
 	handlerrole       "pvecloud/backend/internal/handler/role"
@@ -18,6 +19,7 @@ import (
 	svcadmin      "pvecloud/backend/internal/service/admin"
 	svcauth       "pvecloud/backend/internal/service/auth"
 	svcloginlog   "pvecloud/backend/internal/service/loginlog"
+	svcmenu       "pvecloud/backend/internal/service/menu"
 	svcoplog      "pvecloud/backend/internal/service/oplog"
 	svcpermission "pvecloud/backend/internal/service/permission"
 	svcrole       "pvecloud/backend/internal/service/role"
@@ -60,6 +62,7 @@ func New(db *gorm.DB, log *zap.Logger, cfg *config.Config, sessStore session.Sto
 	roleSvc       := svcrole.New(db)
 	permissionSvc := svcpermission.New(db)
 	loginlogSvc   := svcloginlog.New(db)
+	menuSvc       := svcmenu.New(db)
 	oplogSvc      := svcoplog.New(db)
 
 	// ── 初始化 handler ────────────────────────────────────
@@ -68,6 +71,7 @@ func New(db *gorm.DB, log *zap.Logger, cfg *config.Config, sessStore session.Sto
 	roleHandler       := handlerrole.New(roleSvc)
 	permissionHandler := handlerpermission.New(permissionSvc)
 	loginlogHandler   := handlerloginlog.New(loginlogSvc)
+	menuHandler       := handlermenu.New(menuSvc)
 	oplogHandler      := handleroplog.New(oplogSvc)
 
 	// ── 公开路由（无需 JWT）──────────────────────────────
@@ -85,6 +89,9 @@ func New(db *gorm.DB, log *zap.Logger, cfg *config.Config, sessStore session.Sto
 		api.POST("/auth/logout", authHandler.Logout)
 
 		api.GET("/profile", authHandler.Profile)
+
+		// 当前用户菜单（动态下发）：登录即可访问，后端按权限/超管可见性裁剪
+		api.GET("/menus/my", menuHandler.MyTree)
 
 		// 管理员账号管理
 		adminUsers := api.Group("/admin-users")
@@ -115,6 +122,16 @@ func New(db *gorm.DB, log *zap.Logger, cfg *config.Config, sessStore session.Sto
 
 		// 操作日志（只读）
 		api.GET("/op-logs", middleware.RequirePermission(db, "op:list"), oplogHandler.List)
+
+		// 菜单管理（仅 super_admin）
+		menus := api.Group("/menus")
+		menus.Use(middleware.RequireSuperAdmin(db))
+		{
+			menus.GET("", menuHandler.List)
+			menus.POST("", middleware.WriteOpLog(db, "menu", "create"), menuHandler.Create)
+			menus.PUT("/:id", middleware.WriteOpLog(db, "menu", "update"), menuHandler.Update)
+			menus.DELETE("/:id", middleware.WriteOpLog(db, "menu", "delete"), menuHandler.Delete)
+		}
 	}
 
 	return r
