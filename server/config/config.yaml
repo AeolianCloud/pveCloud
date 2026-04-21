@@ -1,0 +1,8 @@
+app_env: local
+public_api_addr: ":8080"
+admin_api_addr: ":8081"
+worker_addr: ":8082"
+mysql_dsn: root:root@tcp(127.0.0.1:3306)/pvecloud?parseTime=true&loc=Local
+redis_addr: 127.0.0.1:6379
+jwt_web_secret: change-me-web
+jwt_admin_secret: change-me-admin

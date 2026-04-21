@@ -97,7 +97,6 @@
 
 - Create: `.gitignore`
 - Create: `README.md`
-- Create: `.env.example`
 - Create: `docker-compose.yml`
 - Create: `docs/adr/001-task-source-of-truth.md`
 - Create: `docs/adr/002-capacity-reservation.md`
@@ -107,52 +106,9 @@
 **Files:**
 - Create: `.gitignore`
 - Create: `README.md`
-- Create: `.env.example`
 - Create: `docker-compose.yml`
 - Create: `server/go.mod`
-- Test: `server/internal/bootstrap/config/config_test.go`
-
-- [ ] **Step 1: Write the failing config baseline test**
-
-```go
-package config_test
-
-import (
-	"testing"
-
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
-	"github.com/stretchr/testify/require"
-)
-
-func TestLoadConfigReadsRepositoryBaselineFields(t *testing.T) {
-	t.Setenv("APP_ENV", "local")
-	t.Setenv("PUBLIC_API_ADDR", ":8080")
-	t.Setenv("ADMIN_API_ADDR", ":8081")
-	t.Setenv("WORKER_ADDR", ":8082")
-	t.Setenv("MYSQL_DSN", "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local")
-	t.Setenv("REDIS_ADDR", "127.0.0.1:6379")
-	t.Setenv("JWT_WEB_SECRET", "web-secret")
-	t.Setenv("JWT_ADMIN_SECRET", "admin-secret")
-
-	cfg, err := config.Load()
-	require.NoError(t, err)
-	require.Equal(t, "local", cfg.AppEnv)
-	require.Equal(t, ":8080", cfg.PublicAPIAddr)
-	require.Equal(t, ":8081", cfg.AdminAPIAddr)
-	require.Equal(t, ":8082", cfg.WorkerAddr)
-	require.Equal(t, "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local", cfg.MySQLDSN)
-	require.Equal(t, "127.0.0.1:6379", cfg.RedisAddr)
-	require.Equal(t, "web-secret", cfg.JWTWebSecret)
-	require.Equal(t, "admin-secret", cfg.JWTAdminSecret)
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `go -C server test ./internal/bootstrap/config -v`
-Expected: FAIL because the new config fields are not implemented yet
-
-- [ ] **Step 3: Implement the repository baseline**
+- [ ] **Step 1: Implement the repository baseline**
 
 ```go
 type Config struct {
@@ -165,6 +121,17 @@ type Config struct {
 	JWTWebSecret   string
 	JWTAdminSecret string
 }
+```
+
+```yaml
+app_env: local
+public_api_addr: ":8080"
+admin_api_addr: ":8081"
+worker_addr: ":8082"
+mysql_dsn: root:root@tcp(127.0.0.1:3306)/pvecloud?parseTime=true&loc=Local
+redis_addr: 127.0.0.1:6379
+jwt_web_secret: change-me-web
+jwt_admin_secret: change-me-admin
 ```
 
 ```yaml
@@ -185,18 +152,18 @@ services:
 3. Run `go -C server test ./...`
 ```
 
-- [ ] **Step 4: Run repository baseline verification**
+- [ ] **Step 2: Run repository baseline verification**
 
-Run: `go -C server test ./internal/bootstrap/config -v`
+Run: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
 Expected: PASS
 
 Run: `docker compose config`
 Expected: PASS with valid compose output
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add .gitignore README.md .env.example docker-compose.yml server/go.mod server/go.sum server/internal/bootstrap/config
+git add .gitignore README.md docker-compose.yml server/config server/go.mod server/go.sum server/internal/bootstrap/config
 git commit -m "chore: establish repository and backend baseline"
 ```
 
@@ -212,47 +179,8 @@ git commit -m "chore: establish repository and backend baseline"
 - Create: `server/internal/common/database/mysql.go`
 - Create: `server/internal/common/cache/redis.go`
 - Create: `server/internal/common/logger/logger.go`
-- Test: `server/internal/bootstrap/app_test.go`
 
-- [ ] **Step 1: Write the failing runtime smoke tests**
-
-```go
-package bootstrap_test
-
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap"
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
-	"github.com/stretchr/testify/require"
-)
-
-func TestNewPublicHTTPHandlerExposesHealthz(t *testing.T) {
-	app, err := bootstrap.NewPublicApp(config.Config{
-		AppEnv:        "test",
-		PublicAPIAddr: ":8080",
-		MySQLDSN:      "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local",
-		RedisAddr:     "127.0.0.1:6379",
-	})
-	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
-	rec := httptest.NewRecorder()
-	app.Handler().ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Contains(t, rec.Body.String(), `"status":"ok"`)
-}
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run: `go -C server test ./internal/bootstrap -v`
-Expected: FAIL because the runtime app factory does not exist yet
-
-- [ ] **Step 3: Implement runtime factories and common infrastructure**
+- [ ] **Step 1: Implement runtime factories and common infrastructure**
 
 ```go
 type App interface {
@@ -267,7 +195,7 @@ func NewClient(addr string) *redis.Client
 func New(env string) *slog.Logger
 ```
 
-- [ ] **Step 4: Wire the three entrypoints**
+- [ ] **Step 2: Wire the three entrypoints**
 
 ```go
 cfg, err := config.Load()
@@ -283,7 +211,7 @@ if err != nil {
 log.Fatal(app.Server().ListenAndServe())
 ```
 
-- [ ] **Step 5: Run tests and smoke build**
+- [ ] **Step 3: Run verification and smoke build**
 
 Run: `go -C server test ./...`
 Expected: PASS
@@ -291,7 +219,7 @@ Expected: PASS
 Run: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
 Expected: PASS with no compile errors
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add server/cmd server/internal/bootstrap server/internal/common README.md

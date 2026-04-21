@@ -24,6 +24,8 @@ pveCloud/
       public-api/
       admin-api/
       worker/
+    config/
+      config.yaml
     internal/
       bootstrap/
       common/
@@ -36,17 +38,15 @@ pveCloud/
 
 ## Quick Start
 
-1. Copy environment variables:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-2. Start MariaDB and Redis:
+1. Start MariaDB and Redis:
 
 ```powershell
 docker compose up -d
 ```
+
+2. Review backend config:
+
+File: `server/config/config.yaml`
 
 3. Run backend tests:
 
@@ -57,14 +57,6 @@ go -C server test ./...
 4. Start the public API:
 
 ```powershell
-$env:APP_ENV='local'
-$env:PUBLIC_API_ADDR=':8080'
-$env:ADMIN_API_ADDR=':8081'
-$env:WORKER_ADDR=':8082'
-$env:MYSQL_DSN='root:root@tcp(127.0.0.1:3306)/pvecloud?parseTime=true&loc=Local'
-$env:REDIS_ADDR='127.0.0.1:6379'
-$env:JWT_WEB_SECRET='change-me-web'
-$env:JWT_ADMIN_SECRET='change-me-admin'
 go -C server run ./cmd/public-api
 ```
 
@@ -74,33 +66,33 @@ Health check:
 Invoke-WebRequest http://127.0.0.1:8080/healthz
 ```
 
-## Environment Variables
+## Configuration
 
-The backend baseline currently requires:
+The backend baseline uses YAML only.
 
-- `APP_ENV`
-- `PUBLIC_API_ADDR`
-- `ADMIN_API_ADDR`
-- `WORKER_ADDR`
-- `MYSQL_DSN`
-- `REDIS_ADDR`
-- `JWT_WEB_SECRET`
-- `JWT_ADMIN_SECRET`
+- config file path: `server/config/config.yaml`
+- no `.env`
+- no environment variable override
 
-See `.env.example` for default local values.
+Current config covers:
+
+- app environment
+- public/admin/worker listen addresses
+- MariaDB DSN
+- Redis address
+- JWT secrets
 
 ## Development Commands
 
 - Run all backend tests: `go -C server test ./...`
 - Build all backend entrypoints: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
-- Check compose file: `docker compose config`
 
 ## Current Scope
 
 Completed in this baseline:
 
 - repository bootstrap
-- backend configuration model
+- YAML-based backend configuration
 - backend runtime factories
 - shared logger, MariaDB, and Redis client factories
 - common HTTP response and error helpers
