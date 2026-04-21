@@ -97,25 +97,22 @@
 
 - Create: `.gitignore`
 - Create: `README.md`
+- Create: `.env.example`
+- Create: `docker-compose.yml`
 - Create: `docs/adr/001-task-source-of-truth.md`
 - Create: `docs/adr/002-capacity-reservation.md`
 
-### Task 1: Bootstrap The Repository And Backend Runtime
+### Task 0: Establish Repository And Backend Baseline
 
 **Files:**
 - Create: `.gitignore`
 - Create: `README.md`
+- Create: `.env.example`
+- Create: `docker-compose.yml`
 - Create: `server/go.mod`
-- Create: `server/cmd/public-api/main.go`
-- Create: `server/cmd/admin-api/main.go`
-- Create: `server/cmd/worker/main.go`
-- Create: `server/internal/bootstrap/app.go`
-- Create: `server/internal/bootstrap/config/config.go`
-- Create: `server/internal/common/http/response.go`
-- Create: `server/internal/common/errors/errors.go`
 - Test: `server/internal/bootstrap/config/config_test.go`
 
-- [ ] **Step 1: Write the failing config and bootstrap tests**
+- [ ] **Step 1: Write the failing config baseline test**
 
 ```go
 package config_test
@@ -123,74 +120,167 @@ package config_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
+	"github.com/stretchr/testify/require"
 )
 
-func TestLoadConfigReadsRequiredFields(t *testing.T) {
-	t.Setenv("APP_ENV", "test")
-	t.Setenv("MYSQL_DSN", "root:root@tcp(localhost:3306)/pvecloud")
+func TestLoadConfigReadsRepositoryBaselineFields(t *testing.T) {
+	t.Setenv("APP_ENV", "local")
+	t.Setenv("PUBLIC_API_ADDR", ":8080")
+	t.Setenv("ADMIN_API_ADDR", ":8081")
+	t.Setenv("WORKER_ADDR", ":8082")
+	t.Setenv("MYSQL_DSN", "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local")
 	t.Setenv("REDIS_ADDR", "127.0.0.1:6379")
+	t.Setenv("JWT_WEB_SECRET", "web-secret")
+	t.Setenv("JWT_ADMIN_SECRET", "admin-secret")
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
-	require.Equal(t, "test", cfg.AppEnv)
-	require.Equal(t, "root:root@tcp(localhost:3306)/pvecloud", cfg.MySQLDSN)
+	require.Equal(t, "local", cfg.AppEnv)
+	require.Equal(t, ":8080", cfg.PublicAPIAddr)
+	require.Equal(t, ":8081", cfg.AdminAPIAddr)
+	require.Equal(t, ":8082", cfg.WorkerAddr)
+	require.Equal(t, "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local", cfg.MySQLDSN)
 	require.Equal(t, "127.0.0.1:6379", cfg.RedisAddr)
+	require.Equal(t, "web-secret", cfg.JWTWebSecret)
+	require.Equal(t, "admin-secret", cfg.JWTAdminSecret)
 }
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `go -C server test ./internal/bootstrap/config -v`
-Expected: FAIL with `undefined: config.Load`
+Expected: FAIL because the new config fields are not implemented yet
 
-- [ ] **Step 3: Write the minimal bootstrap implementation**
+- [ ] **Step 3: Implement the repository baseline**
 
 ```go
-package config
-
-import (
-	"errors"
-	"os"
-)
-
 type Config struct {
-	AppEnv   string
-	MySQLDSN string
-	RedisAddr string
-}
-
-func Load() (Config, error) {
-	cfg := Config{
-		AppEnv:   os.Getenv("APP_ENV"),
-		MySQLDSN: os.Getenv("MYSQL_DSN"),
-		RedisAddr: os.Getenv("REDIS_ADDR"),
-	}
-	if cfg.MySQLDSN == "" {
-		return Config{}, errors.New("MYSQL_DSN is required")
-	}
-	return cfg, nil
+	AppEnv         string
+	PublicAPIAddr  string
+	AdminAPIAddr   string
+	WorkerAddr     string
+	MySQLDSN       string
+	RedisAddr      string
+	JWTWebSecret   string
+	JWTAdminSecret string
 }
 ```
 
-- [ ] **Step 4: Add entrypoints and health responses**
+```yaml
+services:
+  mariadb:
+    image: mariadb:11
+  redis:
+    image: redis:7
+```
+
+```md
+# pveCloud
+
+## Quick Start
+
+1. Copy `.env.example` to `.env`
+2. Start dependencies with `docker compose up -d`
+3. Run `go -C server test ./...`
+```
+
+- [ ] **Step 4: Run repository baseline verification**
+
+Run: `go -C server test ./internal/bootstrap/config -v`
+Expected: PASS
+
+Run: `docker compose config`
+Expected: PASS with valid compose output
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add .gitignore README.md .env.example docker-compose.yml server/go.mod server/go.sum server/internal/bootstrap/config
+git commit -m "chore: establish repository and backend baseline"
+```
+
+### Task 1: Build Backend Runtime And Common Foundation
+
+**Files:**
+- Create: `server/cmd/public-api/main.go`
+- Create: `server/cmd/admin-api/main.go`
+- Create: `server/cmd/worker/main.go`
+- Create: `server/internal/bootstrap/app.go`
+- Create: `server/internal/common/http/response.go`
+- Create: `server/internal/common/errors/errors.go`
+- Create: `server/internal/common/database/mysql.go`
+- Create: `server/internal/common/cache/redis.go`
+- Create: `server/internal/common/logger/logger.go`
+- Test: `server/internal/bootstrap/app_test.go`
+
+- [ ] **Step 1: Write the failing runtime smoke tests**
 
 ```go
-package main
+package bootstrap_test
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
+	"github.com/stretchr/testify/require"
 )
 
-func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
+func TestNewPublicHTTPHandlerExposesHealthz(t *testing.T) {
+	app, err := bootstrap.NewPublicApp(config.Config{
+		AppEnv:        "test",
+		PublicAPIAddr: ":8080",
+		MySQLDSN:      "root:root@tcp(localhost:3306)/pvecloud?parseTime=true&loc=Local",
+		RedisAddr:     "127.0.0.1:6379",
 	})
-	_ = http.ListenAndServe(":8080", mux)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	app.Handler().ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), `"status":"ok"`)
 }
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `go -C server test ./internal/bootstrap -v`
+Expected: FAIL because the runtime app factory does not exist yet
+
+- [ ] **Step 3: Implement runtime factories and common infrastructure**
+
+```go
+type App interface {
+	Handler() http.Handler
+	Server() *http.Server
+}
+```
+
+```go
+func Open(dsn string) (*sql.DB, error)
+func NewClient(addr string) *redis.Client
+func New(env string) *slog.Logger
+```
+
+- [ ] **Step 4: Wire the three entrypoints**
+
+```go
+cfg, err := config.Load()
+if err != nil {
+	log.Fatal(err)
+}
+
+app, err := bootstrap.NewPublicApp(cfg)
+if err != nil {
+	log.Fatal(err)
+}
+
+log.Fatal(app.Server().ListenAndServe())
 ```
 
 - [ ] **Step 5: Run tests and smoke build**
@@ -204,8 +294,8 @@ Expected: PASS with no compile errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .gitignore README.md server
-git commit -m "chore: bootstrap repository and backend runtime"
+git add server/cmd server/internal/bootstrap server/internal/common README.md
+git commit -m "feat: build backend runtime and common foundation"
 ```
 
 ### Task 2: Build MariaDB Migrations And Core Schema
@@ -235,7 +325,7 @@ func TestMigrationsContainChineseComments(t *testing.T) {
 		t.Fatalf("read migration: %v", err)
 	}
 	sql := string(data)
-	if !strings.Contains(sql, "COMMENT='前台用户主表'") {
+	if !strings.Contains(sql, "COMMENT='鍓嶅彴鐢ㄦ埛涓昏〃'") {
 		t.Fatalf("expected Chinese table comment in migration")
 	}
 }
@@ -250,55 +340,55 @@ Expected: FAIL because the migration file or table comment does not exist yet
 
 ```sql
 CREATE TABLE users (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  user_no VARCHAR(32) NOT NULL COMMENT '用户编号，业务侧唯一编号',
-  email VARCHAR(128) NULL COMMENT '邮箱地址',
-  phone VARCHAR(32) NOT NULL COMMENT '手机号',
-  password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
-  status VARCHAR(32) NOT NULL COMMENT '用户状态：active-正常，disabled-禁用',
-  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '涓婚敭ID',
+  user_no VARCHAR(32) NOT NULL COMMENT '鐢ㄦ埛缂栧彿锛屼笟鍔′晶鍞竴缂栧彿',
+  email VARCHAR(128) NULL COMMENT '閭鍦板潃',
+  phone VARCHAR(32) NOT NULL COMMENT '鎵嬫満鍙?,
+  password_hash VARCHAR(255) NOT NULL COMMENT '瀵嗙爜鍝堝笇',
+  status VARCHAR(32) NOT NULL COMMENT '鐢ㄦ埛鐘舵€侊細active-姝ｅ父锛宒isabled-绂佺敤',
+  created_at DATETIME(3) NOT NULL COMMENT '鍒涘缓鏃堕棿',
+  updated_at DATETIME(3) NOT NULL COMMENT '鏇存柊鏃堕棿',
   PRIMARY KEY (id),
   UNIQUE KEY uk_user_no (user_no),
   UNIQUE KEY uk_phone (phone)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='前台用户主表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鍓嶅彴鐢ㄦ埛涓昏〃';
 ```
 
 - [ ] **Step 4: Add the remaining minimum tables**
 
 ```sql
 CREATE TABLE payment_orders (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  payment_order_no VARCHAR(32) NOT NULL COMMENT '支付单编号，业务侧唯一编号',
-  order_id BIGINT UNSIGNED NOT NULL COMMENT '订单ID，对应 orders.id',
-  pay_status VARCHAR(32) NOT NULL COMMENT '支付状态：pending-待支付，success-支付成功，failed-支付失败，refunded-已退款',
-  payable_amount BIGINT NOT NULL COMMENT '应付金额，单位分',
-  paid_at DATETIME(3) NULL COMMENT '支付成功时间',
-  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '涓婚敭ID',
+  payment_order_no VARCHAR(32) NOT NULL COMMENT '鏀粯鍗曠紪鍙凤紝涓氬姟渚у敮涓€缂栧彿',
+  order_id BIGINT UNSIGNED NOT NULL COMMENT '璁㈠崟ID锛屽搴?orders.id',
+  pay_status VARCHAR(32) NOT NULL COMMENT '鏀粯鐘舵€侊細pending-寰呮敮浠橈紝success-鏀粯鎴愬姛锛宖ailed-鏀粯澶辫触锛宺efunded-宸查€€娆?,
+  payable_amount BIGINT NOT NULL COMMENT '搴斾粯閲戦锛屽崟浣嶅垎',
+  paid_at DATETIME(3) NULL COMMENT '鏀粯鎴愬姛鏃堕棿',
+  created_at DATETIME(3) NOT NULL COMMENT '鍒涘缓鏃堕棿',
+  updated_at DATETIME(3) NOT NULL COMMENT '鏇存柊鏃堕棿',
   PRIMARY KEY (id),
   UNIQUE KEY uk_payment_order_no (payment_order_no),
   KEY idx_order_id (order_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付单主表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鏀粯鍗曚富琛?;
 
 CREATE TABLE async_tasks (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  task_no VARCHAR(32) NOT NULL COMMENT '任务编号，业务侧唯一编号',
-  task_type VARCHAR(32) NOT NULL COMMENT '任务类型：create_instance-开通实例，start_instance-开机，stop_instance-关机，reboot_instance-重启，reinstall_instance-重装',
-  business_type VARCHAR(32) NOT NULL COMMENT '业务类型：order-订单，instance-实例',
-  business_id BIGINT UNSIGNED NOT NULL COMMENT '业务ID',
-  status VARCHAR(32) NOT NULL COMMENT '任务状态：pending-待执行，processing-执行中，success-成功，failed-失败，retrying-重试中',
-  next_run_at DATETIME(3) NOT NULL COMMENT '下次可执行时间',
-  retry_count INT NOT NULL DEFAULT 0 COMMENT '当前重试次数',
-  max_retry_count INT NOT NULL DEFAULT 5 COMMENT '最大重试次数',
-  locked_by VARCHAR(64) NULL COMMENT '任务抢占者标识',
-  locked_at DATETIME(3) NULL COMMENT '任务抢占时间',
-  created_at DATETIME(3) NOT NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NOT NULL COMMENT '更新时间',
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '涓婚敭ID',
+  task_no VARCHAR(32) NOT NULL COMMENT '浠诲姟缂栧彿锛屼笟鍔′晶鍞竴缂栧彿',
+  task_type VARCHAR(32) NOT NULL COMMENT '浠诲姟绫诲瀷锛歝reate_instance-寮€閫氬疄渚嬶紝start_instance-寮€鏈猴紝stop_instance-鍏虫満锛宺eboot_instance-閲嶅惎锛宺einstall_instance-閲嶈',
+  business_type VARCHAR(32) NOT NULL COMMENT '涓氬姟绫诲瀷锛歰rder-璁㈠崟锛宨nstance-瀹炰緥',
+  business_id BIGINT UNSIGNED NOT NULL COMMENT '涓氬姟ID',
+  status VARCHAR(32) NOT NULL COMMENT '浠诲姟鐘舵€侊細pending-寰呮墽琛岋紝processing-鎵ц涓紝success-鎴愬姛锛宖ailed-澶辫触锛宺etrying-閲嶈瘯涓?,
+  next_run_at DATETIME(3) NOT NULL COMMENT '涓嬫鍙墽琛屾椂闂?,
+  retry_count INT NOT NULL DEFAULT 0 COMMENT '褰撳墠閲嶈瘯娆℃暟',
+  max_retry_count INT NOT NULL DEFAULT 5 COMMENT '鏈€澶ч噸璇曟鏁?,
+  locked_by VARCHAR(64) NULL COMMENT '浠诲姟鎶㈠崰鑰呮爣璇?,
+  locked_at DATETIME(3) NULL COMMENT '浠诲姟鎶㈠崰鏃堕棿',
+  created_at DATETIME(3) NOT NULL COMMENT '鍒涘缓鏃堕棿',
+  updated_at DATETIME(3) NOT NULL COMMENT '鏇存柊鏃堕棿',
   PRIMARY KEY (id),
   UNIQUE KEY uk_task_business (task_type, business_type, business_id),
   KEY idx_status_next_run (status, next_run_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='异步任务主表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='寮傛浠诲姟涓昏〃';
 ```
 
 - [ ] **Step 5: Add schema assertions**
@@ -306,10 +396,10 @@ CREATE TABLE async_tasks (
 ```go
 func TestMigrationsContainChineseComments(t *testing.T) {
 	sql := loadMigrationFile(t, "../../migrations/0003_orders_payments.sql")
-	if !strings.Contains(sql, "COMMENT='订单主表'") {
+	if !strings.Contains(sql, "COMMENT='璁㈠崟涓昏〃'") {
 		t.Fatalf("expected Chinese table comment for orders")
 	}
-	if !strings.Contains(sql, "订单状态：pending_payment-待支付") {
+	if !strings.Contains(sql, "璁㈠崟鐘舵€侊細pending_payment-寰呮敮浠?) {
 		t.Fatalf("expected explicit status comment")
 	}
 }
@@ -809,8 +899,8 @@ import LoginView from './LoginView.vue'
 
 test('renders login form fields', () => {
   render(LoginView)
-  expect(screen.getByLabelText('手机号')).toBeInTheDocument()
-  expect(screen.getByLabelText('密码')).toBeInTheDocument()
+  expect(screen.getByLabelText('鎵嬫満鍙?)).toBeInTheDocument()
+  expect(screen.getByLabelText('瀵嗙爜')).toBeInTheDocument()
 })
 ```
 
@@ -887,7 +977,7 @@ import DashboardView from './DashboardView.vue'
 
 test('renders admin dashboard title', () => {
   render(DashboardView)
-  expect(screen.getByText('管理后台')).toBeInTheDocument()
+  expect(screen.getByText('绠＄悊鍚庡彴')).toBeInTheDocument()
 })
 ```
 
@@ -1074,10 +1164,7 @@ git commit -m "test: add integration coverage and architecture docs"
   - plan review docs and integration tests: covered by Task 10
 
 - Placeholder scan:
-  - 未发现待补标记
-  - 未发现延后实现表述
-  - 未发现空白步骤说明
-
+  - 鏈彂鐜板緟琛ユ爣璁?  - 鏈彂鐜板欢鍚庡疄鐜拌〃杩?  - 鏈彂鐜扮┖鐧芥楠よ鏄?
 - Type consistency:
   - payment callback uniqueness uses `paymentOrderNo`
   - task uniqueness uses `task_type + business_type + business_id`
@@ -1092,3 +1179,4 @@ Plan complete and saved to `docs/superpowers/plans/2026-04-21-pvecloud-mvp-found
 **2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
 **Which approach?**
+

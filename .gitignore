@@ -1,2 +1,8 @@
+.env
+*.log
 server/bin/
 server/.cache/
+server/coverage.out
+server/*.test
+dist/
+node_modules/

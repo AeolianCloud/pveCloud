@@ -1,19 +1,77 @@
 package bootstrap
 
 import (
+	"database/sql"
+	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
+	"github.com/AeolianCloud/pveCloud/server/internal/common/cache"
+	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	httpx "github.com/AeolianCloud/pveCloud/server/internal/common/http"
+	loggerx "github.com/AeolianCloud/pveCloud/server/internal/common/logger"
+	"github.com/go-redis/redis/v8"
 )
 
-func NewServer(addr string) *http.Server {
+type App interface {
+	Handler() http.Handler
+	Server() *http.Server
+}
+
+type app struct {
+	server *http.Server
+	logger *slog.Logger
+	db     *sql.DB
+	redis  *redis.Client
+}
+
+func NewPublicApp(cfg config.Config) (App, error) {
+	return newHTTPApp("public-api", cfg.PublicAPIAddr, cfg)
+}
+
+func NewAdminApp(cfg config.Config) (App, error) {
+	return newHTTPApp("admin-api", cfg.AdminAPIAddr, cfg)
+}
+
+func NewWorkerApp(cfg config.Config) (App, error) {
+	return newHTTPApp("worker", cfg.WorkerAddr, cfg)
+}
+
+func (a *app) Handler() http.Handler {
+	return a.server.Handler
+}
+
+func (a *app) Server() *http.Server {
+	return a.server
+}
+
+func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
+	db, err := database.Open(cfg.MySQLDSN)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := loggerx.New(cfg.AppEnv)
+	redisClient := cache.NewClient(cfg.RedisAddr)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		httpx.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		httpx.WriteJSON(w, http.StatusOK, map[string]string{
+			"status":  "ok",
+			"service": serviceName,
+			"env":     cfg.AppEnv,
+		})
 	})
 
-	return &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
+	return &app{
+		server: &http.Server{
+			Addr:              addr,
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+		},
+		logger: logger,
+		db:     db,
+		redis:  redisClient,
+	}, nil
 }
