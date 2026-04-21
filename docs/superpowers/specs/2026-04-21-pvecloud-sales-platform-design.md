@@ -1,7 +1,7 @@
 # PVE Cloud Sales Platform 设计文档
 
 **日期：** 2026-04-21  
-**状态：** 已完成会话内方案确认，待书面复核
+**状态：** 已完成深度审查与修正，可作为实施基线
 
 ## 1. 项目目标
 
@@ -33,6 +33,7 @@
 - 后端对外分为 `public-api` 与 `admin-api`
 - 后端第一阶段采用模块化单体，不上微服务
 - 云服务器开通与资源操作采用异步任务模式
+- 异步任务以 `MariaDB` 为事实源，`Redis` 仅做辅助分发与加速
 - 前台用户账号体系与后台管理员账号体系分离
 - 主业务数据统一存储在 `MariaDB`
 - `Redis` 仅用于缓存、验证码、登录态、限流、幂等与任务辅助
@@ -182,7 +183,6 @@ server/
 - `/payments`
 - `/instances`
 - `/notices`
-- `/tickets`
 
 它以“用户能做什么”为中心组织接口，返回结构应尽量贴近用户前端页面的直接需求。
 
@@ -248,6 +248,7 @@ server/
 - 镜像
 - 线路
 - 可售规则
+- 容量预占规则
 - 商品展示属性
 - 销售 SKU 与资源节点之间的业务映射
 
@@ -294,6 +295,9 @@ server/
 - 用户与后台可见的实例详情
 - 操作可执行性判断
 - 业务状态回写
+- 当前服务周期事实
+- 当前生效规格快照
+- 实例续费状态
 
 ### 7.8 `resource`
 
@@ -326,6 +330,8 @@ server/
 - 失败记录
 - 幂等控制
 - 任务执行跟踪
+- 任务抢占锁
+- 任务延迟执行与下次重试时间
 
 ### 7.10 `notification`
 
@@ -400,7 +406,25 @@ server/
 - 用户重复点击会造成重复下发
 - 异步任务更容易做重试、补偿、审计与人工介入
 
-### 8.3 `billing` 与 `payment` 必须分开
+### 8.3 异步任务可靠性边界
+
+第一阶段必须明确以下规则：
+
+- `async_tasks` 存储在 `MariaDB`，是任务唯一事实源
+- `Redis` 只做任务通知、快速分发或竞争优化，不保存唯一任务真相
+- 任务创建必须和对应业务状态变更处于同一事务边界，避免“业务成功但任务没建”或“任务建了但业务没变”
+- 每个资源型任务都必须具备幂等键，至少包含 `task_type + business_type + business_id`
+- `worker` 执行任务前必须先抢占任务锁，避免多 worker 重复执行
+- 任务必须具备 `next_run_at`、`retry_count`、`max_retry_count` 等字段，支撑可控重试
+
+这条边界的目标是确保：
+
+- 支付回调重放不会重复创建实例
+- 用户重复点击不会重复下发资源动作
+- worker 异常退出后任务可恢复
+- 审计与人工补偿有统一落点
+
+### 8.4 `billing` 与 `payment` 必须分开
 
 `billing` 解决的是“该收多少钱”。  
 `payment` 解决的是“钱怎么收回来”。
@@ -435,13 +459,14 @@ server/
 4. `billing` 计算应付金额
 5. `payment` 创建支付单
 6. 支付成功
-7. 订单进入 `paid` 或 `provisioning`
-8. `task` 创建 `create_instance` 异步任务
-9. `worker` 消费任务
-10. `resource` 调用底层虚拟机 API
-11. `instance` 回写业务实例数据
-12. 订单进入已生效状态
-13. `notification` 发送通知
+7. `payment` 更新支付单状态，并写入支付回调日志
+8. `order` 将订单推进到 `paid`
+9. 在同一事务中创建 `create_instance` 异步任务
+10. `worker` 抢占任务，订单进入 `provisioning`
+11. `resource` 调用底层虚拟机 API
+12. `instance` 回写业务实例数据与服务周期事实
+13. 订单进入 `active`
+14. `notification` 发送通知
 
 ### 9.2 开通失败处理
 
@@ -453,7 +478,27 @@ server/
 - 订单进入失败或待人工处理状态
 - 后台可查看并决定重试或人工介入
 
-### 9.3 实例操作流程
+### 9.3 容量预占与防超卖
+
+第一阶段不允许只做“支付后再临时看资源是否够”。
+
+推荐策略：
+
+1. 用户创建订单前，先按 `SKU + 区域 + 可售节点策略` 做可售校验
+2. 订单创建成功时，创建一条短期 `resource_reservations` 预占记录
+3. 预占记录默认带过期时间，例如 15 分钟，与待支付订单生命周期一致
+4. 支付成功后，开通任务消费该预占记录并转为正式资源分配
+5. 订单取消、支付超时、开通失败时，释放预占
+
+这样可以降低并发下单时的超卖风险。
+
+如果第一阶段因底层能力限制无法做强预占，则必须在文档和实现里明确：
+
+- 使用软预占
+- 支付成功后再次确认资源
+- 若确认失败，订单进入异常处理并触发退款或人工介入
+
+### 9.4 实例操作流程
 
 对于开机、关机、重启、重装等操作：
 
@@ -483,6 +528,11 @@ server/
   - 缓存
   - 幂等键
   - 异步任务辅助
+
+补充约束：
+
+- `Redis` 不保存支付、订单、实例、任务的唯一真实状态
+- `worker` 重启后，即使 `Redis` 数据丢失，也必须可以仅依赖 `MariaDB` 恢复任务执行
 
 ### 10.2 MariaDB 设计规范
 
@@ -529,6 +579,7 @@ server/
 
 - `admins`
 - `admin_roles`
+- `admin_user_roles`
 - `admin_permissions`
 - `admin_role_permissions`
 - `admin_login_logs`
@@ -543,17 +594,20 @@ server/
 - `regions`
 - `resource_nodes`
 - `sku_region_node_bindings`
+- `resource_reservations`
 
 ### 11.4 交易域
 
 - `orders`
 - `order_items`
 - `payment_orders`
+- `payment_callback_logs`
 - `billing_records`
 
 ### 11.5 实例域
 
 - `instances`
+- `instance_services`
 - `instance_actions`
 - `instance_status_logs`
 
@@ -581,6 +635,13 @@ server/
 - `failed`
 - `closed`
 
+推荐状态流：
+
+- `pending_payment -> paid -> provisioning -> active`
+- `pending_payment -> closed`
+- `provisioning -> failed`
+- `failed -> provisioning`：仅允许后台人工重试或补偿后进入
+
 ### 12.2 支付状态
 
 - `pending`
@@ -607,6 +668,13 @@ server/
 - `failed`
 - `retrying`
 
+### 12.5 支付回调与任务幂等要求
+
+- 支付回调必须支持重复通知处理
+- 同一 `payment_order_no` 的成功回调只能成功推进一次订单状态
+- 同一订单的 `create_instance` 任务只能存在一条有效待执行主任务
+- 实例开机、关机、重启、重装任务必须具备业务幂等键
+
 ## 13. 错误处理与审计原则
 
 第一阶段就要把可追踪性和可恢复性纳入设计。
@@ -629,6 +697,8 @@ server/
 - 计费计算
 - 支付回调
 - 异步任务状态流转
+- 资源预占与释放
+- 支付回调重放与任务幂等
 - 开通成功与失败链路
 - 实例操作可执行性判断
 - 后台权限控制
@@ -671,6 +741,7 @@ server/
 - 核心表字段草案
 - worker 执行模型
 - 部署拓扑
+- 资源预占与正式分配模型
 
 ## 17. 最终建议
 
