@@ -1,0 +1,4 @@
+interface:
+  display_name: "PVECloud Backend Development"
+  short_description: "Backend plan execution with pveCloud-specific rules."
+  default_prompt: "Use $pvecloud-backend-development to continue backend work in this repository according to the implementation plan."

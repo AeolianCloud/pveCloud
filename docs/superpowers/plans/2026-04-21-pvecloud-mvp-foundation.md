@@ -108,7 +108,7 @@
 - Create: `README.md`
 - Create: `docker-compose.yml`
 - Create: `server/go.mod`
-- [ ] **Step 1: Implement the repository baseline**
+- [x] **Step 1: Implement the repository baseline**
 
 ```go
 type Config struct {
@@ -152,7 +152,7 @@ services:
 3. Run `go -C server test ./...`
 ```
 
-- [ ] **Step 2: Run repository baseline verification**
+- [x] **Step 2: Run repository baseline verification**
 
 Run: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
 Expected: PASS
@@ -160,7 +160,7 @@ Expected: PASS
 Run: `docker compose config`
 Expected: PASS with valid compose output
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .gitignore README.md docker-compose.yml server/config server/go.mod server/go.sum server/internal/bootstrap/config
@@ -180,7 +180,7 @@ git commit -m "chore: establish repository and backend baseline"
 - Create: `server/internal/common/cache/redis.go`
 - Create: `server/internal/common/logger/logger.go`
 
-- [ ] **Step 1: Implement runtime factories and common infrastructure**
+- [x] **Step 1: Implement runtime factories and common infrastructure**
 
 ```go
 type App interface {
@@ -195,7 +195,7 @@ func NewClient(addr string) *redis.Client
 func New(env string) *slog.Logger
 ```
 
-- [ ] **Step 2: Wire the three entrypoints**
+- [x] **Step 2: Wire the three entrypoints**
 
 ```go
 cfg, err := config.Load()
@@ -211,7 +211,7 @@ if err != nil {
 log.Fatal(app.Server().ListenAndServe())
 ```
 
-- [ ] **Step 3: Run verification and smoke build**
+- [x] **Step 3: Run verification and smoke build**
 
 Run: `go -C server test ./...`
 Expected: PASS
@@ -219,7 +219,7 @@ Expected: PASS
 Run: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
 Expected: PASS with no compile errors
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add server/cmd server/internal/bootstrap server/internal/common README.md
@@ -236,7 +236,7 @@ git commit -m "feat: build backend runtime and common foundation"
 - Create: `server/internal/common/database/mysql.go`
 - Test: `server/internal/common/database/migration_test.go`
 
-- [ ] **Step 1: Write the failing migration smoke test**
+- [x] **Step 1: Write the failing migration smoke test**
 
 ```go
 package database_test
@@ -259,12 +259,12 @@ func TestMigrationsContainChineseComments(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `go -C server test ./internal/common/database -v`
 Expected: FAIL because the migration file or table comment does not exist yet
 
-- [ ] **Step 3: Write the first migration with strict comments**
+- [x] **Step 3: Write the first migration with strict comments**
 
 ```sql
 CREATE TABLE users (
@@ -282,7 +282,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='鍓嶅彴鐢ㄦ埛涓昏〃';
 ```
 
-- [ ] **Step 4: Add the remaining minimum tables**
+- [x] **Step 4: Add the remaining minimum tables**
 
 ```sql
 CREATE TABLE payment_orders (
@@ -319,7 +319,7 @@ CREATE TABLE async_tasks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='寮傛浠诲姟涓昏〃';
 ```
 
-- [ ] **Step 5: Add schema assertions**
+- [x] **Step 5: Add schema assertions**
 
 ```go
 func TestMigrationsContainChineseComments(t *testing.T) {
@@ -333,12 +333,12 @@ func TestMigrationsContainChineseComments(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `go -C server test ./internal/common/database -v`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add server/migrations server/internal/common/database
