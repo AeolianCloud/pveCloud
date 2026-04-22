@@ -360,7 +360,7 @@ git commit -m "feat: add MariaDB migrations and schema baseline"
 - Test: `server/internal/auth/jwt_test.go`
 - Test: `server/internal/user/handler/public_auth_handler_test.go`
 
-- [ ] **Step 1: Write the failing JWT test**
+- [x] **Step 1: Write the failing JWT test**
 
 ```go
 func TestIssueAndParseToken(t *testing.T) {
@@ -375,12 +375,12 @@ func TestIssueAndParseToken(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/auth ./internal/user/handler -v`
 Expected: FAIL with `undefined: auth.NewJWTSigner`
 
-- [ ] **Step 3: Implement separate web/admin JWT support**
+- [x] **Step 3: Implement separate web/admin JWT support**
 
 ```go
 type Claims struct {
@@ -393,7 +393,7 @@ type JWTSigner struct {
 }
 ```
 
-- [ ] **Step 4: Add login handlers with separate identity stores**
+- [x] **Step 4: Add login handlers with separate identity stores**
 
 ```go
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -411,7 +411,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- [ ] **Step 4.1: Add the public registration handler**
+- [x] **Step 4.1: Add the public registration handler**
 
 ```go
 func (h *RegisterHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -429,7 +429,7 @@ func (h *RegisterHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `go -C server test ./internal/auth ./internal/user/... ./internal/adminuser/... -v`
 Expected: PASS
@@ -451,7 +451,7 @@ git commit -m "feat: add user and admin auth skeleton"
 - Create: `server/internal/catalog/handler/admin_products_handler.go`
 - Test: `server/internal/catalog/service_test.go`
 
-- [ ] **Step 1: Write the failing saleability and reservation tests**
+- [x] **Step 1: Write the failing saleability and reservation tests**
 
 ```go
 func TestReserveCapacityCreatesExpiringReservation(t *testing.T) {
@@ -469,12 +469,12 @@ func TestReserveCapacityCreatesExpiringReservation(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/catalog -v`
 Expected: FAIL with `undefined: catalog.NewService`
 
-- [ ] **Step 3: Implement catalog service with capacity reservation**
+- [x] **Step 3: Implement catalog service with capacity reservation**
 
 ```go
 type ReserveInput struct {
@@ -492,7 +492,7 @@ func (s *Service) ReserveCapacity(ctx context.Context, in ReserveInput) (Reserva
 }
 ```
 
-- [ ] **Step 4: Add public product list and admin product maintenance handlers**
+- [x] **Step 4: Add public product list and admin product maintenance handlers**
 
 ```go
 func (h *PublicHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
@@ -520,7 +520,7 @@ func (h *AdminHandler) CreateSKU(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `go -C server test ./internal/catalog/... -v`
 Expected: PASS
@@ -544,7 +544,7 @@ git commit -m "feat: add catalog and capacity reservation"
 - Test: `server/internal/order/service_test.go`
 - Test: `server/internal/payment/service_test.go`
 
-- [ ] **Step 1: Write the failing order creation test**
+- [x] **Step 1: Write the failing order creation test**
 
 ```go
 func TestCreateOrderBuildsBillingSnapshotAndPaymentOrder(t *testing.T) {
@@ -561,12 +561,12 @@ func TestCreateOrderBuildsBillingSnapshotAndPaymentOrder(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/order ./internal/payment -v`
 Expected: FAIL with `undefined: order.CreateInput`
 
-- [ ] **Step 3: Implement billing snapshot and order creation**
+- [x] **Step 3: Implement billing snapshot and order creation**
 
 ```go
 func (s *Service) CreateOrder(ctx context.Context, in CreateInput) (CreateResult, error) {
@@ -597,7 +597,7 @@ func (s *Service) CreateOrder(ctx context.Context, in CreateInput) (CreateResult
 }
 ```
 
-- [ ] **Step 4: Implement callback idempotency**
+- [x] **Step 4: Implement callback idempotency**
 
 ```go
 func (s *Service) MarkPaymentSuccess(ctx context.Context, paymentOrderNo string, rawPayload []byte) error {
@@ -617,7 +617,7 @@ func (s *Service) MarkPaymentSuccess(ctx context.Context, paymentOrderNo string,
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `go -C server test ./internal/order ./internal/billing ./internal/payment -v`
 Expected: PASS
@@ -640,7 +640,7 @@ git commit -m "feat: add order billing and payment flow"
 - Test: `server/internal/task/service_test.go`
 - Test: `server/internal/task/worker_test.go`
 
-- [ ] **Step 1: Write the failing task idempotency test**
+- [x] **Step 1: Write the failing task idempotency test**
 
 ```go
 func TestCreateUniqueTaskForBusinessKey(t *testing.T) {
@@ -662,12 +662,12 @@ func TestCreateUniqueTaskForBusinessKey(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/task -v`
 Expected: FAIL with `undefined: task.CreateInput`
 
-- [ ] **Step 3: Implement MariaDB-backed task creation**
+- [x] **Step 3: Implement MariaDB-backed task creation**
 
 ```go
 type CreateInput struct {
@@ -678,7 +678,7 @@ type CreateInput struct {
 }
 ```
 
-- [ ] **Step 4: Implement worker claim and retry rules**
+- [x] **Step 4: Implement worker claim and retry rules**
 
 ```go
 func (w *Worker) ClaimNext(ctx context.Context) (*Task, error) {
@@ -686,7 +686,7 @@ func (w *Worker) ClaimNext(ctx context.Context) (*Task, error) {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `go -C server test ./internal/task/... -v`
 Expected: PASS
@@ -713,7 +713,7 @@ git commit -m "feat: add async task center and worker claim logic"
 - Test: `server/internal/instance/service_test.go`
 - Test: `server/internal/resource/service_test.go`
 
-- [ ] **Step 1: Write the failing provisioning test**
+- [x] **Step 1: Write the failing provisioning test**
 
 ```go
 func TestProvisionFromPaidOrderCreatesInstanceAndServiceFact(t *testing.T) {
@@ -725,12 +725,12 @@ func TestProvisionFromPaidOrderCreatesInstanceAndServiceFact(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/instance ./internal/resource -v`
 Expected: FAIL with `undefined: HandleCreateInstanceTask`
 
-- [ ] **Step 3: Implement the resource adapter contract**
+- [x] **Step 3: Implement the resource adapter contract**
 
 ```go
 type VMClient interface {
@@ -742,7 +742,7 @@ type VMClient interface {
 }
 ```
 
-- [ ] **Step 4: Implement provisioning task handler**
+- [x] **Step 4: Implement provisioning task handler**
 
 ```go
 func (s *Service) HandleCreateInstanceTask(ctx context.Context, orderID uint64) (ProvisionResult, error) {
@@ -764,7 +764,7 @@ func (s *Service) HandleCreateInstanceTask(ctx context.Context, orderID uint64) 
 }
 ```
 
-- [ ] **Step 4.1: Add public/admin instance handlers**
+- [x] **Step 4.1: Add public/admin instance handlers**
 
 ```go
 func (h *PublicHandler) ListMine(w http.ResponseWriter, r *http.Request) {
@@ -787,7 +787,7 @@ func (h *AdminHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `go -C server test ./internal/instance ./internal/resource -v`
 Expected: PASS
@@ -819,7 +819,7 @@ git commit -m "feat: add resource adapter and provisioning flow"
 - Create: `web/src/views/NoticeListView.vue`
 - Test: `web/src/views/LoginView.test.ts`
 
-- [ ] **Step 1: Write the failing login view test**
+- [x] **Step 1: Write the failing login view test**
 
 ```ts
 import { render, screen } from '@testing-library/vue'
@@ -832,12 +832,12 @@ test('renders login form fields', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `bun --cwd web test`
 Expected: FAIL with `Cannot find module './LoginView.vue'`
 
-- [ ] **Step 3: Implement web app skeleton**
+- [x] **Step 3: Implement web app skeleton**
 
 ```ts
 import { createApp } from 'vue'
@@ -848,7 +848,7 @@ import App from './App.vue'
 createApp(App).use(createPinia()).use(router).mount('#app')
 ```
 
-- [ ] **Step 4: Add the minimum working pages**
+- [x] **Step 4: Add the minimum working pages**
 
 ```ts
 const routes = [
@@ -864,7 +864,7 @@ const routes = [
 ]
 ```
 
-- [ ] **Step 5: Run tests and build**
+- [x] **Step 5: Run tests and build**
 
 Run: `bun --cwd web test`
 Expected: PASS
@@ -897,7 +897,7 @@ git commit -m "feat: add web frontend minimum user flow"
 - Create: `admin/src/views/TaskManageView.vue`
 - Test: `admin/src/views/DashboardView.test.ts`
 
-- [ ] **Step 1: Write the failing dashboard test**
+- [x] **Step 1: Write the failing dashboard test**
 
 ```ts
 import { render, screen } from '@testing-library/vue'
@@ -909,12 +909,12 @@ test('renders admin dashboard title', () => {
 })
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `bun --cwd admin test`
 Expected: FAIL with `Cannot find module './DashboardView.vue'`
 
-- [ ] **Step 3: Implement admin app skeleton**
+- [x] **Step 3: Implement admin app skeleton**
 
 ```ts
 const routes = [
@@ -926,7 +926,7 @@ const routes = [
 ]
 ```
 
-- [ ] **Step 4: Add the minimum admin pages**
+- [x] **Step 4: Add the minimum admin pages**
 
 ```ts
 const routes = [
@@ -940,7 +940,7 @@ const routes = [
 ]
 ```
 
-- [ ] **Step 5: Run tests and build**
+- [x] **Step 5: Run tests and build**
 
 Run: `bun --cwd admin test`
 Expected: PASS
@@ -963,7 +963,7 @@ git commit -m "feat: add admin frontend minimum management flow"
 - Create: `docs/adr/002-capacity-reservation.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write the failing integration test**
+- [x] **Step 1: Write the failing integration test**
 
 ```go
 func TestPaidOrderProvisioningFlow(t *testing.T) {
@@ -977,12 +977,12 @@ func TestPaidOrderProvisioningFlow(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run: `go -C server test ./internal/e2e -v`
 Expected: FAIL with `undefined: newProvisioningHarness`
 
-- [ ] **Step 3: Implement the integration harness**
+- [x] **Step 3: Implement the integration harness**
 
 ```go
 type ProvisioningHarness struct {
@@ -1035,7 +1035,7 @@ func (h *ProvisioningHarness) loadFlowResult(orderID uint64) (FlowResult, error)
 }
 ```
 
-- [ ] **Step 4: Write ADRs for the two critical architecture choices**
+- [x] **Step 4: Write ADRs for the two critical architecture choices**
 
 ```md
 # ADR 001: MariaDB Is The Async Task Source Of Truth
@@ -1059,7 +1059,7 @@ Use short-lived `resource_reservations` tied to pending orders to reduce oversel
 - payment success consumes a reservation into final allocation
 ```
 
-- [ ] **Step 5: Run the full test and build matrix**
+- [x] **Step 5: Run the full test and build matrix**
 
 Run: `go -C server test ./...`
 Expected: PASS

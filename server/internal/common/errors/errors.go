@@ -13,8 +13,11 @@ func (e *Error) Error() string {
 }
 
 var (
-	ErrInternal   = &Error{Code: "internal_error", Message: "internal error", Status: http.StatusInternalServerError}
-	ErrBadRequest = &Error{Code: "bad_request", Message: "bad request", Status: http.StatusBadRequest}
+	ErrInternal     = &Error{Code: "internal_error", Message: "internal error", Status: http.StatusInternalServerError}
+	ErrBadRequest   = &Error{Code: "bad_request", Message: "bad request", Status: http.StatusBadRequest}
+	ErrUnauthorized = &Error{Code: "unauthorized", Message: "unauthorized", Status: http.StatusUnauthorized}
+	ErrForbidden    = &Error{Code: "forbidden", Message: "forbidden", Status: http.StatusForbidden}
+	ErrConflict     = &Error{Code: "conflict", Message: "conflict", Status: http.StatusConflict}
 )
 
 func Status(err error) int {

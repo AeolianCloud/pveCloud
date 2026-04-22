@@ -6,11 +6,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/adminuser"
+	adminhandler "github.com/AeolianCloud/pveCloud/server/internal/adminuser/handler"
+	"github.com/AeolianCloud/pveCloud/server/internal/auth"
 	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap/config"
 	"github.com/AeolianCloud/pveCloud/server/internal/common/cache"
 	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	httpx "github.com/AeolianCloud/pveCloud/server/internal/common/http"
 	loggerx "github.com/AeolianCloud/pveCloud/server/internal/common/logger"
+	"github.com/AeolianCloud/pveCloud/server/internal/user"
+	userhandler "github.com/AeolianCloud/pveCloud/server/internal/user/handler"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -63,6 +68,19 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 			"env":     cfg.AppEnv,
 		})
 	})
+
+	switch serviceName {
+	case "public-api":
+		userSvc := user.NewService(db, auth.NewJWTSigner(cfg.JWTWebSecret))
+		authHandler := userhandler.NewAuthHandler(userSvc)
+		registerHandler := userhandler.NewRegisterHandler(userSvc)
+		mux.HandleFunc("POST /auth/login", authHandler.Login)
+		mux.HandleFunc("POST /auth/register", registerHandler.Register)
+	case "admin-api":
+		adminSvc := adminuser.NewService(db, auth.NewJWTSigner(cfg.JWTAdminSecret))
+		authHandler := adminhandler.NewAuthHandler(adminSvc)
+		mux.HandleFunc("POST /auth/login", authHandler.Login)
+	}
 
 	return &app{
 		server: &http.Server{
