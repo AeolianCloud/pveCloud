@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 
-	errorsx "github.com/AeolianCloud/pveCloud/server/internal/common/errors"
 	httpx "github.com/AeolianCloud/pveCloud/server/internal/common/http"
 )
 
@@ -13,24 +12,29 @@ type CallbackService interface {
 	MarkPaymentSuccess(ctx context.Context, paymentOrderNo string, rawPayload []byte) error
 }
 
-type CallbackHandler struct {
-	svc CallbackService
+type ProviderVerifier interface {
+	VerifyCallback(r *http.Request) (paymentOrderNo string, err error)
 }
 
-func NewCallbackHandler(svc CallbackService) *CallbackHandler {
-	return &CallbackHandler{svc: svc}
+type CallbackHandler struct {
+	svc      CallbackService
+	verifier ProviderVerifier
+}
+
+func NewCallbackHandler(svc CallbackService, verifier ProviderVerifier) *CallbackHandler {
+	return &CallbackHandler{svc: svc, verifier: verifier}
 }
 
 func (h *CallbackHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	paymentOrderNo := r.URL.Query().Get("payment_order_no")
-	if paymentOrderNo == "" {
-		httpx.WriteError(w, errorsx.ErrBadRequest)
+	paymentOrderNo, err := h.verifier.VerifyCallback(r)
+	if err != nil {
+		httpx.WriteError(w, err)
 		return
 	}
 
 	rawPayload, err := io.ReadAll(r.Body)
 	if err != nil {
-		httpx.WriteError(w, errorsx.ErrBadRequest)
+		httpx.WriteError(w, err)
 		return
 	}
 

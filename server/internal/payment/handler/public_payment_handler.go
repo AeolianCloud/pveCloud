@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	errorsx "github.com/AeolianCloud/pveCloud/server/internal/common/errors"
@@ -10,35 +9,34 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/payment"
 )
 
-type PublicService interface {
-	CreatePendingPayment(ctx context.Context, orderID uint64, payableAmount int64) (payment.PaymentOrder, error)
+// PaymentQueryService provides read-only access to payment orders.
+type PaymentQueryService interface {
+	GetPaymentOrder(ctx context.Context, paymentOrderNo string) (payment.PaymentOrder, error)
 }
 
-type PublicHandler struct {
-	svc PublicService
+// PublicPaymentHandler exposes payment status query for authenticated users.
+type PublicPaymentHandler struct {
+	svc PaymentQueryService
 }
 
-type CreatePaymentRequest struct {
-	OrderID       uint64 `json:"order_id"`
-	PayableAmount int64  `json:"payable_amount"`
+// NewPublicPaymentHandler creates a new PublicPaymentHandler.
+func NewPublicPaymentHandler(svc PaymentQueryService) *PublicPaymentHandler {
+	return &PublicPaymentHandler{svc: svc}
 }
 
-func NewPublicHandler(svc PublicService) *PublicHandler {
-	return &PublicHandler{svc: svc}
-}
-
-func (h *PublicHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
-	var req CreatePaymentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// GetPaymentStatus handles GET /payments/{paymentOrderNo}
+func (h *PublicPaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) {
+	paymentOrderNo := r.PathValue("paymentOrderNo")
+	if paymentOrderNo == "" {
 		httpx.WriteError(w, errorsx.ErrBadRequest)
 		return
 	}
 
-	resp, err := h.svc.CreatePendingPayment(r.Context(), req.OrderID, req.PayableAmount)
+	order, err := h.svc.GetPaymentOrder(r.Context(), paymentOrderNo)
 	if err != nil {
 		httpx.WriteError(w, err)
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusCreated, resp)
+	httpx.WriteJSON(w, http.StatusOK, order)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	errorsx "github.com/AeolianCloud/pveCloud/server/internal/common/errors"
 )
 
@@ -25,13 +26,20 @@ func (s *Service) ReserveCapacity(ctx context.Context, in ReserveInput) (Reserva
 	if in.UserID == 0 || in.SKUID == 0 || in.RegionID == 0 {
 		return Reservation{}, errorsx.ErrBadRequest
 	}
+	return Reservation{}, errorsx.ErrInternal
+}
 
-	node, err := s.repo.FindSaleableNode(ctx, in.SKUID, in.RegionID)
+func (s *Service) ReserveCapacityWithQuerier(ctx context.Context, q database.Querier, in ReserveInput) (Reservation, error) {
+	if in.UserID == 0 || in.SKUID == 0 || in.RegionID == 0 {
+		return Reservation{}, errorsx.ErrBadRequest
+	}
+
+	node, err := s.repo.FindSaleableNode(ctx, q, in.SKUID, in.RegionID)
 	if err != nil {
 		return Reservation{}, err
 	}
 
-	reservation, err := s.repo.CreateReservation(ctx, node.ID, in.UserID, in.SKUID, s.now().Add(s.ttl))
+	reservation, err := s.repo.CreateReservation(ctx, q, node.ID, in.UserID, in.SKUID, in.RegionID, s.now().Add(s.ttl))
 	if err != nil {
 		return Reservation{}, err
 	}

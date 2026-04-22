@@ -2,12 +2,17 @@ package audit
 
 import "context"
 
-type Service struct{}
+type Service struct {
+	repo Repository
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
 }
 
 func (s *Service) Record(ctx context.Context, event string, businessID uint64) error {
-	return nil
+	if s.repo == nil {
+		return nil
+	}
+	return s.repo.Record(ctx, event, "order", businessID, nil)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	"github.com/AeolianCloud/pveCloud/server/internal/payment"
 )
 
@@ -34,10 +35,9 @@ func (f *fakeTxRepo) InsertPendingProvisionTask(ctx context.Context, orderID uin
 }
 
 type fakePaymentRepo struct {
-	txRepo *fakeTxRepo
 }
 
-func (f *fakePaymentRepo) CreatePendingPayment(ctx context.Context, orderID uint64, payableAmount int64) (payment.PaymentOrder, error) {
+func (f *fakePaymentRepo) CreatePendingPayment(ctx context.Context, q database.Querier, orderID uint64, payableAmount int64) (payment.PaymentOrder, error) {
 	return payment.PaymentOrder{
 		ID:             7001,
 		PaymentOrderNo: "P7001",
@@ -47,38 +47,59 @@ func (f *fakePaymentRepo) CreatePendingPayment(ctx context.Context, orderID uint
 	}, nil
 }
 
-func (f *fakePaymentRepo) WithTx(ctx context.Context, fn func(payment.TxRepo) error) error {
+func (f *fakePaymentRepo) GetByPaymentOrderNo(ctx context.Context, paymentOrderNo string) (payment.PaymentOrder, error) {
+	return payment.PaymentOrder{PaymentOrderNo: paymentOrderNo}, nil
+}
+
+type fakeCallbackStore struct {
+	txRepo *fakeTxRepo
+}
+
+func (f *fakeCallbackStore) WithTx(ctx context.Context, fn func(payment.CallbackTxRepository) error) error {
 	return fn(f.txRepo)
 }
 
-func TestMarkPaymentSuccessIsIdempotent(t *testing.T) {
-	repo := &fakePaymentRepo{txRepo: &fakeTxRepo{}}
+func TestCreatePendingPaymentDelegatesToRepository(t *testing.T) {
+	repo := &fakePaymentRepo{}
 	svc := payment.NewService(repo)
+
+	got, err := svc.CreatePendingPayment(context.Background(), nil, 5001, 10000)
+	if err != nil {
+		t.Fatalf("create pending payment: %v", err)
+	}
+	if got.PaymentOrderNo != "P7001" {
+		t.Fatalf("expected payment order no P7001, got %s", got.PaymentOrderNo)
+	}
+}
+
+func TestMarkPaymentSuccessIsIdempotent(t *testing.T) {
+	store := &fakeCallbackStore{txRepo: &fakeTxRepo{}}
+	svc := payment.NewServiceWithCallbackStore(nil, store)
 
 	if err := svc.MarkPaymentSuccess(context.Background(), "P7001", []byte(`{"status":"success"}`)); err != nil {
 		t.Fatalf("mark payment success: %v", err)
 	}
-	if repo.txRepo.insertCallbackCount != 1 {
-		t.Fatalf("expected callback log insert once, got %d", repo.txRepo.insertCallbackCount)
+	if store.txRepo.insertCallbackCount != 1 {
+		t.Fatalf("expected callback log insert once, got %d", store.txRepo.insertCallbackCount)
 	}
-	if repo.txRepo.markSuccessCount != 1 {
-		t.Fatalf("expected mark success once, got %d", repo.txRepo.markSuccessCount)
+	if store.txRepo.markSuccessCount != 1 {
+		t.Fatalf("expected mark success once, got %d", store.txRepo.markSuccessCount)
 	}
-	if repo.txRepo.insertTaskCount != 1 {
-		t.Fatalf("expected task insert once, got %d", repo.txRepo.insertTaskCount)
+	if store.txRepo.insertTaskCount != 1 {
+		t.Fatalf("expected task insert once, got %d", store.txRepo.insertTaskCount)
 	}
 
-	repo.txRepo.hasSuccessfulCallback = true
+	store.txRepo.hasSuccessfulCallback = true
 	if err := svc.MarkPaymentSuccess(context.Background(), "P7001", []byte(`{"status":"success"}`)); err != nil {
 		t.Fatalf("mark payment success duplicate: %v", err)
 	}
-	if repo.txRepo.insertCallbackCount != 1 {
-		t.Fatalf("expected duplicate callback to skip insert, got %d", repo.txRepo.insertCallbackCount)
+	if store.txRepo.insertCallbackCount != 1 {
+		t.Fatalf("expected duplicate callback to skip insert, got %d", store.txRepo.insertCallbackCount)
 	}
-	if repo.txRepo.markSuccessCount != 1 {
-		t.Fatalf("expected duplicate callback to skip mark success, got %d", repo.txRepo.markSuccessCount)
+	if store.txRepo.markSuccessCount != 1 {
+		t.Fatalf("expected duplicate callback to skip mark success, got %d", store.txRepo.markSuccessCount)
 	}
-	if repo.txRepo.insertTaskCount != 1 {
-		t.Fatalf("expected duplicate callback to skip task insert, got %d", repo.txRepo.insertTaskCount)
+	if store.txRepo.insertTaskCount != 1 {
+		t.Fatalf("expected duplicate callback to skip task insert, got %d", store.txRepo.insertTaskCount)
 	}
 }

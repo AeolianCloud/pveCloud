@@ -14,9 +14,12 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	httpx "github.com/AeolianCloud/pveCloud/server/internal/common/http"
 	loggerx "github.com/AeolianCloud/pveCloud/server/internal/common/logger"
+	paymenthandler "github.com/AeolianCloud/pveCloud/server/internal/payment/handler"
 	"github.com/AeolianCloud/pveCloud/server/internal/user"
 	userhandler "github.com/AeolianCloud/pveCloud/server/internal/user/handler"
 	"github.com/go-redis/redis/v8"
+
+	"github.com/AeolianCloud/pveCloud/server/internal/payment"
 )
 
 type App interface {
@@ -52,13 +55,14 @@ func (a *app) Server() *http.Server {
 }
 
 func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
-	db, err := database.Open(cfg.MySQLDSN)
-	if err != nil {
+	if err := cfg.ValidateForService(serviceName); err != nil {
 		return nil, err
 	}
 
-	logger := loggerx.New(cfg.AppEnv)
-	redisClient := cache.NewClient(cfg.RedisAddr)
+	db, redisClient, logger, err := newRuntime(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +80,16 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 		registerHandler := userhandler.NewRegisterHandler(userSvc)
 		mux.HandleFunc("POST /auth/login", authHandler.Login)
 		mux.HandleFunc("POST /auth/register", registerHandler.Register)
+
+		paymentRepo := payment.NewMySQLRepository(db)
+		callbackStore := payment.NewMySQLCallbackStore(db)
+		paymentSvc := payment.NewServiceWithCallbackStore(paymentRepo, callbackStore)
+		verifier := payment.NewProviderVerifier(cfg.Payment)
+		callbackHandler := paymenthandler.NewCallbackHandler(paymentSvc, verifier)
+		mux.HandleFunc("POST /payments/callback", callbackHandler.Handle)
+
+		publicPaymentHandler := paymenthandler.NewPublicPaymentHandler(paymentSvc)
+		mux.HandleFunc("GET /payments/{paymentOrderNo}", publicPaymentHandler.GetPaymentStatus)
 	case "admin-api":
 		adminSvc := adminuser.NewService(db, auth.NewJWTSigner(cfg.JWTAdminSecret))
 		authHandler := adminhandler.NewAuthHandler(adminSvc)
@@ -92,4 +106,16 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 		db:     db,
 		redis:  redisClient,
 	}, nil
+}
+
+func newRuntime(cfg config.Config) (*sql.DB, *redis.Client, *slog.Logger, error) {
+	db, err := database.Open(cfg.MySQLDSN)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	logger := loggerx.New(cfg.AppEnv)
+	redisClient := cache.NewClient(cfg.RedisAddr)
+
+	return db, redisClient, logger, nil
 }

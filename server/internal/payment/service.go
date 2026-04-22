@@ -2,9 +2,9 @@ package payment
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/common/database"
 	errorsx "github.com/AeolianCloud/pveCloud/server/internal/common/errors"
 )
 
@@ -17,56 +17,63 @@ type PaymentOrder struct {
 	PaidAt         *time.Time `json:"paid_at,omitempty"`
 }
 
-type TxRepo interface {
+type CallbackTxRepository interface {
 	HasSuccessfulCallback(ctx context.Context, paymentOrderNo string) bool
 	InsertCallbackLog(ctx context.Context, paymentOrderNo string, rawPayload []byte) error
 	MarkSuccessAndMoveOrderPaid(ctx context.Context, paymentOrderNo string) (uint64, error)
 	InsertPendingProvisionTask(ctx context.Context, orderID uint64) error
 }
 
-type Repo interface {
-	CreatePendingPayment(ctx context.Context, orderID uint64, payableAmount int64) (PaymentOrder, error)
-	WithTx(ctx context.Context, fn func(TxRepo) error) error
+type CallbackStore interface {
+	WithTx(ctx context.Context, fn func(CallbackTxRepository) error) error
 }
 
 type Service struct {
-	repo Repo
-	now  func() time.Time
+	repo          Repository
+	callbackStore CallbackStore
 }
 
-func NewService(repo Repo) *Service {
+func NewService(repo Repository) *Service {
+	return &Service{repo: repo}
+}
+
+func NewServiceWithCallbackStore(repo Repository, callbackStore CallbackStore) *Service {
 	return &Service{
-		repo: repo,
-		now:  time.Now,
+		repo:          repo,
+		callbackStore: callbackStore,
 	}
 }
 
-func (s *Service) CreatePendingPayment(ctx context.Context, orderID uint64, payableAmount int64) (PaymentOrder, error) {
+func (s *Service) GetPaymentOrder(ctx context.Context, paymentOrderNo string) (PaymentOrder, error) {
+	if paymentOrderNo == "" {
+		return PaymentOrder{}, errorsx.ErrBadRequest
+	}
+	if s.repo == nil {
+		return PaymentOrder{}, errorsx.ErrInternal
+	}
+	return s.repo.GetByPaymentOrderNo(ctx, paymentOrderNo)
+}
+
+func (s *Service) CreatePendingPayment(ctx context.Context, q database.Querier, orderID uint64, payableAmount int64) (PaymentOrder, error) {
 	if orderID == 0 || payableAmount <= 0 {
 		return PaymentOrder{}, errorsx.ErrBadRequest
 	}
-
-	if s.repo != nil {
-		return s.repo.CreatePendingPayment(ctx, orderID, payableAmount)
+	if s.repo == nil {
+		return PaymentOrder{}, errorsx.ErrInternal
 	}
 
-	return PaymentOrder{
-		PaymentOrderNo: fmt.Sprintf("P%d", s.now().UnixNano()),
-		OrderID:        orderID,
-		PayStatus:      "pending",
-		PayableAmount:  payableAmount,
-	}, nil
+	return s.repo.CreatePendingPayment(ctx, q, orderID, payableAmount)
 }
 
 func (s *Service) MarkPaymentSuccess(ctx context.Context, paymentOrderNo string, rawPayload []byte) error {
 	if paymentOrderNo == "" {
 		return errorsx.ErrBadRequest
 	}
-	if s.repo == nil {
+	if s.callbackStore == nil {
 		return errorsx.ErrInternal
 	}
 
-	return s.repo.WithTx(ctx, func(txRepo TxRepo) error {
+	return s.callbackStore.WithTx(ctx, func(txRepo CallbackTxRepository) error {
 		if txRepo.HasSuccessfulCallback(ctx, paymentOrderNo) {
 			return nil
 		}
