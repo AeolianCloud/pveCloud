@@ -3,7 +3,7 @@ package e2e_test
 import "testing"
 
 func TestPaidOrderProvisioningFlow(t *testing.T) {
-	harness := &ProvisioningHarness{db: openTestDB(t)}
+	harness := &ProvisioningHarness{t: t, db: openTestDB(t)}
 	result, err := harness.RunPaidProvisioningFlow()
 	if err != nil {
 		t.Fatalf("run provisioning flow: %v", err)
