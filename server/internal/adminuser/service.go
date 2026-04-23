@@ -68,3 +68,34 @@ func hashPassword(password string) string {
 	sum := sha256.Sum256([]byte(password))
 	return hex.EncodeToString(sum[:])
 }
+
+type AdminRow struct {
+	ID        uint64 `json:"id"`
+	AdminNo   string `json:"admin_no"`
+	Username  string `json:"username"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (s *Service) ListAdmins(ctx context.Context, limit int) ([]AdminRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, admin_no, username, status, created_at
+FROM admins
+ORDER BY id DESC
+LIMIT ?
+`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []AdminRow
+	for rows.Next() {
+		var a AdminRow
+		if err := rows.Scan(&a.ID, &a.AdminNo, &a.Username, &a.Status, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, a)
+	}
+	return items, nil
+}

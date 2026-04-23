@@ -128,3 +128,35 @@ func nullableString(value string) any {
 	}
 	return value
 }
+
+type UserRow struct {
+	ID        uint64 `json:"id"`
+	UserNo    string `json:"user_no"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (s *Service) ListUsers(ctx context.Context, limit int) ([]UserRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, user_no, email, phone, status, created_at
+FROM users
+ORDER BY id DESC
+LIMIT ?
+`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []UserRow
+	for rows.Next() {
+		var u UserRow
+		if err := rows.Scan(&u.ID, &u.UserNo, &u.Email, &u.Phone, &u.Status, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, u)
+	}
+	return items, nil
+}
