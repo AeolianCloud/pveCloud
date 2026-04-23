@@ -28,7 +28,7 @@ export const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const requiresAuth = to.path === '/orders' || to.path.startsWith('/instances')
+  const requiresAuth = to.path === '/orders' || to.path.startsWith('/instances') || to.path === '/notices'
   if (!requiresAuth) {
     return true
   }
