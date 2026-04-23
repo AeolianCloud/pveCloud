@@ -1,14 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import InstanceDetailView from '../views/InstanceDetailView.vue'
-import InstanceListView from '../views/InstanceListView.vue'
-import LoginView from '../views/LoginView.vue'
-import NoticeListView from '../views/NoticeListView.vue'
-import OrderListView from '../views/OrderListView.vue'
-import PaymentStatusView from '../views/PaymentStatusView.vue'
-import ProductDetailView from '../views/ProductDetailView.vue'
-import ProductListView from '../views/ProductListView.vue'
-import RegisterView from '../views/RegisterView.vue'
+import { readStoredToken } from '../lib/http'
+import InstanceDetailView from '../views/InstanceDetailPage.vue'
+import InstanceListView from '../views/InstanceListPage.vue'
+import LoginView from '../views/LoginPage.vue'
+import NoticeListView from '../views/NoticePlaceholderPage.vue'
+import OrderListView from '../views/OrderListPage.vue'
+import PaymentStatusView from '../views/PaymentStatusPage.vue'
+import ProductDetailView from '../views/ProductDetailPage.vue'
+import ProductListView from '../views/ProductListPage.vue'
+import RegisterView from '../views/RegisterPage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -24,4 +25,20 @@ export const router = createRouter({
     { path: '/instances/:id', component: InstanceDetailView },
     { path: '/notices', component: NoticeListView },
   ],
+})
+
+router.beforeEach((to) => {
+  const requiresAuth = to.path === '/orders' || to.path.startsWith('/instances')
+  if (!requiresAuth) {
+    return true
+  }
+
+  if (readStoredToken()) {
+    return true
+  }
+
+  return {
+    path: '/login',
+    query: { redirect: to.fullPath },
+  }
 })

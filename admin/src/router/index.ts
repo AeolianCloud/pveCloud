@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-import DashboardView from '../views/DashboardView.vue'
-import InstanceManageView from '../views/InstanceManageView.vue'
-import LoginView from '../views/LoginView.vue'
-import OrderManageView from '../views/OrderManageView.vue'
-import ProductManageView from '../views/ProductManageView.vue'
-import TaskManageView from '../views/TaskManageView.vue'
-import UserManageView from '../views/UserManageView.vue'
+import { readStoredToken } from '../lib/http'
+import DashboardView from '../views/DashboardPlaceholderPage.vue'
+import InstanceManageView from '../views/InstanceManagePage.vue'
+import LoginView from '../views/AdminLoginPage.vue'
+import OrderManageView from '../views/OrderManagePage.vue'
+import ProductManageView from '../views/ProductManagePage.vue'
+import TaskManageView from '../views/TaskManagePage.vue'
+import UserManageView from '../views/UserManagePlaceholderPage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -19,4 +20,19 @@ export const router = createRouter({
     { path: '/instances', component: InstanceManageView },
     { path: '/tasks', component: TaskManageView },
   ],
+})
+
+router.beforeEach((to) => {
+  if (to.path === '/login') {
+    return true
+  }
+
+  if (readStoredToken()) {
+    return true
+  }
+
+  return {
+    path: '/login',
+    query: { redirect: to.fullPath },
+  }
 })

@@ -1,56 +1,84 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import { request } from '../lib/http'
+import { login as loginRequest, register as registerRequest } from '../api/auth'
+import { readStoredToken, writeStoredToken } from '../lib/http'
 
-interface LoginPayload {
-  token: string
-  subject_id: number
-  subject_type: string
+const authStorageKey = 'pvecloud-web-auth-meta'
+
+interface AuthMeta {
+  subjectID: number | null
+  subjectType: string
 }
 
-interface RegisterPayload {
-  token: string
-  user_id: number
-  user_no: string
-  subject_type: string
+function readStoredMeta(): AuthMeta {
+  if (typeof window === 'undefined') {
+    return { subjectID: null, subjectType: '' }
+  }
+
+  const raw = window.localStorage.getItem(authStorageKey)
+  if (!raw) {
+    return { subjectID: null, subjectType: '' }
+  }
+
+  try {
+    return JSON.parse(raw) as AuthMeta
+  } catch {
+    return { subjectID: null, subjectType: '' }
+  }
+}
+
+function writeStoredMeta(meta: AuthMeta) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  if (meta.subjectID === null) {
+    window.localStorage.removeItem(authStorageKey)
+    return
+  }
+
+  window.localStorage.setItem(authStorageKey, JSON.stringify(meta))
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref('')
-  const subjectID = ref<number | null>(null)
-  const subjectType = ref('')
+  const initialMeta = readStoredMeta()
+  const token = ref(readStoredToken())
+  const subjectID = ref<number | null>(initialMeta.subjectID)
+  const subjectType = ref(initialMeta.subjectType)
+  const isAuthenticated = computed(() => Boolean(token.value))
 
   async function login(phone: string, password: string) {
-    const payload = await request<LoginPayload>('/auth/login', {
-      method: 'POST',
-      bodyJson: { phone, password },
-    })
+    const payload = await loginRequest(phone, password)
     token.value = payload.token
     subjectID.value = payload.subject_id
     subjectType.value = payload.subject_type
+    writeStoredToken(payload.token)
+    writeStoredMeta({ subjectID: payload.subject_id, subjectType: payload.subject_type })
   }
 
   async function register(phone: string, email: string, password: string) {
-    const payload = await request<RegisterPayload>('/auth/register', {
-      method: 'POST',
-      bodyJson: { phone, email, password },
-    })
+    const payload = await registerRequest(phone, email, password)
     token.value = payload.token
     subjectID.value = payload.user_id
     subjectType.value = payload.subject_type
+    writeStoredToken(payload.token)
+    writeStoredMeta({ subjectID: payload.user_id, subjectType: payload.subject_type })
   }
 
   function logout() {
     token.value = ''
     subjectID.value = null
     subjectType.value = ''
+    writeStoredToken('')
+    writeStoredMeta({ subjectID: null, subjectType: '' })
   }
 
   return {
     token,
     subjectID,
     subjectType,
+    isAuthenticated,
     login,
     register,
     logout,
