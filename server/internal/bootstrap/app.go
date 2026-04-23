@@ -23,6 +23,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/instance"
 	instancehandler "github.com/AeolianCloud/pveCloud/server/internal/instance/handler"
 	"github.com/AeolianCloud/pveCloud/server/internal/notification"
+	notificationhandler "github.com/AeolianCloud/pveCloud/server/internal/notification/handler"
 	"github.com/AeolianCloud/pveCloud/server/internal/order"
 	orderhandler "github.com/AeolianCloud/pveCloud/server/internal/order/handler"
 	"github.com/AeolianCloud/pveCloud/server/internal/payment"
@@ -114,7 +115,7 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 			instance.NewMySQLRepository(db),
 			resource.NewMockClient(),
 			audit.NewService(audit.NewMySQLRepository(db)),
-			notification.NewService(),
+			notification.NewService(notification.NewMySQLRepository(db)),
 		)
 
 		authHandler := userhandler.NewAuthHandler(userSvc)
@@ -126,6 +127,8 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 		publicPaymentHandler := paymenthandler.NewPublicPaymentHandler(paymentSvc)
 		publicInstancesHandler := instancehandler.NewPublicHandler(instanceSvc)
 		publicInstanceDetailHandler := instancehandler.NewDetailHandler(instanceSvc)
+		notificationSvc := notification.NewService(notification.NewMySQLRepository(db))
+		noticeHandler := notificationhandler.NewPublicHandler(notificationSvc)
 
 		mux.HandleFunc("POST /auth/login", authHandler.Login)
 		mux.HandleFunc("POST /auth/register", registerHandler.Register)
@@ -137,6 +140,8 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 		mux.Handle("GET /payments/{paymentOrderNo}", userAuth(http.HandlerFunc(publicPaymentHandler.GetPaymentStatus)))
 		mux.Handle("GET /instances", userAuth(http.HandlerFunc(publicInstancesHandler.ListMine)))
 		mux.Handle("GET /instances/{instanceID}", userAuth(http.HandlerFunc(publicInstanceDetailHandler.GetMineByID)))
+		mux.Handle("GET /notices", userAuth(http.HandlerFunc(noticeHandler.ListNotices)))
+		mux.Handle("PUT /notices/{id}/read", userAuth(http.HandlerFunc(noticeHandler.MarkRead)))
 	case "admin-api":
 		adminSigner := auth.NewJWTSigner(cfg.JWTAdminSecret)
 		adminSvc := adminuser.NewService(db, adminSigner)
@@ -155,7 +160,7 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 			instance.NewMySQLRepository(db),
 			resource.NewMockClient(),
 			audit.NewService(audit.NewMySQLRepository(db)),
-			notification.NewService(),
+			notification.NewService(notification.NewMySQLRepository(db)),
 		)
 		taskSvc := task.NewService(task.NewMySQLRepository(db))
 
@@ -164,12 +169,20 @@ func newHTTPApp(serviceName, addr string, cfg config.Config) (App, error) {
 		adminOrdersHandler := orderhandler.NewAdminHandler(orderSvc)
 		adminInstancesHandler := instancehandler.NewAdminHandler(instanceSvc)
 		adminTasksHandler := taskhandler.NewAdminHandler(taskSvc)
+		webSigner := auth.NewJWTSigner(cfg.JWTWebSecret)
+		userSvc := user.NewService(db, webSigner)
+		adminUsersHandler := userhandler.NewAdminUsersHandler(userSvc)
+		adminAdminsHandler := adminhandler.NewAdminAdminsHandler(adminSvc)
+		dashboardHandler := adminhandler.NewDashboardHandler(db)
 
 		mux.HandleFunc("POST /auth/login", authHandler.Login)
 		mux.Handle("GET /products", adminAuth(http.HandlerFunc(adminProductsHandler.ListProducts)))
 		mux.Handle("GET /orders", adminAuth(http.HandlerFunc(adminOrdersHandler.ListOrders)))
 		mux.Handle("GET /instances", adminAuth(http.HandlerFunc(adminInstancesHandler.ListAll)))
 		mux.Handle("GET /tasks", adminAuth(http.HandlerFunc(adminTasksHandler.ListTasks)))
+		mux.Handle("GET /users", adminAuth(http.HandlerFunc(adminUsersHandler.ListUsers)))
+		mux.Handle("GET /admins", adminAuth(http.HandlerFunc(adminAdminsHandler.ListAdmins)))
+		mux.Handle("GET /dashboard", adminAuth(http.HandlerFunc(dashboardHandler.Stats)))
 	}
 
 	return &app{

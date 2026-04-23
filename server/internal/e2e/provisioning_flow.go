@@ -71,7 +71,7 @@ func (h *ProvisioningHarness) RunPaidProvisioningFlow() (FlowResult, error) {
 		instance.NewMySQLRepository(h.db),
 		resource.NewMockClient(),
 		audit.NewService(audit.NewMySQLRepository(h.db)),
-		notification.NewService(),
+		notification.NewService(notification.NewMySQLRepository(h.db)),
 	)
 	taskRepo := task.NewMySQLRepository(h.db)
 	worker := task.NewWorker(

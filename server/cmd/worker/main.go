@@ -39,7 +39,7 @@ func main() {
 		instance.NewMySQLRepository(db),
 		vmClient,
 		audit.NewService(audit.NewMySQLRepository(db)),
-		notification.NewService(),
+		notification.NewService(notification.NewMySQLRepository(db)),
 	)
 	executor := task.NewDispatchingExecutor(func(ctx context.Context, orderID uint64) error {
 		_, err := instanceSvc.HandleCreateInstanceTask(ctx, orderID)

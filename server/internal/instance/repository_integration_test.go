@@ -23,7 +23,7 @@ func TestCreateInstanceTxIsIdempotentAcrossRetries(t *testing.T) {
 		instance.NewMySQLRepository(db),
 		resource.NewMockClient(),
 		audit.NewService(audit.NewMySQLRepository(db)),
-		notification.NewService(),
+		notification.NewService(notification.NewMySQLRepository(db)),
 	)
 
 	first, err := svc.HandleCreateInstanceTask(context.Background(), 5001)
