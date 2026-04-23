@@ -801,6 +801,8 @@ git commit -m "feat: add resource adapter and provisioning flow"
 
 ### Task 8: Build The Web Frontend Minimum User Flow
 
+Follow-up status on 2026-04-23: in-scope `web` pages now use real backend APIs for auth, products, orders, payment status, and instances. `notices` remains an explicit placeholder because no backend route exists yet.
+
 **Files:**
 - Create: `web/package.json`
 - Create: `web/vite.config.ts`
@@ -880,6 +882,8 @@ git commit -m "feat: add web frontend minimum user flow"
 ```
 
 ### Task 9: Build The Admin Frontend Minimum Management Flow
+
+Follow-up status on 2026-04-23: in-scope `admin` pages now use real backend APIs for auth, products, orders, instances, and tasks. `dashboard` and `users` remain explicit placeholders because those backend routes are not available yet.
 
 **Files:**
 - Create: `admin/package.json`

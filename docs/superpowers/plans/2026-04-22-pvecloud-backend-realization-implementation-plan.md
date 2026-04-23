@@ -99,11 +99,11 @@
 - Add or Modify Test: `server/internal/payment/repository_integration_test.go`
 
 **实现步骤：**
-- [ ] 为 `catalog` 增加真实 SQL repository，覆盖 saleable product 查询、saleable node 选择、reservation 创建与按需锁定查询。
-- [ ] 为 `billing` 增加快照落库 repository，并明确 `billing` 只负责金额与周期快照，不承担支付或订单状态流转。
-- [ ] 重构 `order.Service.CreateOrder`，把“预占资源 + 创建订单 + 创建 billing record + 创建 payment order + 绑定 reservation”纳入一个明确事务边界。
-- [ ] 为 `payment` 增加真实 pending payment 创建查询能力，替换当前只返回内存对象的假实现。
-- [ ] 为上述 repository 写 integration tests，验证唯一键、字段回写、事务回滚和 reservation 绑定正确性。
+- [x] 为 `catalog` 增加真实 SQL repository，覆盖 saleable product 查询、saleable node 选择、reservation 创建与按需锁定查询。
+- [x] 为 `billing` 增加快照落库 repository，并明确 `billing` 只负责金额与周期快照，不承担支付或订单状态流转。
+- [x] 重构 `order.Service.CreateOrder`，把“预占资源 + 创建订单 + 创建 billing record + 创建 payment order + 绑定 reservation”纳入一个明确事务边界。
+- [x] 为 `payment` 增加真实 pending payment 创建查询能力，替换当前只返回内存对象的假实现。
+- [x] 为上述 repository 写 integration tests，验证唯一键、字段回写、事务回滚和 reservation 绑定正确性。
 
 **验证命令：**
 - `go -C server test ./internal/catalog ./internal/billing ./internal/order ./internal/payment -v`
@@ -136,11 +136,11 @@
 - Add or Modify Test: `server/internal/payment/repository_integration_test.go`
 
 **实现步骤：**
-- [ ] 在 `payment` 模块中拆出“业务服务”和“provider verifier”，让回调处理从 YAML 读取 provider/secret，而不是硬编码或直接信任 query 参数。
-- [ ] 改造 callback handler，请求体解析后调用 provider verifier，再把标准化后的结果交给 payment service。
-- [ ] 在支付成功事务中按设计要求完成：写 callback log、`payment_orders.pending -> success`、`orders.pending_payment -> paid`、创建唯一 `create_instance` 任务。
-- [ ] 约束重复回调行为：同一 `payment_order_no` 重放只能新增可追踪日志，不得重复推进订单或重复建任务。
-- [ ] 补充支付状态查询接口所需 repository 能力，给后续 public API 装配做准备。
+- [x] 在 `payment` 模块中拆出“业务服务”和“provider verifier”，让回调处理从 YAML 读取 provider/secret，而不是硬编码或直接信任 query 参数。
+- [x] 改造 callback handler，请求体解析后调用 provider verifier，再把标准化后的结果交给 payment service。
+- [x] 在支付成功事务中按设计要求完成：写 callback log、`payment_orders.pending -> success`、`orders.pending_payment -> paid`、创建唯一 `create_instance` 任务。
+- [x] 约束重复回调行为：同一 `payment_order_no` 重放只能新增可追踪日志，不得重复推进订单或重复建任务。
+- [x] 补充支付状态查询接口所需 repository 能力，给后续 public API 装配做准备。
 
 **验证命令：**
 - `go -C server test ./internal/payment ./internal/order ./internal/task -v`
@@ -173,11 +173,11 @@
 - Add or Modify Test: `server/internal/task/repository_integration_test.go`
 
 **实现步骤：**
-- [ ] 为 `async_tasks`、`async_task_logs` 增加真实 repository，覆盖 create、claim、mark success、mark retry、mark failed、append log、list tasks。
-- [ ] 在 worker 中实现基于 `worker.poll_interval`、`worker.batch_size` 的轮询执行模型，至少支持单次 loop 和持续 loop 两种入口，便于测试。
-- [ ] 引入 task executor，把 `create_instance` 任务分派给 instance provisioning 服务，避免在 worker 中直接堆业务逻辑。
-- [ ] 明确 retry 语义：可重试错误写 `retrying` 和 `next_run_at`，终态错误写 `failed`，每次执行都追加 task log。
-- [ ] 为 claim 竞争、重复业务键、重试次数和日志追加写 integration tests。
+- [x] 为 `async_tasks`、`async_task_logs` 增加真实 repository，覆盖 create、claim、mark success、mark retry、mark failed、append log、list tasks。
+- [x] 在 worker 中实现基于 `worker.poll_interval`、`worker.batch_size` 的轮询执行模型，至少支持单次 loop 和持续 loop 两种入口，便于测试。
+- [x] 引入 task executor，把 `create_instance` 任务分派给 instance provisioning 服务，避免在 worker 中直接堆业务逻辑。
+- [x] 明确 retry 语义：可重试错误写 `retrying` 和 `next_run_at`，终态错误写 `failed`，每次执行都追加 task log。
+- [x] 为 claim 竞争、重复业务键、重试次数和日志追加写 integration tests。
 
 **验证命令：**
 - `go -C server test ./internal/task/... -v`
@@ -212,11 +212,11 @@
 - Add or Modify Test: `server/internal/instance/repository_integration_test.go`
 
 **实现步骤：**
-- [ ] 固化 `resource.VMClient` 最终契约，并提供 `mock` provider 实现，返回稳定、可预测的 VM 创建结果。
-- [ ] 为 `instance` 增加真实 repository，覆盖 paid order 加锁读取、instance/instance_service 落库、reservation consume、order `paid -> provisioning -> active` 推进。
-- [ ] 让 task executor 调用 `instance.Service.HandleCreateInstanceTask`，在外部 provider 调用成功后，通过事务统一落实例事实并更新任务状态。
-- [ ] 对 provider 失败场景定义 retryable/terminal 边界，并把失败原因写入 task log 与 audit/notification 入口。
-- [ ] 为实例创建事务和幂等保护写 integration tests，确保 worker retry 不会创建重复实例。
+- [x] 固化 `resource.VMClient` 最终契约，并提供 `mock` provider 实现，返回稳定、可预测的 VM 创建结果。
+- [x] 为 `instance` 增加真实 repository，覆盖 paid order 加锁读取、instance/instance_service 落库、reservation consume、order `paid -> provisioning -> active` 推进。
+- [x] 让 task executor 调用 `instance.Service.HandleCreateInstanceTask`，在外部 provider 调用成功后，通过事务统一落实例事实并更新任务状态。
+- [x] 对 provider 失败场景定义 retryable/terminal 边界，并把失败原因写入 task log 与 audit/notification 入口。
+- [x] 为实例创建事务和幂等保护写 integration tests，确保 worker retry 不会创建重复实例。
 
 **验证命令：**
 - `go -C server test ./internal/resource ./internal/instance -v`
@@ -253,11 +253,11 @@
 - Add or Modify Test: `server/internal/instance/handler/public_instances_handler_test.go`
 
 **实现步骤：**
-- [ ] 在 `bootstrap/app.go` 中按模块清晰注册 public/admin 路由，并保持 `http.ServeMux`，不引入新 router。
-- [ ] public API 实现并保护：`POST /auth/register`、`POST /auth/login`、`GET /products`、`GET /products/:id`、`POST /orders`、`GET /orders`、`GET /payments/:paymentOrderNo`、`POST /payments/callback`、`GET /instances`、`GET /instances/:id`。
-- [ ] admin API 实现并保护：`POST /auth/login`、`GET /products`、`GET /orders`、`GET /instances`、`GET /tasks`。
-- [ ] 使用现有 JWT middleware 区分 user/admin 身份，确保 public/admin 路由不共 URL、不共鉴权链。
-- [ ] 对输入错误、权限错误、状态冲突、内部错误统一返回结构化应用错误。
+- [x] 在 `bootstrap/app.go` 中按模块清晰注册 public/admin 路由，并保持 `http.ServeMux`，不引入新 router。
+- [x] public API 实现并保护：`POST /auth/register`、`POST /auth/login`、`GET /products`、`GET /products/:id`、`POST /orders`、`GET /orders`、`GET /payments/:paymentOrderNo`、`POST /payments/callback`、`GET /instances`、`GET /instances/:id`。
+- [x] admin API 实现并保护：`POST /auth/login`、`GET /products`、`GET /orders`、`GET /instances`、`GET /tasks`。
+- [x] 使用现有 JWT middleware 区分 user/admin 身份，确保 public/admin 路由不共 URL、不共鉴权链。
+- [x] 对输入错误、权限错误、状态冲突、内部错误统一返回结构化应用错误。
 
 **验证命令：**
 - `go -C server test ./internal/auth ./internal/catalog/... ./internal/order/... ./internal/payment/... ./internal/instance/... ./internal/task/... -v`
@@ -287,11 +287,11 @@
 - Optionally Modify: `README.md`
 
 **实现步骤：**
-- [ ] 在现有目录结构下补建 `server/internal/testutil`，不要继续引用不存在的 `server/internal/common/testutil/testdb.go`。
-- [ ] 实现测试 DB 打开、迁移执行、清表和测试数据构造 helper，供 repository integration tests 复用。
-- [ ] 覆盖设计文档要求的四个重点：`CreateOrderTx`、`MarkPaymentSuccessTx`、`ClaimPendingTask`、`CreateInstanceTx`。
-- [ ] 在测试中显式验证唯一键、状态流转、重复回调幂等、worker claim 锁和实例幂等。
-- [ ] 如果需要，补充 README 或 compose 说明，明确本地如何准备 MariaDB 后跑 integration tests。
+- [x] 在现有目录结构下补建 `server/internal/testutil`，不要继续引用不存在的 `server/internal/common/testutil/testdb.go`。
+- [x] 实现测试 DB 打开、迁移执行、清表和测试数据构造 helper，供 repository integration tests 复用。
+- [x] 覆盖设计文档要求的四个重点：`CreateOrderTx`、`MarkPaymentSuccessTx`、`ClaimPendingTask`、`CreateInstanceTx`。
+- [x] 在测试中显式验证唯一键、状态流转、重复回调幂等、worker claim 锁和实例幂等。
+- [x] 如果需要，补充 README 或 compose 说明，明确本地如何准备 MariaDB 后跑 integration tests。
 
 **验证命令：**
 - `go -C server test ./internal/catalog ./internal/order ./internal/payment ./internal/task ./internal/instance -v`
@@ -316,11 +316,11 @@
 - Modify: `README.md`
 
 **实现步骤：**
-- [ ] 重写 e2e harness：准备测试库、种子用户/商品/节点、调用真实 service 或 HTTP handler 完成“查商品 -> 创建订单 -> 模拟支付回调 -> 跑一轮 worker -> 查实例”。
-- [ ] 明确只验证本轮闭环所需路径，不扩展到真实外部支付或真实 VM provider。
-- [ ] 在 e2e 中校验最终事实：`orders.active`、`async_tasks.success`、`instances.running`、实例对用户可见、重复 payment callback 不会重复开通。
-- [ ] 确保 harness 可在本地 MariaDB 条件下重复运行，必要时补充测试数据清理。
-- [ ] 更新 README 的 backend test matrix，写明 unit / repository integration / e2e 的执行方式。
+- [x] 重写 e2e harness：准备测试库、种子用户/商品/节点、调用真实 service 或 HTTP handler 完成“查商品 -> 创建订单 -> 模拟支付回调 -> 跑一轮 worker -> 查实例”。
+- [x] 明确只验证本轮闭环所需路径，不扩展到真实外部支付或真实 VM provider。
+- [x] 在 e2e 中校验最终事实：`orders.active`、`async_tasks.success`、`instances.running`、实例对用户可见、重复 payment callback 不会重复开通。
+- [x] 确保 harness 可在本地 MariaDB 条件下重复运行，必要时补充测试数据清理。
+- [x] 更新 README 的 backend test matrix，写明 unit / repository integration / e2e 的执行方式。
 
 **验证命令：**
 - `go -C server test ./internal/e2e -v`
@@ -337,23 +337,23 @@
 ## 推荐执行顺序与里程碑
 
 - [x] Milestone 1: 完成 Task 1，冻结配置结构和事务 helper。
-- [ ] Milestone 2: 完成 Task 2，创建订单事务真实入库。
-- [ ] Milestone 3: 完成 Task 3，支付回调成功事务真实落地。
-- [ ] Milestone 4: 完成 Task 4，worker 可 claim/execute/retry。
-- [ ] Milestone 5: 完成 Task 5，实例开通与 mock provider 闭环达成。
-- [ ] Milestone 6: 完成 Task 6，public/admin API 面向真实数据开放。
-- [ ] Milestone 7: 完成 Task 7 与 Task 8，测试矩阵与 e2e 收口。
+- [x] Milestone 2: 完成 Task 2，创建订单事务真实入库。
+- [x] Milestone 3: 完成 Task 3，支付回调成功事务真实落地。
+- [x] Milestone 4: 完成 Task 4，worker 可 claim/execute/retry。
+- [x] Milestone 5: 完成 Task 5，实例开通与 mock provider 闭环达成。
+- [x] Milestone 6: 完成 Task 6，public/admin API 面向真实数据开放。
+- [x] Milestone 7: 完成 Task 7 与 Task 8，测试矩阵与 e2e 收口。
 
 ## 完成定义
 
-- [ ] YAML 配置已支持 `payment/resource/worker` 嵌套结构。
-- [ ] 订单创建、支付成功、开通成功三条事务边界全部落地。
-- [ ] `catalog/billing/order/payment/task/instance` 均有真实 MariaDB repository。
-- [ ] 支付回调能做到幂等、可追踪、可建唯一任务。
-- [ ] worker 能 claim 任务、执行开通、记录日志并处理 retry。
-- [ ] mock resource provider 可替换且不泄漏业务逻辑。
-- [ ] public/admin API 覆盖设计文档要求的闭环最小面。
-- [ ] repository integration tests 与 e2e 均基于真实 DB 路径运行通过。
+- [x] YAML 配置已支持 `payment/resource/worker` 嵌套结构。
+- [x] 订单创建、支付成功、开通成功三条事务边界全部落地。
+- [x] `catalog/billing/order/payment/task/instance` 均有真实 MariaDB repository。
+- [x] 支付回调能做到幂等、可追踪、可建唯一任务。
+- [x] worker 能 claim 任务、执行开通、记录日志并处理 retry。
+- [x] mock resource provider 可替换且不泄漏业务逻辑。
+- [x] public/admin API 覆盖设计文档要求的闭环最小面。
+- [x] repository integration tests 与 e2e 均基于真实 DB 路径运行通过。
 
 ## 自检
 

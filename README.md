@@ -98,11 +98,19 @@ Current config covers:
 ## Development Commands
 
 - Run all backend tests: `go -C server test ./...`
+- Run repository integration tests: `go -C server test ./internal/order ./internal/payment ./internal/task ./internal/instance -v`
+- Run backend e2e closure test: `go -C server test ./internal/e2e -v`
 - Build all backend entrypoints: `go -C server build ./cmd/public-api ./cmd/admin-api ./cmd/worker`
 - Run web tests: `bun --cwd web run test`
 - Build web: `bun --cwd web run build`
 - Run admin tests: `bun --cwd admin run test`
 - Build admin: `bun --cwd admin run build`
+
+## Backend Test Matrix
+
+- Unit and package-level tests: `go -C server test ./...`
+- Repository integration tests: `go -C server test ./internal/order ./internal/payment ./internal/task ./internal/instance -v`
+- End-to-end backend closure: `go -C server test ./internal/e2e -v`
 
 ## Current Scope
 
@@ -114,7 +122,7 @@ Completed in the current MVP slice:
 - shared logger, MariaDB, and Redis client factories
 - common HTTP response and error helpers
 - schema baseline, auth, catalog, order, payment, task center, resource adapter, and instance flow skeletons
-- minimum `web` and `admin` SPA shells with route-level views
+- minimum `web` and `admin` SPA flows wired to real auth, catalog, order, payment, instance, and task APIs within the current backend scope
 
 ## Documentation
 
