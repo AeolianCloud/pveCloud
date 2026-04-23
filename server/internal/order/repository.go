@@ -11,4 +11,5 @@ type Repository interface {
 	BindReservation(ctx context.Context, q database.Querier, orderID, reservationID uint64) error
 	GetOrderByID(ctx context.Context, orderID uint64) (Order, error)
 	ListOrdersByUser(ctx context.Context, userID uint64) ([]Order, error)
+	ListAllOrders(ctx context.Context) ([]Order, error)
 }

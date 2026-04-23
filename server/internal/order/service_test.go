@@ -58,6 +58,10 @@ func (f *fakeOrderRepo) ListOrdersByUser(ctx context.Context, userID uint64) ([]
 	return []order.Order{f.order}, nil
 }
 
+func (f *fakeOrderRepo) ListAllOrders(ctx context.Context) ([]order.Order, error) {
+	return []order.Order{f.order}, nil
+}
+
 type fakeBillingService struct {
 	createRecordCount int
 	createRecordQ     database.Querier

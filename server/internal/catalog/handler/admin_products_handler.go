@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/AeolianCloud/pveCloud/server/internal/catalog"
 	errorsx "github.com/AeolianCloud/pveCloud/server/internal/common/errors"
 	httpx "github.com/AeolianCloud/pveCloud/server/internal/common/http"
-	"github.com/AeolianCloud/pveCloud/server/internal/catalog"
 )
 
 type AdminService interface {
+	ListSaleableProducts(ctx context.Context) ([]catalog.SaleableProduct, error)
 	CreateSKU(ctx context.Context, productID uint64, in catalog.CreateSKUInput) (catalog.SKU, error)
 }
 
@@ -31,6 +32,15 @@ type CreateSKURequest struct {
 
 func NewAdminHandler(svc AdminService) *AdminHandler {
 	return &AdminHandler{svc: svc}
+}
+
+func (h *AdminHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.ListSaleableProducts(r.Context())
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, items)
 }
 
 func (h *AdminHandler) CreateSKU(w http.ResponseWriter, r *http.Request) {

@@ -113,3 +113,21 @@ func (s *Service) CreateOrder(ctx context.Context, in CreateInput) (CreateResult
 
 	return result, nil
 }
+
+func (s *Service) GetOrder(ctx context.Context, orderID uint64) (Order, error) {
+	if orderID == 0 {
+		return Order{}, errorsx.ErrBadRequest
+	}
+	return s.repo.GetOrderByID(ctx, orderID)
+}
+
+func (s *Service) ListByUser(ctx context.Context, userID uint64) ([]Order, error) {
+	if userID == 0 {
+		return nil, errorsx.ErrBadRequest
+	}
+	return s.repo.ListOrdersByUser(ctx, userID)
+}
+
+func (s *Service) ListAll(ctx context.Context) ([]Order, error) {
+	return s.repo.ListAllOrders(ctx)
+}

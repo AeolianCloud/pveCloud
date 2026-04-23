@@ -107,6 +107,29 @@ ORDER BY created_at DESC
 	return orders, rows.Err()
 }
 
+func (r *MySQLRepository) ListAllOrders(ctx context.Context) ([]Order, error) {
+	rows, err := r.db.QueryContext(ctx, `
+SELECT id, order_no, user_id, sku_id, region_id, IFNULL(reservation_id, 0), order_status, cycle_unit, original_amount, discount_amount, payable_amount
+FROM orders
+ORDER BY created_at DESC
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []Order
+	for rows.Next() {
+		var o Order
+		if err := rows.Scan(&o.ID, &o.OrderNo, &o.UserID, &o.SKUID, &o.RegionID, &o.ReservationID,
+			&o.Status, &o.Cycle, &o.OriginalAmount, &o.DiscountAmount, &o.PayableAmount); err != nil {
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+	return orders, rows.Err()
+}
+
 func (r *MySQLRepository) querier(q database.Querier) database.Querier {
 	if q != nil {
 		return q
