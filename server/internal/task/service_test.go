@@ -27,19 +27,27 @@ func (f *fakeTaskRepo) CreateTask(ctx context.Context, in task.CreateTaskParams)
 		f.tasks = make(map[string]task.Task)
 	}
 	row := task.Task{
-		ID:           8001,
-		TaskNo:       "T8001",
-		TaskType:     in.TaskType,
-		BusinessType: in.BusinessType,
-		BusinessID:   in.BusinessID,
-		Status:       in.Status,
-		Payload:      in.Payload,
-		NextRunAt:    in.NextRunAt,
+		ID:            8001,
+		TaskNo:        "T8001",
+		TaskType:      in.TaskType,
+		BusinessType:  in.BusinessType,
+		BusinessID:    in.BusinessID,
+		Status:        in.Status,
+		Payload:       in.Payload,
+		NextRunAt:     in.NextRunAt,
 		MaxRetryCount: in.MaxRetryCount,
 	}
 	key := in.TaskType + ":" + in.BusinessType + ":" + strconv.FormatUint(in.BusinessID, 10)
 	f.tasks[key] = row
 	return row, nil
+}
+
+func (f *fakeTaskRepo) ListTasks(ctx context.Context, limit int) ([]task.Task, error) {
+	items := make([]task.Task, 0, len(f.tasks))
+	for _, item := range f.tasks {
+		items = append(items, item)
+	}
+	return items, nil
 }
 
 func TestCreateUniqueTaskForBusinessKey(t *testing.T) {

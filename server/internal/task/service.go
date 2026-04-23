@@ -45,6 +45,10 @@ func (s *Service) CreateTask(ctx context.Context, in CreateInput) (Task, error) 
 	})
 }
 
+func (s *Service) ListTasks(ctx context.Context, limit int) ([]Task, error) {
+	return s.repo.ListTasks(ctx, limit)
+}
+
 func NewTaskNo(now time.Time) string {
 	return fmt.Sprintf("T%d", now.UnixNano())
 }

@@ -8,19 +8,13 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/resource"
 )
 
-type Repo interface {
-	LoadPaidOrderForProvision(ctx context.Context, orderID uint64) (PaidOrder, catalog.Reservation, error)
-	CreateInstanceAndActivateOrder(ctx context.Context, orderRow PaidOrder, reservation catalog.Reservation, vmResp resource.CreateVMResponse) (ProvisionResult, error)
-	ListByUser(ctx context.Context, userID uint64) ([]Instance, error)
-	ListAll(ctx context.Context) ([]Instance, error)
-}
-
 type AuditService interface {
 	Record(ctx context.Context, event string, businessID uint64) error
 }
 
 type NotificationService interface {
 	SendProvisionSuccess(ctx context.Context, userID uint64, instanceNo string) error
+	SendProvisionFailure(ctx context.Context, userID uint64, orderID uint64) error
 }
 
 type Service struct {
@@ -40,6 +34,12 @@ func NewService(repo Repo, vmClient resource.VMClient, auditSvc AuditService, no
 }
 
 func (s *Service) HandleCreateInstanceTask(ctx context.Context, orderID uint64) (ProvisionResult, error) {
+	if existing, found, err := s.repo.FindProvisionResultByOrder(ctx, orderID); err != nil {
+		return ProvisionResult{}, err
+	} else if found {
+		return existing, nil
+	}
+
 	orderRow, reservation, err := s.repo.LoadPaidOrderForProvision(ctx, orderID)
 	if err != nil {
 		return ProvisionResult{}, err
@@ -47,6 +47,8 @@ func (s *Service) HandleCreateInstanceTask(ctx context.Context, orderID uint64) 
 
 	vmResp, err := s.vmClient.CreateVM(ctx, buildCreateRequest(orderRow, reservation))
 	if err != nil {
+		_ = s.auditSvc.Record(ctx, "order.provision.failed", orderID)
+		_ = s.notificationSvc.SendProvisionFailure(ctx, orderRow.UserID, orderID)
 		return ProvisionResult{}, err
 	}
 
