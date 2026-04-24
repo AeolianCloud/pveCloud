@@ -1,13 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { readStoredToken } from '../lib/http'
-import DashboardView from '../views/DashboardPlaceholderPage.vue'
+import DashboardView from '../views/DashboardPage.vue'
 import InstanceManageView from '../views/InstanceManagePage.vue'
 import LoginView from '../views/AdminLoginPage.vue'
 import OrderManageView from '../views/OrderManagePage.vue'
 import ProductManageView from '../views/ProductManagePage.vue'
 import TaskManageView from '../views/TaskManagePage.vue'
-import UserManageView from '../views/UserManagePlaceholderPage.vue'
+import UserManageView from '../views/UserManagePage.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
