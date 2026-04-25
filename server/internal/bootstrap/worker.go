@@ -28,15 +28,24 @@ func NewWorker(app *App) *Worker {
 func (w *Worker) Run(ctx context.Context) error {
 	w.app.Logger.Info("Worker 已启动", "worker_id", w.app.Config.Worker.ID)
 
+	timer := time.NewTimer(w.app.Config.Worker.PollInterval())
+	defer func() {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}()
+
 	for {
-		timer := time.NewTimer(w.app.Config.Worker.PollInterval())
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			w.app.Logger.Info("Worker 已停止", "worker_id", w.app.Config.Worker.ID)
 			return nil
 		case <-timer.C:
 			w.app.Logger.Debug("Worker 心跳", "worker_id", w.app.Config.Worker.ID)
+			timer.Reset(w.app.Config.Worker.PollInterval())
 		}
 	}
 }
