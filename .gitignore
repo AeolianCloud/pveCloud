@@ -1,6 +1,4 @@
 *.log
-config.yaml
-server/config.yaml
 server/bin/
 server/.cache/
 server/tmp/

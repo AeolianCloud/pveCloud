@@ -2,11 +2,11 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "go build -o ./tmp/api.exe ./cmd/api"
-bin = "./tmp/api.exe"
+cmd = "go build -o ./tmp/worker.exe ./cmd/worker"
+bin = "./tmp/worker.exe"
 args_bin = ["-config", "config.yaml"]
 include_ext = ["go", "yaml", "yml"]
-include_dir = ["cmd", "internal", "../docs/server/api"]
+include_dir = ["cmd", "internal"]
 exclude_dir = ["tmp", "bin", ".cache"]
 delay = 1000
 stop_on_error = true

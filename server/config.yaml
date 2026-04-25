@@ -18,9 +18,9 @@ database:
   # 业务数据库名称。
   name: pvecloud
   # 业务数据库用户名；不要在示例配置中写入真实生产账号。
-  user: pvecloud
+  user: root
   # 业务数据库密码；真实配置写入 server/config.yaml，并保持不提交。
-  password: change_me
+  password: ServBay.dev
   # 数据库连接字符集；需要支持完整 Unicode 时使用 utf8mb4。
   charset: utf8mb4
   # 是否把 MariaDB 时间字段解析为 Go time.Time。

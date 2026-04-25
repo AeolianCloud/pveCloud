@@ -22,6 +22,8 @@ Redis    缓存、会话或队列增强，第一阶段可选
 
 后端配置示例维护在 `server/config.example.yaml`。真实部署配置不得提交到仓库。
 
+`server/config.example.yaml` 同时作为配置键说明入口，所有示例配置组和配置项都应保留中文注释。注释需要说明用途、单位、默认值语义和安全注意事项，避免运维人员只能通过代码理解配置含义。
+
 建议配置组：
 
 ```text
@@ -37,6 +39,21 @@ mail
 sms
 log
 ```
+
+## 本地启动辅助脚本
+
+本地开发可使用仓库根目录 `scripts/dev.mjs` 同时启动后端 API 和前端开发服务。该脚本只面向开发环境，不作为生产进程管理方案。
+
+脚本边界：
+
+- 使用 Node.js 编写，保持跨平台路径处理，不依赖 PowerShell 专有语法。
+- 使用 `server/.air.toml` 启动 API 热重载进程。
+- 使用 `server/.air.worker.toml` 启动 Worker 热重载进程。
+- 默认启动 API、Worker、`admin` 和已存在的 `web`。
+- 后续存在 `web/` 前端时，可自动启动 `web` Vite dev server。
+- 脚本不提供运行参数，避免不同开发者启动组合不一致。
+- 脚本不管理 MariaDB、Redis、反向代理或生产守护进程。
+- 脚本不得生成、输出或提交真实生产密钥。
 
 ## PVE 运维
 
