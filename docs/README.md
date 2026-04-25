@@ -1,27 +1,29 @@
-# 文档索引
+# pveCloud 文档索引
 
-项目流程和主要设计口径已经迁移到项目内技能：
+`docs/` 是项目事实、设计说明和接口文档的维护位置。AI 协作流程和开发技能只放在 `.codex/skills/pvecloud-document-first/`，不要把这两类内容混在一起。
 
-```text
-.codex/skills/pvecloud-document-first/
-```
+## 文档边界
 
-## 当前保留内容
-
-| 路径 | 角色 |
+| 内容 | 维护位置 |
 | --- | --- |
-| `.codex/skills/pvecloud-document-first/SKILL.md` | AI 强制工作流入口 |
-| `.codex/skills/pvecloud-document-first/references/workflow.md` | 协作流程、文档先行门禁、项目硬规则 |
-| `.codex/skills/pvecloud-document-first/references/backend.md` | 后端架构、Go 技术栈、API、任务、集成边界 |
-| `.codex/skills/pvecloud-document-first/references/database.md` | 数据库设计、约束、事务规则 |
-| `.codex/skills/pvecloud-document-first/references/frontend.md` | `admin/` 和 `web/` 前端规则 |
-| `.codex/skills/pvecloud-document-first/references/operations.md` | 本地开发、部署和运维边界 |
-| `docs/server/api/openapi.yaml` | OpenAPI 3.x 机器可读接口契约 |
-| `server/migrations/` | MariaDB 可执行迁移契约 |
+| API 最终契约 | `docs/server/api/openapi.yaml` |
+| API 响应、错误码、鉴权约定 | `docs/server/api/conventions.md` |
+| 后端架构和业务规则 | `docs/server/architecture.md` |
+| 后端技术栈、目录、配置和命令 | `docs/server/go-technical.md` |
+| 数据库设计说明 | `docs/server/database/design.md` |
+| 数据库可执行结构 | `server/migrations/` |
+| 异步任务和 Worker | `docs/server/jobs.md` |
+| 外部系统集成 | `docs/server/integrations/README.md` |
+| 管理端前端设计 | `docs/admin/architecture.md` |
+| 用户端前端设计 | `docs/web/architecture.md` |
+| 本地开发 | `docs/development/local-setup.md` |
+| 部署和运维 | `docs/operations/deployment.md` |
+| AI 文档先行工作流 | `.codex/skills/pvecloud-document-first/` |
 
-## 维护方式
+## 维护规则
 
-- AI 执行任务时先读技能，再读对应 reference。
-- 接口变更继续更新 `docs/server/api/openapi.yaml`。
-- 数据库结构变更继续更新 `server/migrations/`，并同步 `references/database.md`。
-- 其他规则变更优先更新 `.codex/skills/pvecloud-document-first/references/`。
+- 新增或修改接口：先改 `docs/server/api/openapi.yaml`，再按需更新 `docs/server/api/conventions.md`。
+- 新增或修改表结构：先更新 `server/migrations/`，设计口径同步写入 `docs/server/database/design.md`。
+- 新增或修改页面、状态、菜单、路由、权限展示：更新对应前端文档。
+- 新增或修改开发流程、AI 门禁、工程实现守则：更新 `.codex/skills/pvecloud-document-first/`。
+- 如果 skill 和 `docs/` 冲突，以 `docs/` 和机器契约为准，然后修正 skill。

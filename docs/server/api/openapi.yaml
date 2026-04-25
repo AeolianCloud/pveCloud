@@ -10,6 +10,8 @@ tags:
     description: 系统检查接口
   - name: admin-auth
     description: 管理端认证接口
+  - name: admin-dashboard
+    description: 管理端首页接口
 paths:
   /healthz:
     get:
@@ -100,7 +102,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /admin-api/dashboard:
+    get:
+      tags:
+        - admin-dashboard
+      summary: 管理端首页
+      operationId: getAdminDashboard
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: 首页数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardResponse"
+        "401":
+          description: 未登录、token 无效或 token 过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: 缺少 dashboard:view 权限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     ResponseEnvelope:
       type: object
@@ -174,6 +208,93 @@ components:
                 pong:
                   type: boolean
                   example: true
+    AdminDashboardMetric:
+      type: object
+      required:
+        - key
+        - title
+        - value
+      properties:
+        key:
+          type: string
+          example: active_instances
+        title:
+          type: string
+          example: 运行中实例
+        value:
+          type: integer
+          example: 0
+        unit:
+          type: string
+          nullable: true
+          example: 台
+    AdminMenuItem:
+      type: object
+      required:
+        - key
+        - title
+        - path
+      properties:
+        key:
+          type: string
+          example: dashboard
+        title:
+          type: string
+          example: 首页
+        path:
+          type: string
+          example: /dashboard
+        icon:
+          type: string
+          nullable: true
+          example: layout-dashboard
+        permission_code:
+          type: string
+          nullable: true
+          example: dashboard:view
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMenuItem"
+    AdminDashboardData:
+      type: object
+      required:
+        - admin
+        - role_ids
+        - permission_codes
+        - menus
+        - metrics
+      properties:
+        admin:
+          $ref: "#/components/schemas/AdminSummary"
+        role_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+          example:
+            - 1
+        permission_codes:
+          type: array
+          items:
+            type: string
+          example:
+            - dashboard:view
+        menus:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminMenuItem"
+        metrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDashboardMetric"
+    AdminDashboardResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AdminDashboardData"
     AdminLoginRequest:
       type: object
       required:

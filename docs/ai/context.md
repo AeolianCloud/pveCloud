@@ -1,13 +1,20 @@
-# AI 项目上下文
+# AI 协作上下文
 
-AI 上下文已经迁移到项目内技能：
+AI 进入本仓库时先读 `AGENTS.md`，再使用项目内技能：
 
 ```text
-.codex/skills/pvecloud-document-first/references/workflow.md
-.codex/skills/pvecloud-document-first/references/backend.md
-.codex/skills/pvecloud-document-first/references/database.md
-.codex/skills/pvecloud-document-first/references/frontend.md
-.codex/skills/pvecloud-document-first/references/operations.md
+.codex/skills/pvecloud-document-first/
 ```
 
-保留本文件仅用于兼容旧索引。后续项目阶段、技术口径和任务顺序变更，请同步维护技能 references。
+## 边界
+
+- 本文件只说明 AI 协作入口，不承载接口、数据库、页面或业务契约。
+- AI 工作流、门禁、实现守则维护在 skill。
+- 项目事实和契约维护在 `docs/`、`server/migrations/`、`server/config.example.yaml`。
+
+## 推荐读取顺序
+
+1. `AGENTS.md`
+2. `.codex/skills/pvecloud-document-first/SKILL.md`
+3. 对应 skill reference
+4. 对应 `docs/` 或机器契约

@@ -1,130 +1,49 @@
-# pveCloud Frontend Rules
+# Frontend Implementation Guardrails
 
-This reference consolidates `admin/` and `web/` frontend rules.
+This file is for AI implementation rules. Admin and web product/page design lives in `docs/admin/architecture.md` and `docs/web/architecture.md`; endpoint contracts live in `docs/server/api/openapi.yaml`.
 
-## Shared Frontend Decisions
+## Required Docs
 
-- Runtime/package manager: Bun.
-- Framework: Vue 3.
-- Build tool: Vite.
-- Language: TypeScript.
+Read these before frontend work:
+
+- `docs/admin/architecture.md` for `admin/`
+- `docs/web/architecture.md` for `web/`
+- `docs/server/api/openapi.yaml` when backend calls are involved
+- `docs/server/api/conventions.md` for envelope, auth, and error semantics
+
+## Shared Rules
+
 - `admin/` and `web/` are fully independent.
 - Do not create a shared frontend package.
 - Do not import pages, components, requests, stores, types, constants, or utilities across `admin/` and `web/`.
-- Each frontend owns its own:
-  - `src/api/`
-  - `src/stores/`
-  - `src/types/`
-  - `src/constants/`
-  - `src/utils/`
-  - `src/router/`
+- Each frontend owns its own `src/api/`, `src/stores/`, `src/types/`, `src/constants/`, `src/utils/`, and `src/router/`.
+- Use the existing stack documented in the owning frontend architecture doc.
 
-## Admin Frontend
+## Admin Rules
 
-Scope: platform operation, support, and administrator workflows.
+- `admin` calls only `/admin-api/*`.
+- Backend RBAC remains authoritative; frontend permission checks are only usability and navigation control.
+- Route guards, request wrappers, auth stores, permission stores, menu constants, and layout behavior must match `docs/admin/architecture.md` and OpenAPI.
 
-API boundary:
+## Web Rules
 
-```text
-admin -> /admin-api/*
-```
+- `web` calls only `/api/*`.
+- User auth, order, payment, instance, and ticket flows must match `docs/web/architecture.md` and OpenAPI.
 
-Never call `/api/*` from `admin`.
-
-Current stack:
-
-| Area | Choice |
-| --- | --- |
-| Package/script runner | Bun |
-| Build | Vite |
-| UI framework | Vue 3 composition API |
-| Language | TypeScript |
-| Router | Vue Router |
-| State | Pinia |
-| HTTP | Axios |
-| Icons | lucide-vue-next |
-
-Expected pages:
-
-- Login
-- Dashboard
-- Users
-- Products/plans/regions/nodes/images/prices
-- Orders
-- Payments/wallet flows/manual credit
-- Instances
-- Tickets
-- Admin users/roles/permissions
-- System settings and audit logs
-
-Admin state:
-
-- `auth`: admin token and admin profile.
-- `permission`: permission codes and menu visibility.
-- `layout`: sidebar, theme, collapse state.
-- `tabs`: optional admin multi-tabs.
-
-Admin login:
-
-```text
-POST /admin-api/auth/login
-```
-
-Successful login returns admin JWT, admin summary, role IDs, and permission codes. Frontend stores `access_token` in auth store and `localStorage`, then sends:
-
-```text
-Authorization: Bearer <access_token>
-```
-
-Frontend may use `permission_codes` for page/button display, but backend RBAC remains authoritative.
-
-Local admin dev server:
-
-```powershell
-cd admin
-bun install
-bun dev
-```
-
-The admin Vite server uses port `5174` and proxies `/admin-api/*` to `http://127.0.0.1:8080`.
-
-## Web Frontend
-
-Scope: public site and user center.
-
-API boundary:
-
-```text
-web -> /api/*
-```
-
-Never call `/admin-api/*` from `web`.
-
-Expected pages:
-
-- Home
-- Products
-- Pricing
-- Login/register
-- Order creation
-- Payment result
-- User center
-- My orders
-- My instances
-- Tickets
-
-Web state:
-
-- `auth`: user token and user profile.
-- `cart`: optional order config draft.
-- `order`: current order state.
-- `instance`: optional instance-list cache.
-
-## Frontend Change Gate
+## Change Gate
 
 Before implementing frontend pages, routes, API wrappers, types, constants, stores, or utility functions:
 
-1. Update this reference or the remaining lightweight docs.
-2. Confirm API contract in `docs/server/api/openapi.yaml` when backend calls are involved.
+1. Update the owning frontend doc when page/workflow/state changes.
+2. Update `docs/server/api/openapi.yaml` when backend calls change.
 3. Stop for maintainer confirmation.
 4. Implement only in the owning frontend directory.
+
+## Verification Baseline
+
+```powershell
+cd admin
+bun run build
+```
+
+Use the equivalent command under `web/` once that frontend exists.

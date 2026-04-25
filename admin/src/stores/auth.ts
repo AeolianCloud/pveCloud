@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 
 import { loginAdmin } from '../api/auth'
 import type { AdminLoginRequest, AdminSummary } from '../types/auth'
+import type { AdminMenuItem, DashboardResponse } from '../types/dashboard'
 
 const STORAGE_KEY = 'pvecloud_admin_auth'
 
@@ -10,6 +11,8 @@ interface AuthState {
   admin: AdminSummary | null
   roleIds: number[]
   permissionCodes: string[]
+  menuItems: AdminMenuItem[]
+  sidebarCollapsed: boolean
 }
 
 function loadState(): AuthState {
@@ -32,6 +35,8 @@ function emptyState(): AuthState {
     admin: null,
     roleIds: [],
     permissionCodes: [],
+    menuItems: [],
+    sidebarCollapsed: false,
   }
 }
 
@@ -39,6 +44,12 @@ export const useAuthStore = defineStore('auth', {
   state: (): AuthState => loadState(),
   getters: {
     isLoggedIn: (state) => Boolean(state.token && state.admin),
+    hasPermission: (state) => (permissionCode?: string) => {
+      if (!permissionCode) {
+        return true
+      }
+      return state.permissionCodes.includes(permissionCode)
+    },
   },
   actions: {
     async login(payload: AdminLoginRequest) {
@@ -47,11 +58,23 @@ export const useAuthStore = defineStore('auth', {
       this.admin = result.admin
       this.roleIds = result.role_ids
       this.permissionCodes = result.permission_codes
+      this.menuItems = []
+      this.persist()
+    },
+    applyDashboard(payload: DashboardResponse) {
+      this.admin = payload.admin
+      this.roleIds = payload.role_ids
+      this.permissionCodes = payload.permission_codes
+      this.menuItems = payload.menus
       this.persist()
     },
     logout() {
       Object.assign(this, emptyState())
       localStorage.removeItem(STORAGE_KEY)
+    },
+    toggleSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed
+      this.persist()
     },
     persist() {
       localStorage.setItem(
@@ -61,6 +84,8 @@ export const useAuthStore = defineStore('auth', {
           admin: this.admin,
           roleIds: this.roleIds,
           permissionCodes: this.permissionCodes,
+          menuItems: this.menuItems,
+          sidebarCollapsed: this.sidebarCollapsed,
         }),
       )
     },

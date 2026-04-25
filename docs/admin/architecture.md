@@ -1,15 +1,91 @@
 # Admin 前端
 
-管理后台定位、技术栈、路由、状态、登录流程和独立管理规则已经迁移到：
+管理后台面向平台运营、客服和管理员工作流。接口边界是 `/admin-api/*`，最终接口契约以 `docs/server/api/openapi.yaml` 为准。
+
+## 技术栈
+
+| 领域 | 选择 |
+| --- | --- |
+| Package/script runner | Bun |
+| Build | Vite |
+| UI framework | Vue 3 composition API |
+| Language | TypeScript |
+| Router | Vue Router |
+| State | Pinia |
+| HTTP | Axios |
+| Icons | lucide-vue-next |
+
+## 独立边界
+
+- `admin/` 只调用 `/admin-api/*`。
+- `admin/` 不调用 `/api/*`。
+- `admin/` 不导入 `web/` 的页面、组件、请求、状态、类型、常量或工具。
+- 不创建公共前端 `shared/` 包。
+
+## 页面范围
+
+- Login
+- Dashboard
+- Users
+- Products / plans / regions / nodes / images / prices
+- Orders
+- Payments / wallet flows / manual credit
+- Instances
+- Tickets
+- Admin users / roles / permissions
+- System settings and audit logs
+
+## 状态设计
+
+- `auth`：管理员 token、管理员资料、角色 ID、权限码。
+- `permission`：权限码集合和菜单可见性。
+- `layout`：侧边栏、主题、折叠状态。
+- `tabs`：可选的管理端多标签。
+
+## 登录
 
 ```text
-.codex/skills/pvecloud-document-first/references/frontend.md
+POST /admin-api/auth/login
 ```
 
-管理端接口契约仍以 OpenAPI 为准：
+登录成功后返回管理端 JWT、管理员摘要、角色 ID 和权限码。前端把 `access_token` 写入 auth store 和 `localStorage`，后续请求发送：
 
 ```text
-docs/server/api/openapi.yaml
+Authorization: Bearer <access_token>
 ```
 
-保留本文件仅用于兼容旧链接。后续维护请更新技能 reference 和 OpenAPI。
+前端可用 `permission_codes` 控制页面、菜单和按钮显示，但后端 RBAC 仍是最终权限边界。
+
+## 路由守卫
+
+- `/login` 公开访问，已登录管理员访问时跳转 `/dashboard`。
+- 管理端业务路由使用 `meta.requiresAuth=true`。
+- 页面可声明 `meta.permissionCode`。
+- 未登录管理员跳转 `/login?redirect=<target>`。
+- 权限码缺失时阻止进入页面并显示无权限状态。
+- 第一阶段受保护首页是 `/dashboard`，需要 `dashboard:view`。
+
+## Axios 处理
+
+- 请求拦截器为 `/admin-api/*` 请求附加 `Authorization: Bearer <access_token>`。
+- 受保护请求遇到 HTTP `401` 或响应包裹 `401xx` 时，清理 auth store 和 `localStorage`，并跳转 `/login?redirect=<current>`。
+- 登录请求自身的账号密码错误展示在登录页，不触发自动退出重定向。
+- HTTP `403` 或响应包裹 `403xx` 展示为权限错误。
+
+## Dashboard
+
+```text
+GET /admin-api/dashboard
+```
+
+Dashboard 在路由守卫通过后调用，后端仍校验 JWT 和 `dashboard:view`。页面使用返回的管理员摘要、角色 ID、权限码、可见菜单和概览指标渲染初始管理工作台。
+
+## 本地开发
+
+```powershell
+cd admin
+bun install
+bun dev
+```
+
+Vite dev server 使用端口 `5174`，并把 `/admin-api/*` 代理到 `http://127.0.0.1:8080`。

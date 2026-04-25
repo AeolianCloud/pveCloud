@@ -1,10 +1,18 @@
-# 文档先行流程
+# 文档先行流程说明
 
-该流程已经迁移到项目内技能：
+文档先行是 pveCloud 的协作流程：任何实现、迁移、接口、页面、配置、部署或业务流程变更，都先更新对应文档或机器契约，再等待维护者确认，最后进入实现。
 
-```text
-.codex/skills/pvecloud-document-first/SKILL.md
-.codex/skills/pvecloud-document-first/references/workflow.md
-```
+## 维护边界
 
-保留本文件仅用于兼容旧索引和人工查找。后续维护请直接修改技能中的 workflow reference。
+- 流程门禁和 AI 执行细节维护在 `.codex/skills/pvecloud-document-first/`。
+- 接口契约维护在 `docs/server/api/openapi.yaml`。
+- 数据库结构维护在 `server/migrations/`。
+- 项目设计和业务规则维护在 `docs/`。
+
+## 人工检查清单
+
+1. 这次改动是否影响接口、数据表、页面、配置、部署或业务流程。
+2. 对应的 `docs/` 或机器契约是否已经先更新。
+3. 维护者是否已经确认文档/契约。
+4. 实现是否严格按确认后的文档/契约完成。
+5. 是否运行了最小但有意义的测试或构建。
