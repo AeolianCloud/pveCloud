@@ -1,0 +1,4 @@
+interface:
+  display_name: "pveCloud Document First"
+  short_description: "Enforce docs-first confirmation gates for pveCloud work."
+  default_prompt: "Use the pveCloud document-first workflow before changing code."

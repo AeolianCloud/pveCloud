@@ -38,7 +38,7 @@ func NewRouter(app *bootstrap.App) *gin.Engine {
 		router.GET("/openapi.yaml", openAPI(app))
 	}
 	RegisterWebRoutes(router.Group("/api"))
-	RegisterAdminRoutes(router.Group("/admin-api"))
+	RegisterAdminRoutes(router.Group("/admin-api"), app)
 
 	return router
 }
