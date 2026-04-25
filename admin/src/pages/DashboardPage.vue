@@ -113,7 +113,7 @@ onMounted(loadDashboard)
     <div class="stat-grid">
       <article v-for="stat in displayStats" :key="stat.key" class="stat-card" :class="`stat-card--${stat.tone}`">
         <span class="stat-icon">
-          <component :is="stat.icon" :size="28" aria-hidden="true" />
+          <component :is="stat.icon" :size="22" aria-hidden="true" />
         </span>
         <div class="stat-main">
           <span>{{ stat.title }}</span>
@@ -184,11 +184,11 @@ onMounted(loadDashboard)
           <h2>快捷操作</h2>
         </header>
         <div class="quick-actions">
-          <button type="button"><ShoppingCart :size="20" aria-hidden="true" />创建订单</button>
-          <button type="button"><Box :size="20" aria-hidden="true" />新增套餐</button>
-          <button type="button"><Users :size="20" aria-hidden="true" />客户管理</button>
-          <button type="button"><TicketCheck :size="20" aria-hidden="true" />工单处理</button>
-          <button type="button"><BadgeCheck :size="20" aria-hidden="true" />权限配置</button>
+          <button type="button"><ShoppingCart :size="17" aria-hidden="true" />创建订单</button>
+          <button type="button"><Box :size="17" aria-hidden="true" />新增套餐</button>
+          <button type="button"><Users :size="17" aria-hidden="true" />客户管理</button>
+          <button type="button"><TicketCheck :size="17" aria-hidden="true" />工单处理</button>
+          <button type="button"><BadgeCheck :size="17" aria-hidden="true" />权限配置</button>
         </div>
       </article>
     </div>
@@ -268,7 +268,7 @@ onMounted(loadDashboard)
             </thead>
             <tbody>
               <tr v-for="node in nodes" :key="node[0]">
-                <td><Server :size="17" aria-hidden="true" />{{ node[0] }}</td>
+                <td><Server :size="15" aria-hidden="true" />{{ node[0] }}</td>
                 <td><span class="node-status">{{ node[1] }}</span></td>
                 <td>{{ node[2] }}</td>
                 <td>{{ node[3] }}</td>
@@ -281,7 +281,7 @@ onMounted(loadDashboard)
     </div>
 
     <button class="floating-refresh" type="button" title="刷新控制台" aria-label="刷新控制台" @click="loadDashboard">
-      <RefreshCw :class="{ spinning: loading }" :size="18" aria-hidden="true" />
+      <RefreshCw :class="{ spinning: loading }" :size="16" aria-hidden="true" />
     </button>
   </section>
 </template>
@@ -290,24 +290,24 @@ onMounted(loadDashboard)
 .dashboard-page {
   position: relative;
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(170px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 10px;
 }
 
 .stat-card {
   position: relative;
-  min-height: 162px;
+  min-height: 124px;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  grid-template-rows: 76px auto;
-  gap: 8px 18px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: 58px auto;
+  gap: 6px 12px;
   overflow: hidden;
-  padding: 28px 22px 18px;
+  padding: 18px 16px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
@@ -315,21 +315,21 @@ onMounted(loadDashboard)
 }
 
 .stat-icon {
-  width: 62px;
-  height: 62px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   color: #ffffff;
   background: var(--stat-color);
-  box-shadow: 0 0 0 7px color-mix(in srgb, var(--stat-color) 18%, transparent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--stat-color) 18%, transparent);
 }
 
 .stat-main {
   min-width: 0;
   display: grid;
   align-content: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .stat-main span,
@@ -340,7 +340,7 @@ onMounted(loadDashboard)
 
 .stat-main strong {
   color: var(--text);
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -348,20 +348,21 @@ onMounted(loadDashboard)
   grid-column: 1 / 3;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--success);
+  font-size: 12px;
 }
 
 .stat-footer strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .stat-sparkline {
   position: absolute;
-  right: 18px;
-  bottom: 18px;
-  width: 92px;
-  height: 42px;
+  right: 14px;
+  bottom: 14px;
+  width: 76px;
+  height: 34px;
   color: var(--stat-color);
 }
 
@@ -392,13 +393,13 @@ onMounted(loadDashboard)
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: minmax(420px, 1.35fr) minmax(380px, 1.1fr) minmax(220px, 0.58fr);
-  gap: 18px;
+  gap: 14px;
 }
 
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.95fr) minmax(520px, 1.35fr) minmax(320px, 0.9fr);
-  gap: 18px;
+  gap: 14px;
 }
 
 .dashboard-card {
@@ -411,25 +412,25 @@ onMounted(loadDashboard)
 }
 
 .card-header {
-  min-height: 54px;
+  min-height: 46px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 18px;
+  gap: 12px;
+  padding: 0 14px;
 }
 
 .card-header h2 {
   margin: 0;
   color: var(--text);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.2;
 }
 
 .card-header h2 span {
   margin-left: 7px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -443,8 +444,8 @@ onMounted(loadDashboard)
 }
 
 .ghost-select {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 30px;
+  padding: 0 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted-strong);
@@ -452,17 +453,17 @@ onMounted(loadDashboard)
 }
 
 .sales-card {
-  min-height: 326px;
-  padding-bottom: 20px;
+  min-height: 266px;
+  padding-bottom: 16px;
 }
 
 .chart-legend {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 22px 8px;
+  gap: 7px;
+  padding: 0 16px 6px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -475,8 +476,8 @@ onMounted(loadDashboard)
 
 .line-chart {
   position: relative;
-  height: 178px;
-  margin: 0 28px 0 22px;
+  height: 140px;
+  margin: 0 20px 0 16px;
   color: var(--primary);
 }
 
@@ -497,27 +498,27 @@ onMounted(loadDashboard)
 .chart-axis {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 8px;
-  padding: 0 24px;
+  gap: 6px;
+  padding: 0 18px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .product-card {
-  min-height: 326px;
+  min-height: 266px;
 }
 
 .donut-layout {
   display: grid;
-  grid-template-columns: 238px minmax(0, 1fr);
+  grid-template-columns: 188px minmax(0, 1fr);
   align-items: center;
-  gap: 20px;
-  padding: 20px 24px 30px;
+  gap: 16px;
+  padding: 16px 18px 22px;
 }
 
 .donut-chart {
   position: relative;
-  width: 218px;
+  width: 170px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: conic-gradient(
@@ -531,7 +532,7 @@ onMounted(loadDashboard)
 
 .donut-chart::after {
   position: absolute;
-  inset: 48px;
+  inset: 38px;
   border-radius: 50%;
   background: var(--panel);
   content: "";
@@ -539,7 +540,7 @@ onMounted(loadDashboard)
 
 .donut-center {
   position: absolute;
-  inset: 58px;
+  inset: 46px;
   z-index: 1;
   display: grid;
   place-content: center;
@@ -547,18 +548,18 @@ onMounted(loadDashboard)
 }
 
 .donut-center strong {
-  font-size: 22px;
+  font-size: 17px;
 }
 
 .donut-center span {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--muted);
   font-weight: 700;
 }
 
 .share-list {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -568,7 +569,7 @@ onMounted(loadDashboard)
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   color: var(--muted-strong);
 }
 
@@ -587,26 +588,27 @@ onMounted(loadDashboard)
 }
 
 .quick-card {
-  min-height: 326px;
+  min-height: 266px;
 }
 
 .quick-actions {
   display: grid;
-  gap: 12px;
-  padding: 10px 18px 18px;
+  gap: 9px;
+  padding: 8px 14px 14px;
 }
 
 .quick-actions button {
-  min-height: 42px;
+  min-height: 34px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 18px;
+  gap: 9px;
+  padding: 0 14px;
   border: 1px solid color-mix(in srgb, currentColor 18%, var(--border));
   border-radius: 6px;
   color: var(--primary);
   background: color-mix(in srgb, currentColor 8%, var(--panel));
   cursor: pointer;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -627,7 +629,7 @@ onMounted(loadDashboard)
 }
 
 .resource-card {
-  min-height: 354px;
+  min-height: 298px;
 }
 
 .resource-list {
@@ -640,8 +642,8 @@ onMounted(loadDashboard)
 .resource-item {
   min-width: 0;
   display: grid;
-  gap: 8px;
-  padding: 18px 12px;
+  gap: 6px;
+  padding: 13px 10px;
   border-right: 1px solid var(--border);
 }
 
@@ -656,7 +658,7 @@ onMounted(loadDashboard)
 }
 
 .resource-item strong {
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .progress-track {
@@ -690,15 +692,15 @@ onMounted(loadDashboard)
 
 .alert-list {
   display: grid;
-  padding: 12px 18px 18px;
+  padding: 8px 14px 14px;
 }
 
 .alert-row {
-  min-height: 40px;
+  min-height: 32px;
   display: grid;
   grid-template-columns: 9px 42px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   color: var(--muted-strong);
   font-size: 13px;
 }
@@ -742,12 +744,12 @@ onMounted(loadDashboard)
 }
 
 .table-card {
-  min-height: 354px;
+  min-height: 298px;
 }
 
 .table-scroll {
   overflow-x: auto;
-  padding: 0 14px 16px;
+  padding: 0 10px 12px;
 }
 
 table {
@@ -763,7 +765,7 @@ table {
 }
 
 th {
-  height: 44px;
+  height: 36px;
   color: #53627a;
   background: var(--panel-soft);
   font-weight: 800;
@@ -771,13 +773,13 @@ th {
 }
 
 td {
-  height: 50px;
+  height: 40px;
   border-bottom: 1px solid var(--border);
 }
 
 th,
 td {
-  padding: 0 10px;
+  padding: 0 8px;
   white-space: nowrap;
 }
 
@@ -791,8 +793,8 @@ td a {
 .node-status {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 6px;
   color: var(--success);
   background: var(--success-soft);
@@ -818,10 +820,10 @@ td a {
 
 .floating-refresh {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 44px;
-  height: 44px;
+  right: 18px;
+  bottom: 18px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
@@ -844,7 +846,7 @@ td a {
 
 @media (max-width: 1460px) {
   .stat-grid {
-    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
   }
 
   .dashboard-main-grid,

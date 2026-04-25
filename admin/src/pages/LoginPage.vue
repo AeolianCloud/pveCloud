@@ -244,12 +244,20 @@ onMounted(loadCaptcha)
 .pc-login-page {
   position: relative;
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(300px, 440px) minmax(420px, 560px);
+  grid-template-rows: minmax(0, auto);
+  align-content: center;
+  justify-content: center;
+  column-gap: clamp(34px, 5.4vw, 92px);
+  padding: clamp(58px, 7.6vh, 82px) clamp(28px, 5vw, 64px) clamp(34px, 5vh, 54px);
   overflow: hidden;
   background: #f5f8ff;
   color: #001845;
   font-family:
     "Microsoft YaHei", "PingFang SC", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  isolation: isolate;
 }
 
 .pc-login-page *,
@@ -270,21 +278,24 @@ onMounted(loadCaptcha)
 .pc-login-bg {
   position: absolute;
   pointer-events: none;
+  z-index: -1;
 }
 
 .pc-login-bg-a {
-  top: -160px;
-  left: -70px;
-  width: 640px;
-  height: 980px;
+  top: -180px;
+  left: -90px;
+  width: min(42vw, 620px);
+  min-width: 360px;
+  height: 112vh;
   background: #dbe6ff;
-  clip-path: polygon(0 0, 100% 0, 22% 100%, 0 100%);
+  clip-path: polygon(0 0, 100% 0, 34% 100%, 0 100%);
 }
 
 .pc-login-bg-b {
-  bottom: -230px;
-  left: -80px;
-  width: 700px;
+  bottom: -260px;
+  left: -120px;
+  width: min(48vw, 660px);
+  min-width: 390px;
   height: 620px;
   background: linear-gradient(42deg, rgba(83, 131, 245, 0.25), rgba(83, 131, 245, 0.03));
   clip-path: polygon(0 0, 100% 55%, 100% 100%, 0 100%);
@@ -293,28 +304,29 @@ onMounted(loadCaptcha)
 .pc-login-bg-c {
   left: 0;
   bottom: 0;
-  width: 610px;
-  height: 380px;
+  width: min(40vw, 560px);
+  min-width: 340px;
+  height: 340px;
   background: rgba(82, 126, 244, 0.1);
   clip-path: polygon(0 26%, 100% 100%, 0 100%);
 }
 
 .pc-login-logo {
   position: absolute;
-  top: 36px;
-  left: 275px;
+  top: clamp(24px, 3.6vh, 34px);
+  left: max(44px, calc((100vw - 1092px) / 2));
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   color: #001845;
-  font-size: 29px;
+  font-size: 22px;
   font-weight: 850;
 }
 
 .pc-login-logo-mark {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   border-radius: 8px;
@@ -324,24 +336,22 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-intro {
-  position: absolute;
-  left: 350px;
-  top: 298px;
-  z-index: 2;
-  width: 520px;
+  grid-column: 1;
+  align-self: center;
+  width: min(100%, 440px);
 }
 
 .pc-login-eyebrow {
   color: #2f68f5;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 850;
 }
 
 .pc-login-intro h1 {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   color: #001845;
-  font-size: 50px;
-  line-height: 1.15;
+  font-size: clamp(34px, 3vw, 42px);
+  line-height: 1.18;
   font-weight: 850;
   letter-spacing: 0;
 }
@@ -351,28 +361,28 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-intro p {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   color: #506489;
-  font-size: 22px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.65;
 }
 
 .pc-login-features {
   display: grid;
-  gap: 28px;
-  margin-top: 58px;
+  gap: 15px;
+  margin-top: 30px;
 }
 
 .pc-login-feature {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
+  grid-template-columns: 48px minmax(0, 1fr);
   align-items: center;
-  gap: 26px;
+  gap: 16px;
 }
 
 .pc-login-feature > span {
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border: 1px solid #b9cdfb;
@@ -384,56 +394,55 @@ onMounted(loadCaptcha)
 .pc-login-feature strong {
   display: block;
   color: #001845;
-  font-size: 25px;
+  font-size: 17px;
   line-height: 1.2;
 }
 
 .pc-login-feature small {
   display: block;
-  margin-top: 8px;
+  margin-top: 5px;
   color: #526489;
-  font-size: 17px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .pc-login-card {
-  position: absolute;
-  top: 130px;
-  right: 350px;
-  z-index: 2;
-  width: 620px;
-  padding: 48px 50px 46px;
+  grid-column: 2;
+  align-self: center;
+  width: min(100%, 560px);
+  padding: clamp(34px, 3.4vw, 46px);
   border: 1px solid #d3def0;
-  border-radius: 16px;
+  border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 28px 78px rgba(19, 40, 87, 0.12);
 }
 
 .pc-login-heading span {
   color: #2f68f5;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 850;
 }
 
 .pc-login-heading h2 {
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: #001845;
-  font-size: 44px;
-  line-height: 1.05;
+  font-size: clamp(30px, 2.7vw, 38px);
+  line-height: 1.12;
   font-weight: 900;
   letter-spacing: 0;
 }
 
 .pc-login-heading p {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   color: #4f6289;
-  font-size: 17px;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .pc-login-form {
   display: grid;
-  gap: 22px;
-  margin-top: 34px;
+  gap: 18px;
+  margin-top: 28px;
 }
 
 .pc-login-form label {
@@ -445,11 +454,11 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-input {
-  height: 58px;
+  height: 54px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 18px;
+  gap: 12px;
+  padding: 0 16px;
   border: 1px solid #d5e0f1;
   border-radius: 8px;
   color: #68799e;
@@ -505,7 +514,7 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-captcha {
-  height: 58px;
+  height: 54px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
@@ -537,7 +546,7 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-submit {
-  min-height: 61px;
+  min-height: 54px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -548,7 +557,7 @@ onMounted(loadCaptcha)
   background: #4f73ce;
   box-shadow: 0 12px 24px rgba(47, 104, 245, 0.2);
   cursor: pointer;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 850;
 }
 
@@ -562,7 +571,7 @@ onMounted(loadCaptcha)
 }
 
 .pc-login-note {
-  min-height: 59px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -571,7 +580,7 @@ onMounted(loadCaptcha)
   border-radius: 8px;
   color: #385286;
   background: #f1f5fd;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 750;
 }
 
@@ -629,66 +638,92 @@ onMounted(loadCaptcha)
   transform: translate(-50%, -10px);
 }
 
-@media (max-width: 1460px) {
-  .pc-login-logo {
-    left: 110px;
+@media (max-width: 1180px) {
+  .pc-login-page {
+    grid-template-columns: minmax(260px, 380px) minmax(400px, 520px);
+    column-gap: 28px;
   }
 
-  .pc-login-intro {
-    left: 150px;
+  .pc-login-intro h1 {
+    font-size: 32px;
   }
 
-  .pc-login-card {
-    right: 120px;
+  .pc-login-features {
+    gap: 12px;
+    margin-top: 24px;
   }
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 980px) {
   .pc-login-page {
     min-height: auto;
-    display: grid;
-    gap: 28px;
-    padding: 28px 22px 44px;
+    grid-template-columns: minmax(0, 640px);
+    grid-template-rows: auto;
+    row-gap: 18px;
+    padding: 22px 20px 32px;
   }
 
-  .pc-login-bg-a {
-    width: 420px;
+  .pc-login-logo {
+    position: relative;
+    inset: auto;
   }
 
   .pc-login-logo,
   .pc-login-intro,
   .pc-login-card {
-    position: relative;
-    inset: auto;
-    width: min(100%, 680px);
-    margin: 0 auto;
-  }
-
-  .pc-login-intro {
-    margin-top: 54px;
+    grid-column: 1;
+    width: 100%;
   }
 
   .pc-login-card {
-    padding: 34px;
+    grid-row: 2;
   }
-}
 
-@media (max-width: 720px) {
+  .pc-login-intro {
+    grid-row: 3;
+    padding: 10px 0 0;
+  }
+
   .pc-login-intro h1 {
-    font-size: 38px;
+    font-size: 28px;
   }
 
   .pc-login-intro p {
-    font-size: 18px;
+    font-size: 14px;
+  }
+
+  .pc-login-features {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
   }
 
   .pc-login-feature {
-    grid-template-columns: 54px minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid #d8e3f5;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.58);
+  }
+}
+
+@media (max-width: 680px) {
+  .pc-login-page {
+    padding: 22px 14px 30px;
   }
 
-  .pc-login-feature > span {
-    width: 54px;
-    height: 54px;
+  .pc-login-logo {
+    font-size: 20px;
+  }
+
+  .pc-login-card {
+    padding: 26px 20px 22px;
+  }
+
+  .pc-login-heading h2 {
+    font-size: 28px;
   }
 
   .pc-login-captcha-row {
@@ -696,7 +731,20 @@ onMounted(loadCaptcha)
   }
 
   .pc-login-captcha {
-    width: 170px;
+    width: min(180px, 100%);
+  }
+
+  .pc-login-features {
+    grid-template-columns: 1fr;
+  }
+
+  .pc-login-feature {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .pc-login-feature > span {
+    width: 42px;
+    height: 42px;
   }
 }
 </style>

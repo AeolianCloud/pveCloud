@@ -91,7 +91,7 @@ async function logout() {
     <aside class="admin-sidebar">
       <div class="sidebar-brand">
         <span class="brand-mark">
-          <Server :size="23" aria-hidden="true" />
+          <Server :size="19" aria-hidden="true" />
         </span>
         <span class="brand-name">IDC云服务器销售系统</span>
       </div>
@@ -104,9 +104,9 @@ async function logout() {
           :to="item.path"
           :title="item.title"
         >
-          <component :is="iconFor(item.icon)" :size="19" aria-hidden="true" />
+          <component :is="iconFor(item.icon)" :size="17" aria-hidden="true" />
           <span>{{ item.title }}</span>
-          <ChevronDown class="sidebar-link-chevron" :size="15" aria-hidden="true" />
+          <ChevronDown class="sidebar-link-chevron" :size="13" aria-hidden="true" />
         </RouterLink>
       </nav>
 
@@ -117,7 +117,7 @@ async function logout() {
         :aria-label="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
         @click="auth.toggleSidebar()"
       >
-        <ChevronLeft :size="19" aria-hidden="true" />
+        <ChevronLeft :size="17" aria-hidden="true" />
         <span>收起侧边栏</span>
       </button>
     </aside>
@@ -132,7 +132,7 @@ async function logout() {
             :aria-label="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
             @click="auth.toggleSidebar()"
           >
-            <Menu :size="19" aria-hidden="true" />
+            <Menu :size="17" aria-hidden="true" />
           </button>
           <span>控制台</span>
           <span class="breadcrumb-separator">/</span>
@@ -140,7 +140,7 @@ async function logout() {
         </div>
 
         <label class="topbar-search" aria-label="全局搜索">
-          <Search :size="19" aria-hidden="true" />
+          <Search :size="17" aria-hidden="true" />
           <input type="search" placeholder="搜索订单、客户、实例、工单" />
           <kbd>Ctrl K</kbd>
         </label>
@@ -153,23 +153,23 @@ async function logout() {
             :aria-label="`切换主题，当前为${themeLabel}`"
             @click="toggleTheme"
           >
-            <Palette :size="18" aria-hidden="true" />
+            <Palette :size="16" aria-hidden="true" />
             <span>{{ themeLabel }}</span>
           </button>
           <button class="topbar-icon-button notification-button" type="button" title="通知" aria-label="通知">
-            <Bell :size="21" aria-hidden="true" />
+            <Bell :size="18" aria-hidden="true" />
             <span>12</span>
           </button>
           <button class="topbar-icon-button" type="button" title="帮助" aria-label="帮助">
-            <CircleHelp :size="21" aria-hidden="true" />
+            <CircleHelp :size="18" aria-hidden="true" />
           </button>
           <div class="admin-profile">
             <span class="profile-avatar">
-              <UserRound :size="22" aria-hidden="true" />
+              <UserRound :size="18" aria-hidden="true" />
             </span>
             <strong>{{ auth.admin?.display_name || auth.admin?.username || 'admin' }}</strong>
             <button class="profile-logout" type="button" title="退出登录" aria-label="退出登录" @click="logout">
-              <LogOut :size="17" aria-hidden="true" />
+              <LogOut :size="15" aria-hidden="true" />
             </button>
           </div>
         </div>

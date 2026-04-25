@@ -11,17 +11,17 @@
 
 <style scoped>
 .forbidden-page {
-  min-height: calc(100vh - 140px);
+  min-height: calc(100vh - 108px);
   display: grid;
   place-items: center;
 }
 
 .forbidden-panel {
-  width: min(100%, 460px);
+  width: min(100%, 380px);
   display: grid;
   justify-items: center;
-  gap: 14px;
-  padding: 42px;
+  gap: 10px;
+  padding: 30px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
@@ -31,19 +31,20 @@
 
 .forbidden-panel span {
   color: var(--primary);
-  font-size: 56px;
+  font-size: 42px;
   font-weight: 850;
   line-height: 1;
 }
 
 .forbidden-panel h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 22px;
 }
 
 .forbidden-panel p {
   margin: 0 0 8px;
   color: var(--muted);
+  font-size: 13px;
   line-height: 1.7;
 }
 

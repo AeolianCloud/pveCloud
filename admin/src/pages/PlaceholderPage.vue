@@ -24,13 +24,13 @@ const rows = computed(() => [
       </div>
       <div class="toolbar-actions">
         <label class="toolbar-search">
-          <Search :size="18" aria-hidden="true" />
+        <Search :size="16" aria-hidden="true" />
           <input type="search" :placeholder="`搜索${title}`" />
         </label>
-        <button type="button"><CalendarDays :size="18" aria-hidden="true" />近30天</button>
-        <button type="button"><Filter :size="18" aria-hidden="true" />筛选</button>
-        <button type="button"><Download :size="18" aria-hidden="true" />导出</button>
-        <button class="primary-button" type="button"><Plus :size="18" aria-hidden="true" />新增</button>
+        <button type="button"><CalendarDays :size="16" aria-hidden="true" />近30天</button>
+        <button type="button"><Filter :size="16" aria-hidden="true" />筛选</button>
+        <button type="button"><Download :size="16" aria-hidden="true" />导出</button>
+        <button class="primary-button" type="button"><Plus :size="16" aria-hidden="true" />新增</button>
       </div>
     </header>
 
@@ -93,7 +93,7 @@ const rows = computed(() => [
 <style scoped>
 .workspace-page {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .workspace-toolbar,
@@ -109,8 +109,8 @@ const rows = computed(() => [
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
+  gap: 14px;
+  padding: 14px;
 }
 
 .workspace-toolbar span {
@@ -120,8 +120,8 @@ const rows = computed(() => [
 }
 
 .workspace-toolbar h1 {
-  margin: 6px 0 0;
-  font-size: 24px;
+  margin: 4px 0 0;
+  font-size: 20px;
   line-height: 1.2;
 }
 
@@ -129,26 +129,27 @@ const rows = computed(() => [
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .toolbar-actions button,
 .toolbar-search {
-  min-height: 40px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 13px;
+  gap: 7px;
+  padding: 0 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted-strong);
   background: var(--panel);
   cursor: pointer;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .toolbar-search {
-  min-width: 260px;
+  min-width: 220px;
   cursor: text;
 }
 
@@ -164,27 +165,29 @@ const rows = computed(() => [
 .workspace-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(160px, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 
 .workspace-kpis article {
   display: grid;
-  gap: 8px;
-  padding: 18px;
+  gap: 6px;
+  padding: 14px;
 }
 
 .workspace-kpis span {
   color: var(--muted);
+  font-size: 13px;
   font-weight: 800;
 }
 
 .workspace-kpis strong {
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
 }
 
 .workspace-kpis em {
   color: var(--success);
+  font-size: 12px;
   font-style: normal;
   font-weight: 750;
 }
@@ -194,18 +197,18 @@ const rows = computed(() => [
 }
 
 .workspace-table-card header {
-  min-height: 66px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 0 18px;
+  gap: 14px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .workspace-table-card h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .workspace-table-card header span {
@@ -215,7 +218,7 @@ const rows = computed(() => [
 
 .workspace-table-scroll {
   overflow-x: auto;
-  padding: 0 16px 16px;
+  padding: 0 10px 12px;
 }
 
 table {
@@ -223,19 +226,20 @@ table {
   min-width: 760px;
   border-collapse: collapse;
   color: var(--muted-strong);
+  font-size: 13px;
 }
 
 th,
 td {
-  height: 52px;
-  padding: 0 12px;
+  height: 40px;
+  padding: 0 8px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
 }
 
 th {
-  height: 46px;
+  height: 36px;
   color: #53627a;
   background: var(--panel-soft);
   font-size: 13px;
@@ -244,8 +248,8 @@ th {
 td span {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 6px;
   color: var(--success);
   background: var(--success-soft);
