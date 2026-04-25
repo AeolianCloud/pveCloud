@@ -19,6 +19,14 @@ Read these before frontend work:
 - Each frontend owns its own `src/api/`, `src/stores/`, `src/types/`, `src/constants/`, `src/utils/`, and `src/router/`.
 - Use the existing stack documented in the owning frontend architecture doc.
 
+## Style Organization
+
+- Keep global styles small: design tokens, CSS variables, reset/base elements, shell layout, and utilities reused by multiple pages.
+- Put page-specific and component-specific styles in the owning Vue SFC with `<style scoped>`.
+- Do not add page-only class blocks to `src/style.css`.
+- If a style must be shared by multiple pages in the same frontend, extract it inside that frontend only; do not create a cross-app `shared/` style package.
+- Use semantic CSS variables for theme-sensitive values. Scoped styles may define page-local variables on their root class.
+
 ## Admin Rules
 
 - `admin` calls only `/admin-api/*`.
@@ -34,10 +42,12 @@ Read these before frontend work:
 
 Before implementing frontend pages, routes, API wrappers, types, constants, stores, or utility functions:
 
-1. Update the owning frontend doc when page/workflow/state changes.
-2. Update `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs` when backend calls change.
-3. Stop for maintainer confirmation.
-4. Implement only in the owning frontend directory.
+1. If the change is pure UI/UX polish, skip the document-first confirmation gate and implement directly in the owning frontend after reading this guardrail.
+2. Update the owning frontend doc when page behavior, workflow, state semantics, routes, permissions, request wrappers, or durable product structure changes.
+3. Do not write style-only layout, color, typography, spacing, icon, or density decisions into `docs/` unless the maintainer explicitly asks for a design spec.
+4. Update `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs` when backend calls change.
+5. Stop for maintainer confirmation only after docs/contracts are changed.
+6. Implement only in the owning frontend directory.
 
 ## Verification Baseline
 

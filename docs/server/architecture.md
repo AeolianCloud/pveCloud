@@ -37,6 +37,7 @@ admin_users -> admin_user_roles -> admin_roles -> admin_role_permissions -> admi
 - `POST /admin-api/auth/logout` 只吊销当前会话；`POST /admin-api/auth/refresh` 使用当前会话换取新 token，并在同一事务内吊销旧会话。
 - `GET /admin-api/auth/me` 是前端刷新页面和恢复登录态时的权威自检接口。
 - 登录成功、登录失败、退出登录、刷新 token 和会话失效应写入 `admin_audit_logs`，便于后台安全追踪。
+- 管理端登录前必须获取图形验证码；验证码答案只保存在 Redis 短 TTL key 中，登录校验无论成功或失败都应让当前验证码失效，前端失败后重新拉取验证码。
 - 登录失败限流按 `IP + 账号标识哈希` 做短窗口限制，使用 Redis 保存 15 分钟失败计数；Redis 不作为审计事实来源，登录失败仍写入 `admin_audit_logs`。
 
 ## Redis 基础能力

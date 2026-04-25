@@ -1,5 +1,16 @@
 import { http } from './http'
-import type { AdminAuthStateResponse, AdminLoginRequest, AdminLoginResponse, ApiEnvelope } from '../types/auth'
+import type {
+  AdminAuthStateResponse,
+  AdminLoginCaptchaResponse,
+  AdminLoginRequest,
+  AdminLoginResponse,
+  ApiEnvelope,
+} from '../types/auth'
+
+export async function getAdminLoginCaptcha(): Promise<AdminLoginCaptchaResponse> {
+  const response = await http.get<ApiEnvelope<AdminLoginCaptchaResponse>>('/auth/captcha')
+  return response.data.data
+}
 
 export async function loginAdmin(payload: AdminLoginRequest): Promise<AdminLoginResponse> {
   const response = await http.post<ApiEnvelope<AdminLoginResponse>>('/auth/login', payload)

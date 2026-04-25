@@ -23,6 +23,7 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	dashboardHandler := admin.NewDashboardHandler(dashboardService)
 
 	group.GET("/ping", systemHandler.Ping)
+	group.GET("/auth/captcha", authHandler.Captcha)
 	group.POST("/auth/login", authHandler.Login)
 
 	protected := group.Group("")

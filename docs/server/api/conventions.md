@@ -57,6 +57,8 @@
 - 管理端会话自检使用 `GET /admin-api/auth/me`，返回当前管理员、角色 ID、权限码、可见菜单和会话摘要，前端启动和刷新页面时应优先用它确认 localStorage 中 token 是否仍有效。
 - 管理端权限以数据库 RBAC 为准；JWT 中的权限快照不能替代服务端对当前角色和权限关系的校验。
 - 管理端登录密码长度允许 6 到 72 个字符；本地开发可使用短密码，生产环境仍应使用高强度随机密码。
+- 管理端登录必须先调用 `GET /admin-api/auth/captcha` 获取验证码图片和 `captcha_id`；`POST /admin-api/auth/login` 必须提交 `captcha_id` 和 `captcha_code`，后端校验通过后立即删除验证码，校验失败或过期返回 `400xx` 参数/校验错误。
+- 管理端登录验证码使用 Redis 保存短 TTL 临时状态，推荐有效期 120 秒；验证码 Redis key 使用 `redis.key_prefix` 前缀并按 `admin:login_captcha:<captcha_id>` 组织，不能把验证码答案返回给前端。
 - 管理端登录失败次数使用 Redis 按 `IP + 账号标识哈希` 做 15 分钟短窗口计数，计数达到 5 次时返回 HTTP `429` 和业务错误码 `42901`，错误响应仍使用统一 `code/message/data` 包裹。
 - 管理端登录失败、成功、退出和刷新仍写入 `admin_audit_logs`，Redis 只承担短窗口限流计数，不替代审计日志。
 

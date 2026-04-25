@@ -29,10 +29,27 @@ func NewAuthHandler(authService *services.AdminAuthService) *AuthHandler {
 }
 
 /**
+ * Captcha 生成管理员登录验证码。
+ *
+ * @route GET /admin-api/auth/captcha
+ * @response 200 {"code":0,"message":"成功","data":{"captcha_id":"adm_captcha_xxx","image":"data:image/svg+xml;base64,...","expires_in":120}}
+ * @auth 无需登录
+ */
+func (h *AuthHandler) Captcha(c *gin.Context) {
+	result, err := h.authService.Captcha(c.Request.Context(), c.ClientIP())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, result)
+}
+
+/**
  * Login 处理管理员登录。
  *
  * @route POST /admin-api/auth/login
- * @request {"username":"admin","password":"password"}
+ * @request {"username":"admin","password":"password","captcha_id":"adm_captcha_xxx","captcha_code":"7K3P"}
  * @response 200 {"code":0,"message":"成功","data":{"access_token":"...","token_type":"Bearer","expires_in":28800,"admin":{"id":1,"username":"admin","display_name":"超级管理员","status":"active"},"role_ids":[1],"permission_codes":["dashboard:view"]}}
  * @auth 无需登录
  */

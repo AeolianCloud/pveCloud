@@ -8,15 +8,15 @@ import PlaceholderPage from '../pages/PlaceholderPage.vue'
 import { useAuthStore } from '../stores/auth'
 
 const protectedPlaceholderRoutes = [
-  { path: 'users', name: 'users', title: '用户', permissionCode: 'user:view' },
-  { path: 'products', name: 'products', title: '产品配置', permissionCode: 'product:update' },
-  { path: 'orders', name: 'orders', title: '订单', permissionCode: 'order:view' },
-  { path: 'payments', name: 'payments', title: '支付与钱包', permissionCode: 'payment:view' },
-  { path: 'instances', name: 'instances', title: '实例', permissionCode: 'instance:view' },
-  { path: 'tickets', name: 'tickets', title: '工单', permissionCode: 'ticket:reply' },
-  { path: 'admins', name: 'admins', title: '管理员', permissionCode: 'admin:manage' },
+  { path: 'instances', name: 'instances', title: '云服务器', permissionCode: 'instance:view' },
+  { path: 'products', name: 'products', title: '产品套餐', permissionCode: 'product:update' },
+  { path: 'orders', name: 'orders', title: '订单管理', permissionCode: 'order:view' },
+  { path: 'users', name: 'users', title: '客户管理', permissionCode: 'user:view' },
+  { path: 'tickets', name: 'tickets', title: '工单服务', permissionCode: 'ticket:reply' },
+  { path: 'payments', name: 'payments', title: '财务中心', permissionCode: 'payment:view' },
+  { path: 'audit', name: 'audit', title: '资源监控', permissionCode: 'audit:view' },
+  { path: 'admins', name: 'admins', title: '营销活动', permissionCode: 'admin:manage' },
   { path: 'system', name: 'system', title: '系统设置', permissionCode: 'system:update' },
-  { path: 'audit', name: 'audit', title: '审计日志', permissionCode: 'audit:view' },
 ]
 
 export const router = createRouter({
@@ -46,7 +46,7 @@ export const router = createRouter({
           name: 'dashboard',
           component: DashboardPage,
           meta: {
-            title: '首页',
+            title: '控制台',
             requiresAuth: true,
             permissionCode: 'dashboard:view',
           },
@@ -56,7 +56,7 @@ export const router = createRouter({
           name: 'forbidden',
           component: ForbiddenPage,
           meta: {
-            title: '无权限',
+            title: '无权访问',
             requiresAuth: true,
           },
         },

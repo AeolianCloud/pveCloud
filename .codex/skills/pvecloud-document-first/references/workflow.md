@@ -29,17 +29,21 @@ Skill references may point to these files and add implementation guardrails. The
 
 ## Document-First Gate
 
-For implementation, migration, API, page, config, deployment, operations, or business-process changes:
+For implementation, migration, API, page behavior, config, deployment, operations, or business-process changes:
 
 1. Run `git status --short`.
 2. Read the relevant skill guardrail.
 3. Read the matching project docs and machine contracts.
-4. Update the matching docs/contracts first. For API changes, edit `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`; do not hand-edit generated `docs/server/api/openapi.yaml`.
-5. Stop and ask the maintainer to confirm the design or contract.
-6. Implement only after explicit confirmation.
-7. Verify with focused tests/builds.
+4. Decide whether the work changes contracts/behavior or is pure UI/UX polish.
+5. For contract/behavior work, update the matching docs/contracts first. For API changes, edit `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`; do not hand-edit generated `docs/server/api/openapi.yaml`.
+6. Stop and ask the maintainer to confirm the design or contract.
+7. Implement contract/behavior work only after explicit confirmation.
+8. For pure UI/UX polish, implement directly after reading frontend guardrails; do not write style-only preferences into docs.
+9. Verify with focused tests/builds.
 
 Read-only investigation and pure explanation do not need the confirmation gate unless edits become necessary.
+
+Pure UI/UX polish means visual-only changes such as spacing, layout, colors, typography, icons, component density, responsive presentation, or non-contractual wording. It does not include new routes, new actions, changed permissions, changed API calls, changed state semantics, or changed business workflow.
 
 ## Collaboration Rules
 

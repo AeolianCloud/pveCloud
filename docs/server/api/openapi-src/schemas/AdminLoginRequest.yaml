@@ -3,6 +3,8 @@
       required:
         - username
         - password
+        - captcha_id
+        - captcha_code
       properties:
         username:
           type: string
@@ -16,3 +18,15 @@
           maxLength: 72
           description: 管理员密码
           example: "123123"
+        captcha_id:
+          type: string
+          minLength: 16
+          maxLength: 128
+          description: 登录验证码标识，由 GET /admin-api/auth/captcha 返回
+          example: "adm_captcha_01HZY4ZS6K0SPZ92XP9E9W0D7A"
+        captcha_code:
+          type: string
+          minLength: 4
+          maxLength: 8
+          description: 管理员输入的验证码内容，不区分大小写
+          example: "7K3P"

@@ -22,6 +22,13 @@
 - `admin/` 不导入 `web/` 的页面、组件、请求、状态、类型、常量或工具。
 - 不创建公共前端 `shared/` 包。
 
+## 样式组织
+
+- `src/style.css` 只承载全局设计变量、基础 reset、应用外壳布局和跨页面复用工具类。
+- 页面或组件私有样式写在对应 Vue SFC 的 `<style scoped>` 中，避免把页面级 class 长期堆进全局 CSS。
+- 需要在管理端多个页面复用的样式，只能在 `admin/` 内部抽取，不与 `web/` 共用样式包。
+- 主题相关颜色、边框、阴影和交互态使用语义化 CSS 变量；页面局部变量可定义在页面根 class 上。
+
 ## 页面范围
 
 - Login
@@ -45,8 +52,11 @@
 ## 登录
 
 ```text
+GET /admin-api/auth/captcha
 POST /admin-api/auth/login
 ```
+
+登录页加载时先调用 `GET /admin-api/auth/captcha` 获取验证码图片、验证码标识和有效期；提交登录时把管理员账号、密码、`captcha_id` 和 `captcha_code` 一起发送到 `POST /admin-api/auth/login`。验证码错误、过期或登录失败时，登录页展示后端返回的错误消息并重新获取验证码。
 
 登录成功后返回管理端 JWT、管理员摘要、角色 ID、权限码和会话摘要。前端把 `access_token` 写入 auth store 和 `localStorage`，后续请求发送：
 
@@ -72,6 +82,7 @@ POST /admin-api/auth/refresh
 - token 临近过期时可以调用 `POST /admin-api/auth/refresh` 获取新 token；刷新成功后替换本地 token、管理员资料、权限和会话摘要。
 - `POST /admin-api/auth/refresh` 失败按登录过期处理。
 - 登录表单允许提交 6 到 72 位密码；登录失败次数过多时，登录页展示后端返回的限流错误消息，不自动重定向。
+- 登录表单必须提交有效验证码；验证码不作为前端本地校验逻辑，最终以后端校验结果为准。
 - 同一管理员在其它设备的会话不受当前退出登录影响。
 
 ## 路由守卫

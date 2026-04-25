@@ -6,8 +6,19 @@ import "time"
  * LoginRequest 表示管理员登录请求。
  */
 type LoginRequest struct {
-	Username string `json:"username" validate:"required,max=191"`
-	Password string `json:"password" validate:"required,min=6,max=72"`
+	Username    string `json:"username" validate:"required,max=191"`
+	Password    string `json:"password" validate:"required,min=6,max=72"`
+	CaptchaID   string `json:"captcha_id" validate:"required,min=16,max=128"`
+	CaptchaCode string `json:"captcha_code" validate:"required,min=4,max=8"`
+}
+
+/**
+ * LoginCaptchaResponse 表示管理员登录验证码响应数据。
+ */
+type LoginCaptchaResponse struct {
+	CaptchaID string `json:"captcha_id"`
+	Image     string `json:"image"`
+	ExpiresIn int64  `json:"expires_in"`
 }
 
 /**

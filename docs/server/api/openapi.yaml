@@ -15,6 +15,25 @@ tags:
   - name: admin-dashboard
     description: 管理端首页接口
 paths:
+  /admin-api/auth/captcha:
+    get:
+      tags:
+        - admin-auth
+      summary: 获取管理员登录验证码
+      operationId: getAdminAuthCaptcha
+      responses:
+        "200":
+          description: 验证码生成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginCaptchaResponse"
+        "429":
+          description: 验证码获取过于频繁
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /admin-api/auth/login:
     post:
       tags:
@@ -295,6 +314,32 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/AdminDashboardData"
+    AdminLoginCaptchaData:
+      type: object
+      required:
+        - captcha_id
+        - image
+        - expires_in
+      properties:
+        captcha_id:
+          type: string
+          description: 验证码标识，提交登录时原样传入 captcha_id
+          example: "adm_captcha_01HZY4ZS6K0SPZ92XP9E9W0D7A"
+        image:
+          type: string
+          description: 验证码图片 data URL，前端直接赋值给 img src
+          example: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg=="
+        expires_in:
+          type: integer
+          description: 验证码剩余有效秒数
+          example: 120
+    AdminLoginCaptchaResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/AdminLoginCaptchaData"
     AdminLoginData:
       type: object
       required:
@@ -339,6 +384,8 @@ components:
       required:
         - username
         - password
+        - captcha_id
+        - captcha_code
       properties:
         username:
           type: string
@@ -352,6 +399,18 @@ components:
           maxLength: 72
           description: 管理员密码
           example: "123123"
+        captcha_id:
+          type: string
+          minLength: 16
+          maxLength: 128
+          description: 登录验证码标识，由 GET /admin-api/auth/captcha 返回
+          example: "adm_captcha_01HZY4ZS6K0SPZ92XP9E9W0D7A"
+        captcha_code:
+          type: string
+          minLength: 4
+          maxLength: 8
+          description: 管理员输入的验证码内容，不区分大小写
+          example: "7K3P"
     AdminLoginResponse:
       allOf:
         - $ref: "#/components/schemas/ResponseEnvelope"

@@ -17,6 +17,14 @@ export interface AdminSummary {
 export interface AdminLoginRequest {
   username: string
   password: string
+  captcha_id: string
+  captcha_code: string
+}
+
+export interface AdminLoginCaptchaResponse {
+  captcha_id: string
+  image: string
+  expires_in: number
 }
 
 export interface AdminSessionSummary {
