@@ -31,5 +31,9 @@ worker:
   lock_ttl_seconds: 60
   batch_size: 10
 
+openapi:
+  enabled: true
+  spec_path: ../docs/server/api/openapi.yaml
+
 log:
   level: debug

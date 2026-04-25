@@ -13,10 +13,16 @@
 | ORM | GORM | 连接 MariaDB，后续模型映射以 `server/migrations/001_init.sql` 为准 |
 | 数据库驱动 | `gorm.io/driver/mysql` | MariaDB 使用 MySQL 协议连接 |
 | 配置 | YAML 文件 | 本地和部署统一使用 YAML 配置文件，不使用 `.env` 或环境变量作为主配置来源 |
+| 开发热重载 | Air | 本地开发监听 Go、YAML 和 OpenAPI 文件变化，自动重启 API 或 worker 进程 |
 | 日志 | 标准库 `log/slog` | 输出 JSON 日志，便于部署平台采集 |
+| OpenAPI | `github.com/getkin/kin-openapi` | API 规范文件校验和 OpenAPI 3.x 文档加载 |
+| JWT | `github.com/golang-jwt/jwt/v5` | 用户端和管理端 token 签发、解析和类型隔离 |
+| 密码哈希 | `golang.org/x/crypto/bcrypt` | 用户和管理员密码哈希，不保存明文密码 |
+| 参数校验 | `github.com/go-playground/validator/v10` | DTO 基础字段校验，业务校验仍放 service |
+| 测试断言 | `github.com/stretchr/testify` | 单元测试和集成测试断言工具 |
 | 任务 | `cmd/worker` + `async_tasks` 表 | 第一阶段使用数据库任务队列 |
 
-暂不引入全局 repository 层、事件总线、微服务框架、代码生成框架和 Kubernetes 目录结构。
+暂不引入运行时热加载、全局 repository 层、事件总线、微服务框架、代码生成框架和 Kubernetes 目录结构。
 
 ## Go 模块
 
@@ -51,6 +57,7 @@ server/
 ├─ internal/
 │  ├─ bootstrap/              # 配置、数据库、应用装配
 │  ├─ routes/                 # 路由注册
+│  ├─ openapi/                # OpenAPI 3.x API 规范文件加载和校验
 │  ├─ api/
 │  │  ├─ web/                 # 用户端 handler
 │  │  └─ admin/               # 管理端 handler
@@ -104,10 +111,69 @@ app        应用名称、环境、监听地址、优雅退出时间
 database   MariaDB 连接和连接池配置
 jwt        用户端和管理端 JWT 密钥、issuer、过期时间
 worker     worker 标识、轮询间隔、锁超时、批量大小
+openapi    OpenAPI 文档开关和规范文件路径
 log        日志级别
 ```
 
 本地 `config.yaml` 和 `server/config.yaml` 必须加入 `.gitignore`。
+
+配置变更规则：
+
+- 后端进程启动时读取 YAML 配置。
+- 运行中不做配置的局部热更新，配置变更必须重启进程后生效。
+- 本地开发使用 Air 做热重载，由 Air 监听 Go、YAML、OpenAPI 文件变化并重启进程。
+- 生产环境由进程管理器或发布流程负责重启，不在业务进程内监听配置文件。
+
+## 开发热重载
+
+本地开发使用 Air：
+
+```powershell
+go install github.com/air-verse/air@latest
+air -c .air.toml
+```
+
+默认 `.air.toml` 编译并启动 API 进程：
+
+```text
+go build -o ./tmp/api.exe ./cmd/api
+./tmp/api.exe -config config.yaml
+```
+
+worker 调试可以临时修改 `.air.toml` 的启动命令为：
+
+```text
+go run ./cmd/worker -config config.yaml
+```
+
+Air 只作为本地开发工具，不进入生产运行链路。
+
+## OpenAPI 约定
+
+OpenAPI 采用规范文件先行，接口说明、参数、响应、鉴权和错误返回都写入 OpenAPI 3.x 规范文件。文件路径为：
+
+```text
+docs/server/api/openapi.yaml
+```
+
+后端启动时在启用 OpenAPI 的情况下加载并校验该文件。API 进程提供只读规范入口：
+
+```text
+GET /openapi.yaml
+```
+
+接口实现前必须先补充或更新 OpenAPI 文档；OpenAPI 只描述 HTTP 契约，不承载业务流程、事务边界和数据库设计，这些内容仍分别写入架构、数据库和集成文档。
+
+API handler 可以写块注释标签，例如 `@route`、`@request`、`@response`、`@auth`，用于让维护者在代码中快速理解接口行为。这些标签必须与 OpenAPI 3.x 规范文件保持一致，不能成为第二套独立接口契约。
+
+## 认证、密码和校验
+
+JWT、密码哈希和 DTO 校验属于后端基础能力：
+
+- 用户端 JWT 和管理端 JWT 使用不同 issuer、secret 和 `token_type`。
+- 密码使用 bcrypt 哈希，禁止保存或日志输出明文密码。
+- DTO 使用 validator 做必填、长度、格式和枚举等基础校验。
+- 资源归属、状态流转、金额计算、权限码判断等业务校验必须放 service 或 middleware。
 
 ## HTTP 约定
 
@@ -173,6 +239,27 @@ GORM 模型后续补齐时必须遵守：
 
 系统日志输出 JSON；后台审计日志不写普通日志文件，必须后续落 `admin_audit_logs` 表。
 
+日志、错误、返回信息和注释规则：
+
+- 日志消息、错误信息、API `message`、命令行提示统一使用中文。
+- 函数、类型、接口和包级变量注释采用块注释标签风格，使用 `/** ... */`，第一段用中文说明用途；必要时补充 `@param`、`@return`、`@error`、`@sideeffect` 等标签。
+- API handler 注释可以使用 `@route`、`@request`、`@response`、`@auth` 等标签；响应示例必须与 OpenAPI 3.x 文件一致。
+- 代码内部注释使用详细中文，重点解释不直观逻辑、业务规则、幂等、事务、权限、补偿、并发和外部系统边界。
+- 不写重复代码含义的空注释，例如“设置变量”“调用函数”这类注释不要写。
+- API 契约以 `docs/server/api/openapi.yaml` 的 OpenAPI 3.x 规范文件为准，Go 代码注释只做就近辅助说明。
+- 第三方协议强制要求英文返回时，按协议返回，并在代码附近用中文注释说明原因。
+
+API handler 注释示例：
+
+```go
+/**
+ * Ping 返回用户端 API 入口连通性结果。
+ *
+ * @route GET /api/ping
+ * @response 200 {"code":0,"message":"成功","data":{"scope":"api","pong":true}}
+ */
+```
+
 ## 本地命令
 
 后端目录：
@@ -195,6 +282,7 @@ gofmt -w .
 go test ./...
 go run ./cmd/api -config config.yaml
 go run ./cmd/worker -config config.yaml
+air -c .air.toml
 ```
 
 ## 第一阶段初始化验收点
@@ -207,6 +295,8 @@ go run ./cmd/worker -config config.yaml
 - `go run ./cmd/api` 能启动 API 进程。
 - `GET /healthz` 能返回统一 JSON；数据库异常时返回非 2xx。
 - `GET /api/ping` 和 `GET /admin-api/ping` 能区分两个 API 入口。
+- `GET /openapi.yaml` 能返回当前 OpenAPI 规范文件。
 - `go run ./cmd/worker` 能启动 worker 进程，并能响应退出信号。
+- `air -c .air.toml` 能在本地开发时热重载 API 进程。
 
 如果本地环境没有安装 Go，可以先完成文件初始化，但必须在最终交付说明中明确尚未执行 Go 命令。

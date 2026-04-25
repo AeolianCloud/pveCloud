@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "path to yaml config file")
+	configPath := flag.String("config", "config.yaml", "YAML 配置文件路径")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -23,7 +23,7 @@ func main() {
 
 	app, err := bootstrap.NewApp(ctx, *configPath)
 	if err != nil {
-		log.Fatalf("bootstrap api app: %v", err)
+		log.Fatalf("初始化 API 应用失败：%v", err)
 	}
 
 	server := &http.Server{
@@ -33,9 +33,9 @@ func main() {
 	}
 
 	go func() {
-		app.Logger.Info("api server listening", "addr", app.Config.App.Addr)
+		app.Logger.Info("API 服务正在监听", "addr", app.Config.App.Addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			app.Logger.Error("api server stopped unexpectedly", "error", err)
+			app.Logger.Error("API 服务异常停止", "error", err)
 			stop()
 		}
 	}()
@@ -46,6 +46,6 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		app.Logger.Error("api server graceful shutdown failed", "error", err)
+		app.Logger.Error("API 服务优雅退出失败", "error", err)
 	}
 }

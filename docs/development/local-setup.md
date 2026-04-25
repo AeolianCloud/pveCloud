@@ -34,6 +34,7 @@ app        应用名称、环境、监听端口
 database   MariaDB 连接配置
 redis      Redis 连接配置，前期可选
 jwt        用户端和管理端 JWT 配置、过期时间
+openapi    OpenAPI 规范文件路径和公开开关
 pve        PVE 地址、账号、认证信息
 payment    支付渠道配置
 mail       邮件配置
@@ -70,12 +71,23 @@ go mod tidy
 go test ./...
 go run ./cmd/api -config config.yaml
 go run ./cmd/worker -config config.yaml
+air -c .air.toml
 ```
+
+本地开发推荐使用 Air 热重载 API 进程：
+
+```powershell
+go install github.com/air-verse/air@latest
+air -c .air.toml
+```
+
+Air 只用于本地开发。生产环境不使用 Air，也不在业务进程内做配置局部热更新。
 
 默认 API 监听 `app.addr`，未配置时使用 `:8080`。健康检查地址：
 
 ```text
 GET http://localhost:8080/healthz
+GET http://localhost:8080/openapi.yaml
 GET http://localhost:8080/api/ping
 GET http://localhost:8080/admin-api/ping
 ```

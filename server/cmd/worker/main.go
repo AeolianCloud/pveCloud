@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "path to yaml config file")
+	configPath := flag.String("config", "config.yaml", "YAML 配置文件路径")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -19,11 +19,11 @@ func main() {
 
 	app, err := bootstrap.NewApp(ctx, *configPath)
 	if err != nil {
-		log.Fatalf("bootstrap worker app: %v", err)
+		log.Fatalf("初始化 Worker 应用失败：%v", err)
 	}
 
 	worker := bootstrap.NewWorker(app)
 	if err := worker.Run(ctx); err != nil {
-		log.Fatalf("run worker: %v", err)
+		log.Fatalf("运行 Worker 失败：%v", err)
 	}
 }

@@ -17,11 +17,26 @@
 
 ```text
 GET /healthz          服务健康检查，返回应用、环境和数据库连接状态
+GET /openapi.yaml     OpenAPI 规范文件
 GET /api/ping         用户端 API 入口检查
 GET /admin-api/ping   管理端 API 入口检查
 ```
 
 `/healthz` 必须只做轻量检查，不执行业务写入；数据库不可用时返回非 2xx 状态，便于部署平台或运维脚本判断服务状态。
+
+## OpenAPI
+
+OpenAPI 规范文件位于：
+
+```text
+docs/server/api/openapi.yaml
+```
+
+接口新增或变更时，必须先更新 OpenAPI 3.x 规范，再进入 handler、DTO 和 service 实现。OpenAPI 描述请求路径、方法、参数、响应结构、错误响应和鉴权要求；业务流程、幂等、事务和补偿策略仍放在对应后端设计文档。
+
+API 进程启动时校验 OpenAPI 文件；校验失败应阻止服务启动，避免文档和实现继续分叉。
+
+Go handler 可以写块注释标签用于就近说明接口行为，例如 `@route`、`@request`、`@response`、`@auth`。这些注释必须与 OpenAPI 3.x 规范文件一致；接口契约仍以 `docs/server/api/openapi.yaml` 为准。
 
 ## 统一响应
 
@@ -30,7 +45,7 @@ GET /admin-api/ping   管理端 API 入口检查
 ```json
 {
   "code": 0,
-  "message": "ok",
+  "message": "成功",
   "data": {}
 }
 ```
@@ -50,7 +65,7 @@ GET /admin-api/ping   管理端 API 入口检查
 ```json
 {
   "code": 0,
-  "message": "ok",
+  "message": "成功",
   "data": {
     "items": [],
     "page": 1,
@@ -76,6 +91,8 @@ GET /admin-api/ping   管理端 API 入口检查
 ```
 
 handler 不直接拼错误响应，统一使用 `pkg/errors` 和 `pkg/response`。
+
+API `message` 必须使用中文。第三方支付或外部协议要求固定英文响应时，允许按协议返回，但必须在实现处用中文注释说明原因。
 
 ## 鉴权
 

@@ -10,14 +10,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+/**
+ * Config 表示后端 YAML 配置的根结构。
+ */
 type Config struct {
 	App      AppConfig      `yaml:"app"`
 	Database DatabaseConfig `yaml:"database"`
 	JWT      JWTConfig      `yaml:"jwt"`
 	Worker   WorkerConfig   `yaml:"worker"`
+	OpenAPI  OpenAPIConfig  `yaml:"openapi"`
 	Log      LogConfig      `yaml:"log"`
 }
 
+/**
+ * AppConfig 表示应用基础运行配置。
+ */
 type AppConfig struct {
 	Name                   string `yaml:"name"`
 	Env                    string `yaml:"env"`
@@ -25,6 +32,9 @@ type AppConfig struct {
 	ShutdownTimeoutSeconds int    `yaml:"shutdown_timeout_seconds"`
 }
 
+/**
+ * DatabaseConfig 表示 MariaDB 连接和连接池配置。
+ */
 type DatabaseConfig struct {
 	Host                   string `yaml:"host"`
 	Port                   int    `yaml:"port"`
@@ -39,6 +49,9 @@ type DatabaseConfig struct {
 	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes"`
 }
 
+/**
+ * JWTConfig 表示用户端和管理端 JWT 配置。
+ */
 type JWTConfig struct {
 	UserSecret         string `yaml:"user_secret"`
 	AdminSecret        string `yaml:"admin_secret"`
@@ -48,6 +61,9 @@ type JWTConfig struct {
 	AdminExpireMinutes int    `yaml:"admin_expire_minutes"`
 }
 
+/**
+ * WorkerConfig 表示异步任务进程运行配置。
+ */
 type WorkerConfig struct {
 	ID                  string `yaml:"id"`
 	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
@@ -55,10 +71,28 @@ type WorkerConfig struct {
 	BatchSize           int    `yaml:"batch_size"`
 }
 
+/**
+ * OpenAPIConfig 表示 OpenAPI 规范加载和公开配置。
+ */
+type OpenAPIConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	SpecPath string `yaml:"spec_path"`
+}
+
+/**
+ * LogConfig 表示系统日志配置。
+ */
 type LogConfig struct {
 	Level string `yaml:"level"`
 }
 
+/**
+ * LoadConfig 读取并校验 YAML 配置文件。
+ *
+ * @param path YAML 配置文件路径；为空时使用 config.yaml
+ * @return *Config 已合并默认值并通过校验的配置
+ * @return error 读取、解析或校验失败原因
+ */
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		path = "config.yaml"
@@ -68,13 +102,13 @@ func LoadConfig(path string) (*Config, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read config %s: %w", path, err)
+		return nil, fmt.Errorf("读取配置文件失败：%s：%w", path, err)
 	}
 
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	decoder.KnownFields(true)
 	if err := decoder.Decode(cfg); err != nil {
-		return nil, fmt.Errorf("decode config %s: %w", path, err)
+		return nil, fmt.Errorf("解析配置文件失败：%s：%w", path, err)
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -116,26 +150,46 @@ func defaultConfig() *Config {
 			LockTTLSeconds:      60,
 			BatchSize:           10,
 		},
+		OpenAPI: OpenAPIConfig{
+			Enabled:  true,
+			SpecPath: "../docs/server/api/openapi.yaml",
+		},
 		Log: LogConfig{
 			Level: "info",
 		},
 	}
 }
 
+/**
+ * Validate 校验配置是否具备启动所需的关键字段。
+ *
+ * @return error 配置不合法时返回具体原因
+ */
 func (cfg *Config) Validate() error {
+	if cfg.App.Addr == "" {
+		return fmt.Errorf("app.addr 不能为空")
+	}
 	if cfg.Database.Name == "" {
-		return fmt.Errorf("database.name is required")
+		return fmt.Errorf("database.name 不能为空")
 	}
 	if cfg.Database.User == "" {
-		return fmt.Errorf("database.user is required")
+		return fmt.Errorf("database.user 不能为空")
 	}
 	if cfg.JWT.UserSecret == "" || cfg.JWT.AdminSecret == "" {
-		return fmt.Errorf("jwt.user_secret and jwt.admin_secret are required")
+		return fmt.Errorf("jwt.user_secret 和 jwt.admin_secret 不能为空")
+	}
+	if cfg.OpenAPI.Enabled && cfg.OpenAPI.SpecPath == "" {
+		return fmt.Errorf("启用 OpenAPI 时 openapi.spec_path 不能为空")
 	}
 
 	return nil
 }
 
+/**
+ * DSN 生成 GORM MySQL 驱动使用的 MariaDB 连接字符串。
+ *
+ * @return string MariaDB 连接字符串
+ */
 func (cfg DatabaseConfig) DSN() string {
 	loc := url.QueryEscape(cfg.Loc)
 	return fmt.Sprintf(
@@ -151,14 +205,29 @@ func (cfg DatabaseConfig) DSN() string {
 	)
 }
 
+/**
+ * ShutdownTimeout 返回 API 服务优雅退出的超时时间。
+ *
+ * @return time.Duration 优雅退出超时时间
+ */
 func (cfg AppConfig) ShutdownTimeout() time.Duration {
 	return time.Duration(cfg.ShutdownTimeoutSeconds) * time.Second
 }
 
+/**
+ * PollInterval 返回 Worker 轮询数据库任务的间隔时间。
+ *
+ * @return time.Duration 任务轮询间隔
+ */
 func (cfg WorkerConfig) PollInterval() time.Duration {
 	return time.Duration(cfg.PollIntervalSeconds) * time.Second
 }
 
+/**
+ * LockTTL 返回 Worker 抢占任务后的锁定有效时间。
+ *
+ * @return time.Duration 任务锁定有效时间
+ */
 func (cfg WorkerConfig) LockTTL() time.Duration {
 	return time.Duration(cfg.LockTTLSeconds) * time.Second
 }

@@ -1,0 +1,143 @@
+openapi: 3.1.0
+info:
+  title: pveCloud API
+  version: 0.1.0
+  description: pveCloud 用户端和管理端 API 规范。业务流程、事务和补偿策略以 docs/server/ 下对应设计文档为准。
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: system
+    description: 系统检查接口
+paths:
+  /healthz:
+    get:
+      tags:
+        - system
+      summary: 服务健康检查
+      operationId: getHealthz
+      responses:
+        "200":
+          description: 服务和数据库可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "500":
+          description: 服务或数据库不可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /openapi.yaml:
+    get:
+      tags:
+        - system
+      summary: OpenAPI 规范文件
+      operationId: getOpenAPIYaml
+      responses:
+        "200":
+          description: OpenAPI YAML
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /api/ping:
+    get:
+      tags:
+        - system
+      summary: 用户端 API 入口检查
+      operationId: getApiPing
+      responses:
+        "200":
+          description: 用户端 API 可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+  /admin-api/ping:
+    get:
+      tags:
+        - system
+      summary: 管理端 API 入口检查
+      operationId: getAdminApiPing
+      responses:
+        "200":
+          description: 管理端 API 可用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
+components:
+  schemas:
+    ResponseEnvelope:
+      type: object
+      required:
+        - code
+        - message
+        - data
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: 成功
+        data:
+          nullable: true
+    ErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            code:
+              type: integer
+              example: 50001
+            message:
+              type: string
+              example: 系统内部错误
+            data:
+              nullable: true
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - app
+                - env
+                - database
+                - time
+              properties:
+                app:
+                  type: string
+                  example: pveCloud
+                env:
+                  type: string
+                  example: local
+                database:
+                  type: string
+                  example: 正常
+                time:
+                  type: string
+                  format: date-time
+    PingResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - scope
+                - pong
+              properties:
+                scope:
+                  type: string
+                  enum:
+                    - api
+                    - admin-api
+                pong:
+                  type: boolean
+                  example: true
