@@ -6,7 +6,7 @@
 - Air
 - Bun
 - MariaDB 11.4.9
-- Redis 可预留，第一阶段不是必需依赖
+- Redis，用于缓存、限流、短 TTL 状态、验证码、一次性 token、幂等短锁和防重复提交标记
 
 ## 数据库
 
@@ -36,7 +36,7 @@ server/migrations/001_init.sql
 ## 启动顺序
 
 1. MariaDB。
-2. Redis，如果当前功能需要。
+2. Redis。
 3. API 进程。
 4. Worker 进程。
 5. `admin` 和后续 `web` Vite dev server。
@@ -87,4 +87,4 @@ node ./scripts/dev.mjs
 - 如果后续存在 `web/package.json`，在 `web/` 下按同样方式启动用户端 Vite dev server。
 - 默认启动 API、Worker、`admin` 和已存在的 `web`。
 - 脚本不提供运行参数，避免不同开发者启动组合不一致。
-- MariaDB 和可选 Redis 仍由开发者本机或容器环境提前启动。
+- MariaDB 和 Redis 仍由开发者本机或容器环境提前启动。

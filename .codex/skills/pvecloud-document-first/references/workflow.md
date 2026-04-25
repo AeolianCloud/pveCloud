@@ -14,7 +14,8 @@ This file defines how AI agents work in this repository. It does not define API 
 | Content | Source of truth |
 | --- | --- |
 | AI workflow and gates | `.codex/skills/pvecloud-document-first/` |
-| API contract | `docs/server/api/openapi.yaml` |
+| API source fragments | `docs/server/api/openapi-src/` |
+| API generated contract | `docs/server/api/openapi.yaml` |
 | API conventions | `docs/server/api/conventions.md` |
 | Backend architecture and business design | `docs/server/` |
 | Database design | `docs/server/database/design.md` |
@@ -33,7 +34,7 @@ For implementation, migration, API, page, config, deployment, operations, or bus
 1. Run `git status --short`.
 2. Read the relevant skill guardrail.
 3. Read the matching project docs and machine contracts.
-4. Update the matching docs/contracts first.
+4. Update the matching docs/contracts first. For API changes, edit `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`; do not hand-edit generated `docs/server/api/openapi.yaml`.
 5. Stop and ask the maintainer to confirm the design or contract.
 6. Implement only after explicit confirmation.
 7. Verify with focused tests/builds.

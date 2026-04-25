@@ -62,6 +62,8 @@ var (
 	ErrNotFound = New(40401, "资源不存在", http.StatusNotFound)
 	/** ErrConflict 表示业务状态冲突或重复提交。 */
 	ErrConflict = New(40901, "状态冲突", http.StatusConflict)
+	/** ErrTooManyRequests 表示请求过于频繁或登录失败次数过多。 */
+	ErrTooManyRequests = New(42901, "请求过于频繁，请稍后再试", http.StatusTooManyRequests)
 	/** ErrInternal 表示服务端内部错误。 */
 	ErrInternal = New(50001, "系统内部错误", http.StatusInternalServerError)
 )

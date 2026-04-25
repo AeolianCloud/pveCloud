@@ -1,0 +1,18 @@
+    AdminLoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 191
+          description: 管理员用户名或邮箱
+          example: admin
+        password:
+          type: string
+          minLength: 6
+          maxLength: 72
+          description: 管理员密码
+          example: "123123"

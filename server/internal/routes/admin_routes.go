@@ -17,7 +17,7 @@ import (
  */
 func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	systemHandler := admin.NewSystemHandler()
-	authService := services.NewAdminAuthService(app.DB, app.Config.JWT)
+	authService := services.NewAdminAuthService(app.DB, app.Redis, app.Config.JWT)
 	authHandler := admin.NewAuthHandler(authService)
 	dashboardService := services.NewAdminDashboardService(app.DB)
 	dashboardHandler := admin.NewDashboardHandler(dashboardService)
@@ -26,6 +26,9 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	group.POST("/auth/login", authHandler.Login)
 
 	protected := group.Group("")
-	protected.Use(middleware.AdminAuth(app.Config.JWT))
+	protected.Use(middleware.AdminAuth(app.Config.JWT, app.DB))
+	protected.GET("/auth/me", authHandler.Me)
+	protected.POST("/auth/logout", authHandler.Logout)
+	protected.POST("/auth/refresh", authHandler.Refresh)
 	protected.GET("/dashboard", middleware.AdminPermission("dashboard:view"), dashboardHandler.Show)
 }

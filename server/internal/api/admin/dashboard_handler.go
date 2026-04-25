@@ -3,6 +3,7 @@ package admin
 import (
 	"github.com/gin-gonic/gin"
 
+	admindto "github.com/AeolianCloud/pveCloud/server/internal/dto/admin"
 	"github.com/AeolianCloud/pveCloud/server/internal/middleware"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/pkg/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/pkg/response"
@@ -45,6 +46,7 @@ func (h *DashboardHandler) Show(c *gin.Context) {
 		adminID,
 		middleware.CurrentAdminRoleIDs(c),
 		middleware.CurrentAdminPermissionCodes(c),
+		currentSessionOrEmpty(c),
 	)
 	if err != nil {
 		response.Error(c, err)
@@ -52,4 +54,9 @@ func (h *DashboardHandler) Show(c *gin.Context) {
 	}
 
 	response.Success(c, result)
+}
+
+func currentSessionOrEmpty(c *gin.Context) admindto.SessionSummary {
+	session, _ := middleware.CurrentAdminSession(c)
+	return session
 }

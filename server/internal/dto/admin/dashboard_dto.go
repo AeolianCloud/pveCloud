@@ -26,9 +26,6 @@ type MenuItem struct {
  * DashboardResponse 表示管理端首页响应数据。
  */
 type DashboardResponse struct {
-	Admin           AdminSummary      `json:"admin"`
-	RoleIDs         []uint64          `json:"role_ids"`
-	PermissionCodes []string          `json:"permission_codes"`
-	Menus           []MenuItem        `json:"menus"`
-	Metrics         []DashboardMetric `json:"metrics"`
+	AuthStateResponse
+	Metrics []DashboardMetric `json:"metrics"`
 }

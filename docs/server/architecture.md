@@ -29,6 +29,25 @@ admin_users -> admin_user_roles -> admin_roles -> admin_role_permissions -> admi
 - Handler 只声明所需权限码，不在业务逻辑里手写权限判断。
 - 后端 RBAC 是最终权限边界，前端隐藏菜单只用于改善体验。
 
+### 管理端会话
+
+- 管理端登录成功后创建 `admin_sessions` 记录，并签发带 `jti` 的管理端 JWT；`jti` 与 `admin_sessions.session_id` 一一对应。
+- 管理端 JWT 仍可返回角色 ID 和权限码快照给前端渲染，但受保护接口必须以当前数据库 RBAC 和会话状态作为最终授权依据。
+- 管理端认证中间件负责校验 token 签名、issuer、token type、过期时间、会话状态和管理员账号状态，并把当前管理员 ID、角色 ID、权限码和会话 ID 写入请求上下文。
+- `POST /admin-api/auth/logout` 只吊销当前会话；`POST /admin-api/auth/refresh` 使用当前会话换取新 token，并在同一事务内吊销旧会话。
+- `GET /admin-api/auth/me` 是前端刷新页面和恢复登录态时的权威自检接口。
+- 登录成功、登录失败、退出登录、刷新 token 和会话失效应写入 `admin_audit_logs`，便于后台安全追踪。
+- 登录失败限流按 `IP + 账号标识哈希` 做短窗口限制，使用 Redis 保存 15 分钟失败计数；Redis 不作为审计事实来源，登录失败仍写入 `admin_audit_logs`。
+
+## Redis 基础能力
+
+- Redis 是后端运行时基础依赖，不是只服务登录功能。
+- Redis 用于短 TTL 和高频临时状态：登录失败限流、通用 API 限流、验证码、一次性 token、临时缓存、幂等短锁和防重复提交标记。
+- 所有 Redis key 必须统一使用 `redis.key_prefix` 前缀，并按业务域组织，例如 `pvecloud:admin:login_fail:<hash>`、`pvecloud:rate:<scope>:<hash>`、`pvecloud:verify:<scene>:<hash>`。
+- Redis 中的数据必须可过期；不能把订单、支付、钱包、实例、审计、管理端会话有效性或 RBAC 权限关系只保存在 Redis。
+- MariaDB 仍是业务事实来源；Worker 队列仍以 `async_tasks` 表为准，Redis 只可作为短锁或防重复辅助，不替代任务最终状态。
+- Redis 不可用时 API 和 Worker 启动失败，避免限流、验证码、缓存或幂等能力静默失效；生产环境不得绕过 Redis 降级运行。
+
 ## 核心业务状态
 
 订单：

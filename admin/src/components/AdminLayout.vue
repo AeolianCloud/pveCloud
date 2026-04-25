@@ -53,7 +53,7 @@ function iconFor(name: string | null) {
 }
 
 async function logout() {
-  auth.logout()
+  await auth.logoutRemote()
   await router.replace({ name: 'login' })
 }
 </script>

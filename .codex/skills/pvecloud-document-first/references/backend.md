@@ -10,7 +10,7 @@ Read these before backend work:
 - `docs/server/architecture.md`
 - `docs/server/go-technical.md`
 - `docs/server/api/conventions.md`
-- `docs/server/api/openapi.yaml` when routes, handlers, DTOs, auth, response shapes, or status codes change
+- `docs/server/api/openapi-src/` and generated `docs/server/api/openapi.yaml` when routes, handlers, DTOs, auth, response shapes, or status codes change
 - `docs/server/jobs.md` when async task behavior changes
 - `docs/server/integrations/README.md` when external systems are involved
 - `docs/server/database/design.md` and `server/migrations/` when persistence changes
@@ -25,6 +25,7 @@ Read these before backend work:
 - API handlers must use unified `pkg/errors` and `pkg/response`.
 - Handler comments must stay aligned with OpenAPI.
 - Startup OpenAPI validation remains the safety net when enabled.
+- Do not hand-edit generated `docs/server/api/openapi.yaml`; edit source fragments under `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`.
 
 ## Auth and Permission
 

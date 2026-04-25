@@ -30,8 +30,8 @@ func main() {
 	if passwordValue == "" {
 		log.Fatal("管理员密码不能为空，请通过 -password 传入")
 	}
-	if len(passwordValue) < 8 || len(passwordValue) > 72 {
-		log.Fatal("管理员密码长度必须在 8 到 72 个字符之间")
+	if len(passwordValue) < 6 || len(passwordValue) > 72 {
+		log.Fatal("管理员密码长度必须在 6 到 72 个字符之间")
 	}
 
 	ctx := context.Background()

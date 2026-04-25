@@ -75,7 +75,7 @@ export const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
   let permissionCode: unknown
@@ -85,8 +85,15 @@ router.beforeEach((to) => {
     }
   }
 
+  if (auth.hasLocalToken && !auth.restored) {
+    await auth.restore()
+  }
+
   if (requiresAuth && !auth.isLoggedIn) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.guestOnly && auth.hasLocalToken && !auth.isLoggedIn) {
+    await auth.restore()
   }
   if (to.meta.guestOnly && auth.isLoggedIn) {
     return { name: 'dashboard' }

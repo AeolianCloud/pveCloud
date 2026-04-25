@@ -1,0 +1,29 @@
+    HealthResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - app
+                - env
+                - database
+                - redis
+                - time
+              properties:
+                app:
+                  type: string
+                  example: pveCloud
+                env:
+                  type: string
+                  example: local
+                database:
+                  type: string
+                  example: 正常
+                redis:
+                  type: string
+                  example: 正常
+                time:
+                  type: string
+                  format: date-time

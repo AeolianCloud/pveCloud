@@ -1,0 +1,11 @@
+    AdminDashboardData:
+      allOf:
+        - $ref: "#/components/schemas/AdminAuthStateData"
+        - type: object
+          required:
+            - metrics
+          properties:
+            metrics:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminDashboardMetric"

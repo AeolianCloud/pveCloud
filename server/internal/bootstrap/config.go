@@ -16,6 +16,7 @@ import (
 type Config struct {
 	App      AppConfig      `yaml:"app"`
 	Database DatabaseConfig `yaml:"database"`
+	Redis    RedisConfig    `yaml:"redis"`
 	JWT      JWTConfig      `yaml:"jwt"`
 	Worker   WorkerConfig   `yaml:"worker"`
 	OpenAPI  OpenAPIConfig  `yaml:"openapi"`
@@ -47,6 +48,16 @@ type DatabaseConfig struct {
 	MaxOpenConns           int    `yaml:"max_open_conns"`
 	MaxIdleConns           int    `yaml:"max_idle_conns"`
 	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes"`
+}
+
+/**
+ * RedisConfig 表示 Redis 连接和项目 key 前缀配置。
+ */
+type RedisConfig struct {
+	Addr      string `yaml:"addr"`
+	Password  string `yaml:"password"`
+	DB        int    `yaml:"db"`
+	KeyPrefix string `yaml:"key_prefix"`
 }
 
 /**
@@ -138,6 +149,11 @@ func defaultConfig() *Config {
 			MaxIdleConns:           10,
 			ConnMaxLifetimeMinutes: 60,
 		},
+		Redis: RedisConfig{
+			Addr:      "127.0.0.1:6379",
+			DB:        0,
+			KeyPrefix: "pvecloud:",
+		},
 		JWT: JWTConfig{
 			UserIssuer:         "pvecloud-user",
 			AdminIssuer:        "pvecloud-admin",
@@ -174,6 +190,12 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.Database.User == "" {
 		return fmt.Errorf("database.user 不能为空")
+	}
+	if cfg.Redis.Addr == "" {
+		return fmt.Errorf("redis.addr 不能为空")
+	}
+	if cfg.Redis.KeyPrefix == "" {
+		return fmt.Errorf("redis.key_prefix 不能为空")
 	}
 	if cfg.JWT.UserSecret == "" || cfg.JWT.AdminSecret == "" {
 		return fmt.Errorf("jwt.user_secret 和 jwt.admin_secret 不能为空")

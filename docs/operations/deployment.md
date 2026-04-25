@@ -8,7 +8,7 @@ worker   异步任务进程
 web      官网和用户中心
 admin    管理后台
 MariaDB  业务事实来源
-Redis    缓存、会话或队列增强，第一阶段可选
+Redis    缓存、限流、短 TTL 状态、验证码、一次性 token 和幂等短锁；业务事实仍以 MariaDB 为准
 ```
 
 ## 代理边界
@@ -23,6 +23,8 @@ Redis    缓存、会话或队列增强，第一阶段可选
 后端配置示例维护在 `server/config.example.yaml`。真实部署配置不得提交到仓库。
 
 `server/config.example.yaml` 同时作为配置键说明入口，所有示例配置组和配置项都应保留中文注释。注释需要说明用途、单位、默认值语义和安全注意事项，避免运维人员只能通过代码理解配置含义。
+
+生产环境必须部署 Redis，用于缓存、限流、短 TTL 状态、验证码、一次性 token、幂等短锁和防重复提交标记。API 和 Worker 启动阶段必须连接 Redis 并执行 `PING`；Redis 未启动、地址错误或鉴权失败时，进程直接启动失败，不进入降级模式。Redis 不保存管理端会话最终状态；JWT `jti` 对应的 `admin_sessions` 仍以 MariaDB 为权威来源。订单、支付、钱包、实例、任务和审计的最终状态也仍以 MariaDB 为准。
 
 建议配置组：
 

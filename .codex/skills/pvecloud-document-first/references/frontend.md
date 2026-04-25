@@ -8,7 +8,7 @@ Read these before frontend work:
 
 - `docs/admin/architecture.md` for `admin/`
 - `docs/web/architecture.md` for `web/`
-- `docs/server/api/openapi.yaml` when backend calls are involved
+- `docs/server/api/openapi-src/` and generated `docs/server/api/openapi.yaml` when backend calls are involved
 - `docs/server/api/conventions.md` for envelope, auth, and error semantics
 
 ## Shared Rules
@@ -35,7 +35,7 @@ Read these before frontend work:
 Before implementing frontend pages, routes, API wrappers, types, constants, stores, or utility functions:
 
 1. Update the owning frontend doc when page/workflow/state changes.
-2. Update `docs/server/api/openapi.yaml` when backend calls change.
+2. Update `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs` when backend calls change.
 3. Stop for maintainer confirmation.
 4. Implement only in the owning frontend directory.
 

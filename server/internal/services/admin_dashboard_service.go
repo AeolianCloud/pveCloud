@@ -38,7 +38,7 @@ func NewAdminDashboardService(db *gorm.DB) *AdminDashboardService {
  * @return admin.DashboardResponse 首页响应数据
  * @return error 聚合失败原因
  */
-func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs []uint64, permissionCodes []string) (admindto.DashboardResponse, error) {
+func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs []uint64, permissionCodes []string, session admindto.SessionSummary) (admindto.DashboardResponse, error) {
 	var admin models.AdminUser
 	err := s.db.WithContext(ctx).
 		Where("deleted_at IS NULL").
@@ -60,17 +60,20 @@ func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs
 	}
 
 	return admindto.DashboardResponse{
-		Admin: admindto.AdminSummary{
-			ID:          admin.ID,
-			Username:    admin.Username,
-			Email:       admin.Email,
-			DisplayName: admin.DisplayName,
-			Status:      admin.Status,
+		AuthStateResponse: admindto.AuthStateResponse{
+			Admin: admindto.AdminSummary{
+				ID:          admin.ID,
+				Username:    admin.Username,
+				Email:       admin.Email,
+				DisplayName: admin.DisplayName,
+				Status:      admin.Status,
+			},
+			RoleIDs:         roleIDs,
+			PermissionCodes: permissionCodes,
+			Menus:           VisibleAdminMenus(permissionCodes),
+			Session:         session,
 		},
-		RoleIDs:         roleIDs,
-		PermissionCodes: permissionCodes,
-		Menus:           visibleAdminMenus(permissionCodes),
-		Metrics:         metrics,
+		Metrics: metrics,
 	}, nil
 }
 
@@ -108,7 +111,7 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 	return metrics, nil
 }
 
-func visibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
+func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
 	permissionSet := make(map[string]struct{}, len(permissionCodes))
 	for _, code := range permissionCodes {
 		permissionSet[code] = struct{}{}
