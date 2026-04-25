@@ -1,0 +1,35 @@
+app:
+  name: pveCloud
+  env: local
+  addr: ":8080"
+  shutdown_timeout_seconds: 10
+
+database:
+  host: 127.0.0.1
+  port: 3306
+  name: pvecloud
+  user: pvecloud
+  password: change_me
+  charset: utf8mb4
+  parse_time: true
+  loc: Local
+  max_open_conns: 25
+  max_idle_conns: 10
+  conn_max_lifetime_minutes: 60
+
+jwt:
+  user_secret: change_me_user_secret
+  admin_secret: change_me_admin_secret
+  user_issuer: pvecloud-user
+  admin_issuer: pvecloud-admin
+  user_expire_minutes: 1440
+  admin_expire_minutes: 480
+
+worker:
+  id: local-worker-1
+  poll_interval_seconds: 5
+  lock_ttl_seconds: 60
+  batch_size: 10
+
+log:
+  level: debug
