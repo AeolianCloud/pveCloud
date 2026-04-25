@@ -1,3 +1,5 @@
+import type { AdminMenuItem } from './dashboard'
+
 export interface ApiEnvelope<T> {
   code: number
   message: string
@@ -17,6 +19,20 @@ export interface AdminLoginRequest {
   password: string
 }
 
+export interface AdminSessionSummary {
+  session_id: string
+  issued_at: string
+  expires_at: string
+}
+
+export interface AdminAuthStateResponse {
+  admin: AdminSummary
+  role_ids: number[]
+  permission_codes: string[]
+  menus: AdminMenuItem[]
+  session: AdminSessionSummary
+}
+
 export interface AdminLoginResponse {
   access_token: string
   token_type: 'Bearer'
@@ -24,4 +40,5 @@ export interface AdminLoginResponse {
   admin: AdminSummary
   role_ids: number[]
   permission_codes: string[]
+  session: AdminSessionSummary
 }

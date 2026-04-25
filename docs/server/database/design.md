@@ -35,6 +35,7 @@ admin_roles
 admin_permissions
 admin_user_roles
 admin_role_permissions
+admin_sessions
 ```
 
 产品目录：
@@ -79,6 +80,9 @@ admin_audit_logs
 
 - 管理端专用表使用 `admin_` 前缀。
 - 管理端权限码使用 `domain:action`，例如 `order:view` 和 `payment:manual_credit`。
+- 管理端登录会话使用 `admin_sessions` 持久化，`session_id` 对应 JWT `jti`，用于退出登录、刷新轮换、账号禁用后的会话吊销和会话自检。
+- `admin_sessions.status` 使用 `active`、`revoked`、`expired`；退出登录将当前会话标记为 `revoked/logout`，刷新 token 将旧会话标记为 `revoked/refresh` 并创建新会话。
+- 管理端权限以数据库 RBAC 为最终边界；JWT 中的角色和权限只作为登录响应快照，不作为受保护接口的唯一授权来源。
 - 产品价格唯一性是 `plan_id + region_id + billing_period`。
 - 第一阶段一个订单对应一个实例，不添加 `quantity`。
 - 订单保存产品和价格快照，避免后续改价影响历史订单。
@@ -100,6 +104,7 @@ admin_audit_logs
 - `instances.provisioning_key` 唯一。
 - `async_tasks.idempotency_key` 唯一。
 - `wallet_accounts.user_id` 唯一。
+- `admin_sessions.session_id` 唯一。
 
 ## 重要索引
 
@@ -111,6 +116,17 @@ admin_audit_logs
 - `async_tasks.status + run_at`、`async_tasks.locked_until`。
 - `tickets.status + updated_at`。
 - `admin_audit_logs.admin_id + created_at`、`admin_audit_logs.object_type + object_id`。
+- `admin_sessions.admin_id + status`、`admin_sessions.status + expires_at`。
+
+管理端认证事务：
+
+- 登录成功时校验账号、密码和状态，创建 `admin_sessions`，签发带 `jti` 的管理端 JWT，更新 `admin_users.last_login_at` 和 `last_login_ip`，并写入 `admin_audit_logs`。
+- 登录失败时不创建会话，但按账号标识哈希和 IP 做短窗口失败次数限制，并写入 `admin_audit_logs`，`admin_id` 可为空。
+- 登录失败短窗口计数放在 Redis，MariaDB 的 `admin_audit_logs` 只作为审计记录，不承担登录限流计数兜底。
+- Redis 可用于幂等短锁和防重复提交标记，但订单、支付、钱包流水、实例、任务和审计的最终状态必须写入 MariaDB。
+- 受保护接口校验 JWT 后必须确认 `admin_sessions.status=active` 且 `expires_at` 未过期，再从数据库读取当前管理员状态、角色和权限写入请求上下文。
+- 刷新 token 时在同一事务内吊销旧会话并创建新会话，避免同一个旧 token 被重复刷新。
+- 退出登录只吊销当前会话，不影响同一管理员的其它设备会话。
 
 ## 事务
 

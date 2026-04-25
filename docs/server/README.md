@@ -7,7 +7,8 @@
 | `docs/server/architecture.md` | 后端架构、业务规则、鉴权权限、状态机 |
 | `docs/server/go-technical.md` | Go 技术栈、目录结构、配置、命令、验收基线 |
 | `docs/server/api/conventions.md` | API 响应、错误码、鉴权、幂等约定 |
-| `docs/server/api/openapi.yaml` | OpenAPI 机器可读接口契约 |
+| `docs/server/api/openapi-src/` | OpenAPI 源文件，按路径和 schema 拆分维护 |
+| `docs/server/api/openapi.yaml` | 自动生成的 OpenAPI 机器可读接口契约，不手动编辑 |
 | `docs/server/database/design.md` | 数据库设计、表分组、约束、事务边界 |
 | `docs/server/jobs.md` | 异步任务和 Worker 规则 |
 | `docs/server/integrations/README.md` | PVE、支付、通知等外部系统边界 |

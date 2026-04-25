@@ -71,3 +71,57 @@ type AdminPermission struct {
 func (AdminPermission) TableName() string {
 	return "admin_permissions"
 }
+
+/**
+ * AdminSession 映射 admin_sessions 管理端登录会话表。
+ */
+type AdminSession struct {
+	ID           uint64     `gorm:"column:id;primaryKey"`
+	SessionID    string     `gorm:"column:session_id"`
+	AdminID      uint64     `gorm:"column:admin_id"`
+	Status       string     `gorm:"column:status"`
+	IssuedAt     time.Time  `gorm:"column:issued_at"`
+	ExpiresAt    time.Time  `gorm:"column:expires_at"`
+	LastSeenAt   *time.Time `gorm:"column:last_seen_at"`
+	LastSeenIP   *string    `gorm:"column:last_seen_ip"`
+	UserAgent    *string    `gorm:"column:user_agent"`
+	RevokedAt    *time.Time `gorm:"column:revoked_at"`
+	RevokeReason *string    `gorm:"column:revoke_reason"`
+	CreatedAt    time.Time  `gorm:"column:created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at"`
+}
+
+/**
+ * TableName 返回管理端登录会话表名。
+ *
+ * @return string 表名
+ */
+func (AdminSession) TableName() string {
+	return "admin_sessions"
+}
+
+/**
+ * AdminAuditLog 映射 admin_audit_logs 后台操作审计表。
+ */
+type AdminAuditLog struct {
+	ID         uint64    `gorm:"column:id;primaryKey"`
+	AdminID    *uint64   `gorm:"column:admin_id"`
+	Action     string    `gorm:"column:action"`
+	ObjectType string    `gorm:"column:object_type"`
+	ObjectID   *string   `gorm:"column:object_id"`
+	BeforeData *string   `gorm:"column:before_data"`
+	AfterData  *string   `gorm:"column:after_data"`
+	IP         *string   `gorm:"column:ip"`
+	UserAgent  *string   `gorm:"column:user_agent"`
+	Remark     *string   `gorm:"column:remark"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+}
+
+/**
+ * TableName 返回后台操作审计表名。
+ *
+ * @return string 表名
+ */
+func (AdminAuditLog) TableName() string {
+	return "admin_audit_logs"
+}

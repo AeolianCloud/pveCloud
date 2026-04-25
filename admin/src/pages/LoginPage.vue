@@ -17,7 +17,7 @@ const form = reactive({
 const loading = ref(false)
 const errorMessage = ref('')
 
-const canSubmit = computed(() => form.username.trim().length > 0 && form.password.length >= 8)
+const canSubmit = computed(() => form.username.trim().length > 0 && form.password.length >= 6)
 
 async function submit() {
   if (!canSubmit.value || loading.value) {
@@ -91,7 +91,7 @@ async function submit() {
               v-model="form.password"
               autocomplete="current-password"
               name="password"
-              placeholder="至少 8 位"
+              placeholder="至少 6 位"
               type="password"
             />
           </div>

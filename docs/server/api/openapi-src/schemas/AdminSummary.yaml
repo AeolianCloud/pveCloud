@@ -1,0 +1,25 @@
+    AdminSummary:
+      type: object
+      required:
+        - id
+        - username
+        - display_name
+        - status
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: admin
+        email:
+          type: string
+          nullable: true
+          example: admin@example.com
+        display_name:
+          type: string
+          example: 超级管理员
+        status:
+          type: string
+          example: active

@@ -15,7 +15,8 @@ This skill is an AI working method, not the project documentation source of trut
 
 - AI workflow and implementation guardrails: `.codex/skills/pvecloud-document-first/`.
 - Human-readable project documentation: `docs/`.
-- API machine contract: `docs/server/api/openapi.yaml`.
+- API machine contract: generated `docs/server/api/openapi.yaml`.
+- API source fragments: `docs/server/api/openapi-src/`.
 - Database machine contract: `server/migrations/`.
 - Config example contract: `server/config.example.yaml`.
 
@@ -32,7 +33,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
    - admin/web frontend work: `references/frontend.md`
    - setup/deployment/operations work: `references/operations.md`
 5. Read the matching project docs or machine contracts:
-   - API: `docs/server/api/openapi.yaml` and `docs/server/api/`
+   - API: `docs/server/api/openapi-src/`, generated `docs/server/api/openapi.yaml`, and `docs/server/api/`
    - backend design: `docs/server/`
    - admin frontend: `docs/admin/`
    - web frontend: `docs/web/`
@@ -48,7 +49,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
 ## Non-Negotiable Gates
 
 - If the user asks to "start", "initialize", "build", "implement", "connect end to end", or similar, still update docs/contracts first and stop for confirmation before code.
-- If OpenAPI changes are needed, update `docs/server/api/openapi.yaml`; do not encode endpoint fields only in skill references.
+- If OpenAPI changes are needed, update `docs/server/api/openapi-src/`, run `node ./scripts/generate-openapi.mjs`, and do not hand-edit generated `docs/server/api/openapi.yaml`.
 - If database changes are needed, update `docs/server/database/` when design changes and `server/migrations/` when schema changes.
 - If frontend request wrappers, types, constants, stores, or utilities are involved, update the owning frontend docs and OpenAPI when backend calls are involved.
 - Keep `admin/` and `web/` independent. Do not create a shared frontend package.

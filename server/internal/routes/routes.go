@@ -59,6 +59,10 @@ func healthz(app *bootstrap.App) gin.HandlerFunc {
 			response.Error(c, apperrors.ErrInternal.WithMessage("数据库连接异常"))
 			return
 		}
+		if err := app.Redis.Client().Ping(ctx).Err(); err != nil {
+			response.Error(c, apperrors.ErrInternal.WithMessage("Redis 连接异常"))
+			return
+		}
 
 		c.JSON(http.StatusOK, response.Envelope{
 			Code:    0,
@@ -67,6 +71,7 @@ func healthz(app *bootstrap.App) gin.HandlerFunc {
 				"app":      app.Config.App.Name,
 				"env":      app.Config.App.Env,
 				"database": "正常",
+				"redis":    "正常",
 				"time":     time.Now().Format(time.RFC3339),
 			},
 		})

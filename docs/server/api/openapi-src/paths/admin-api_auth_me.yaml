@@ -1,0 +1,27 @@
+  /admin-api/auth/me:
+    get:
+      tags:
+        - admin-auth
+      summary: 获取当前管理员会话
+      operationId: getAdminAuthMe
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: 当前管理员、角色、权限和菜单
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAuthStateResponse"
+        "401":
+          description: 未登录、token 无效、token 已吊销或 token 过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: 管理员账号已禁用
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

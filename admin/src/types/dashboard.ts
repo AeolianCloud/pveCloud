@@ -1,4 +1,4 @@
-import type { AdminSummary } from './auth'
+import type { AdminSessionSummary, AdminSummary } from './auth'
 
 export interface DashboardMetric {
   key: string
@@ -21,5 +21,6 @@ export interface DashboardResponse {
   role_ids: number[]
   permission_codes: string[]
   menus: AdminMenuItem[]
+  session: AdminSessionSummary
   metrics: DashboardMetric[]
 }

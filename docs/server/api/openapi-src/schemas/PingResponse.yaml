@@ -1,0 +1,19 @@
+    PingResponse:
+      allOf:
+        - $ref: "#/components/schemas/ResponseEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - scope
+                - pong
+              properties:
+                scope:
+                  type: string
+                  enum:
+                    - api
+                    - admin-api
+                pong:
+                  type: boolean
+                  example: true

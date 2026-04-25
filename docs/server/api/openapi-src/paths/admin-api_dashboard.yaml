@@ -1,0 +1,27 @@
+  /admin-api/dashboard:
+    get:
+      tags:
+        - admin-dashboard
+      summary: 管理端首页
+      operationId: getAdminDashboard
+      security:
+        - AdminBearerAuth: []
+      responses:
+        "200":
+          description: 首页数据
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardResponse"
+        "401":
+          description: 未登录、token 无效、token 已吊销或 token 过期
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: 缺少 dashboard:view 权限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

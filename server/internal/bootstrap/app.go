@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/openapi"
+	"github.com/AeolianCloud/pveCloud/server/internal/pkg/cache"
 	"github.com/AeolianCloud/pveCloud/server/internal/pkg/logger"
 )
 
@@ -16,6 +17,7 @@ import (
 type App struct {
 	Config      *Config
 	DB          *gorm.DB
+	Redis       *cache.Redis
 	Logger      *slog.Logger
 	OpenAPISpec *openapi.Spec
 }
@@ -41,6 +43,11 @@ func NewApp(ctx context.Context, configPath string) (*App, error) {
 		return nil, err
 	}
 
+	redisClient, err := ConnectRedis(ctx, cfg.Redis)
+	if err != nil {
+		return nil, err
+	}
+
 	var openAPISpec *openapi.Spec
 	if cfg.OpenAPI.Enabled {
 		// OpenAPI 规范是接口契约的唯一来源，启动时校验失败应阻止服务继续运行。
@@ -53,6 +60,7 @@ func NewApp(ctx context.Context, configPath string) (*App, error) {
 	return &App{
 		Config:      cfg,
 		DB:          db,
+		Redis:       redisClient,
 		Logger:      log,
 		OpenAPISpec: openAPISpec,
 	}, nil
