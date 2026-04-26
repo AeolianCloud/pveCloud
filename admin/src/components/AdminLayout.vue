@@ -60,11 +60,19 @@ const pageTitle = computed(() => {
   return matchedMenu?.title || String(route.meta.title || '控制台')
 })
 
-const themeLabel = computed(() => (colorTheme.value === 'deep' ? '深蓝主题' : '默认主题'))
+const themeLabel = computed(() => (colorTheme.value === 'deep' ? '深色主题' : '浅色主题'))
+const sidebarLabel = computed(() => (auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'))
 
-watch(colorTheme, (theme) => {
-  localStorage.setItem(THEME_STORAGE_KEY, theme)
-})
+watch(
+  colorTheme,
+  (theme) => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+    document.documentElement.classList.toggle('admin-theme-dark', theme === 'deep')
+  },
+  {
+    immediate: true,
+  },
+)
 
 function iconFor(name: string | null) {
   if (!name) {
@@ -96,7 +104,7 @@ async function logout() {
         <span class="brand-mark">
           <Server :size="19" aria-hidden="true" />
         </span>
-        <span class="brand-name">IDC云服务器销售系统</span>
+        <span class="brand-name">IDC 云服务器销售系统</span>
       </div>
 
       <nav class="sidebar-nav" aria-label="后台导航">
@@ -113,54 +121,38 @@ async function logout() {
         </RouterLink>
       </nav>
 
-      <button
-        class="sidebar-collapse"
-        type="button"
-        :title="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        :aria-label="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        @click="auth.toggleSidebar()"
-      >
+      <Button class="sidebar-collapse" text severity="secondary" :title="sidebarLabel" :aria-label="sidebarLabel" @click="auth.toggleSidebar()">
         <ChevronLeft :size="17" aria-hidden="true" />
-        <span>收起侧边栏</span>
-      </button>
+        <span>{{ auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏' }}</span>
+      </Button>
     </aside>
 
     <div class="admin-workspace">
       <header class="admin-topbar">
         <div class="topbar-breadcrumb">
-          <button
-            class="mobile-menu-button"
-            type="button"
-            :title="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-            :aria-label="auth.sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-            @click="auth.toggleSidebar()"
-          >
+          <Button class="mobile-menu-button" text severity="secondary" :title="sidebarLabel" :aria-label="sidebarLabel" @click="auth.toggleSidebar()">
             <Menu :size="17" aria-hidden="true" />
-          </button>
+          </Button>
           <span>控制台</span>
           <span class="breadcrumb-separator">/</span>
           <strong>{{ pageTitle }}</strong>
         </div>
 
         <div class="topbar-actions">
-          <button
-            class="theme-switch-button"
-            type="button"
-            :title="`切换主题，当前为${themeLabel}`"
-            :aria-label="`切换主题，当前为${themeLabel}`"
-            @click="toggleTheme"
-          >
+          <Button class="theme-switch-button" text severity="secondary" :title="`切换主题，当前为${themeLabel}`" :aria-label="`切换主题，当前为${themeLabel}`" @click="toggleTheme">
             <Palette :size="16" aria-hidden="true" />
             <span>{{ themeLabel }}</span>
-          </button>
+          </Button>
           <div class="admin-profile">
-            <span class="profile-avatar">
-              <UserRound :size="18" aria-hidden="true" />
-            </span>
+            <Avatar class="profile-avatar" shape="circle">
+              <template #default>
+                <UserRound :size="18" aria-hidden="true" />
+              </template>
+            </Avatar>
             <strong>{{ auth.admin?.display_name || auth.admin?.username || 'admin' }}</strong>
-            <button class="profile-logout" type="button" title="退出登录" aria-label="退出登录" @click="logout">
+            <Button class="profile-logout" text severity="secondary" title="退出登录" aria-label="退出登录" @click="logout">
               <LogOut :size="15" aria-hidden="true" />
-            </button>
+            </Button>
           </div>
         </div>
       </header>

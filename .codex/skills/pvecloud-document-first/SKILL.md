@@ -50,6 +50,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
 9. Do not implement code, migrations, frontend pages, or config changes for contract/behavior work until the maintainer explicitly confirms.
 10. For pure UI/UX polish, implement directly after reading the relevant frontend guardrails; do not add style-only decisions to `docs/` just to satisfy the gate.
 11. Verify with the smallest meaningful tests/builds and report results.
+12. When finishing work on a feature branch, make the branch outcome explicit: merge the completed branch back into the maintained base branch after approval, then clean up local stale branches that are already merged. Keep the active maintained branch and never delete unmerged branches unless the maintainer explicitly asks for that risk.
 
 ## Non-Negotiable Gates
 
@@ -61,6 +62,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
 - Keep `admin/` and `web/` independent. Do not create a shared frontend package.
 - Do not overwrite user changes. If dirty files are unrelated, leave them alone. If dirty files overlap with the task, work with them.
 - If a task is pure read-only investigation or explanation, no confirmation gate is needed unless edits become necessary.
+- Do not leave completed feature branches hanging around after merge. At wrap-up, check local branches, delete branches already merged into the maintained base branch, and mention any unmerged branch that still needs a decision.
 
 ## Confirmation Prompt
 

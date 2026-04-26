@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { LockKeyhole, RefreshCw, Save, Settings } from 'lucide-vue-next'
+import { LockKeyhole, Settings } from 'lucide-vue-next'
 
 import { getSystemConfigs, updateSystemConfig } from '../api/systemConfig'
+import AdminEmptyState from '../components/AdminEmptyState.vue'
+import AdminPageHeader from '../components/AdminPageHeader.vue'
 import type { SystemConfigGroup, SystemConfigItem } from '../types/systemConfig'
 
 const loading = ref(false)
@@ -52,27 +54,16 @@ onMounted(loadConfigs)
 
 <template>
   <section class="config-page">
-    <header class="config-toolbar">
-      <div class="config-title">
-        <span class="config-title-icon"><Settings :size="20" aria-hidden="true" /></span>
-        <div>
-          <span>运行配置</span>
-          <h1>系统设置</h1>
-        </div>
-      </div>
-      <button type="button" :disabled="loading" @click="loadConfigs">
-        <RefreshCw :class="{ spinning: loading }" :size="15" aria-hidden="true" />
-        刷新
-      </button>
-    </header>
+    <AdminPageHeader eyebrow="运行配置" title="系统设置" :icon="Settings">
+      <Button type="button" label="刷新" icon="pi pi-refresh" :loading="loading" severity="secondary" outlined @click="loadConfigs" />
+    </AdminPageHeader>
 
-    <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
-    <div v-if="loading && groups.length === 0" class="config-state">配置加载中...</div>
+    <Message v-if="errorMessage" severity="error" :closable="false">{{ errorMessage }}</Message>
+    <AdminEmptyState v-if="loading && groups.length === 0" text="配置加载中..." />
 
-    <section v-for="group in groups" :key="group.group_name" class="config-group">
-      <header>
-        <h2>{{ group.group_name }}</h2>
-      </header>
+    <Card v-for="group in groups" :key="group.group_name" class="config-group">
+      <template #title>{{ group.group_name }}</template>
+      <template #content>
       <div class="config-grid">
         <article v-for="item in group.items" :key="item.id" class="config-item">
           <div class="config-item-head">
@@ -80,50 +71,36 @@ onMounted(loadConfigs)
               <strong>{{ item.config_key }}</strong>
               <small>{{ item.description || item.value_type }}</small>
             </div>
-            <span v-if="item.is_secret" class="secret-pill"><LockKeyhole :size="13" aria-hidden="true" />敏感</span>
+            <Tag v-if="item.is_secret" severity="danger">
+              <LockKeyhole :size="13" aria-hidden="true" />
+              敏感
+            </Tag>
           </div>
-          <input
+          <InputText
             v-model="editValues[item.id]"
             :type="item.is_secret ? 'password' : 'text'"
             :placeholder="item.is_secret && item.has_value ? '已设置，输入新值覆盖' : '配置值'"
           />
           <footer>
             <span>{{ formatDate(item.updated_at) }}</span>
-            <button type="button" :disabled="submittingID === item.id" @click="saveConfig(item)">
-              <Save :size="14" aria-hidden="true" />
-              {{ submittingID === item.id ? '保存中...' : '保存' }}
-            </button>
+            <Button type="button" label="保存" icon="pi pi-save" :loading="submittingID === item.id" size="small" @click="saveConfig(item)" />
           </footer>
         </article>
       </div>
-    </section>
+      </template>
+    </Card>
   </section>
 </template>
 
 <style scoped>
 .config-page { display: grid; gap: 14px; }
-.config-toolbar, .config-group { border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-soft); }
-.config-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; }
-.config-title { display: flex; align-items: center; gap: 12px; }
-.config-title-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 8px; color: var(--primary); background: var(--primary-soft); }
-.config-title span { color: var(--muted); font-size: 13px; font-weight: 800; }
-.config-title h1 { margin: 3px 0 0; font-size: 20px; line-height: 1.2; }
-.config-toolbar button, .config-item button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid var(--border); border-radius: 8px; color: var(--muted-strong); background: var(--panel); font-size: 13px; font-weight: 750; cursor: pointer; }
-.config-group { overflow: hidden; }
-.config-group > header { padding: 13px 14px; border-bottom: 1px solid var(--border); background: var(--panel-soft); }
-.config-group h2 { margin: 0; font-size: 16px; }
+.config-group { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-soft); }
 .config-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; }
 .config-item { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
 .config-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .config-item strong, .config-item small { display: block; }
 .config-item strong { color: var(--text); }
 .config-item small { margin-top: 4px; color: var(--muted); }
-.config-item input { min-height: 38px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; color: var(--text); background: var(--panel); }
 .config-item footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
-.secret-pill { min-height: 22px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: 6px; color: var(--danger); background: var(--danger-soft); font-weight: 850; }
-.config-state { min-height: 220px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 800; }
-button:disabled { cursor: not-allowed; opacity: 0.55; }
-.spinning { animation: spin 800ms linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 960px) { .config-toolbar { align-items: flex-start; flex-direction: column; } .config-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .config-grid { grid-template-columns: 1fr; } }
 </style>

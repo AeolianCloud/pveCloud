@@ -27,6 +27,16 @@ Read these before frontend work:
 - If a style must be shared by multiple pages in the same frontend, extract it inside that frontend only; do not create a cross-app `shared/` style package.
 - Use semantic CSS variables for theme-sensitive values. Scoped styles may define page-local variables on their root class.
 
+## Third-Party UI Foundation
+
+- Prefer mature third-party libraries for established frontend behavior that is easy to get subtly wrong: dialog focus trapping, select/listbox keyboard interaction, checkbox groups, popovers, tabs, date inputs, virtual scrolling, tables, charts, and accessibility primitives.
+- For `admin/`, use PrimeVue as the preferred base component layer when introducing a UI library. Use PrimeVue components directly by default; wrap them under `admin/src/components/` only when pveCloud needs a stable business-facing API, a repeated component composition, or project-specific defaults.
+- Use PrimeVue Styled Mode with an official preset theme as the primary visual base for frontend controls. Project CSS should provide pveCloud-specific layout, branding, page composition, and small overrides rather than rebuilding the same component visuals from scratch.
+- PrimeFlex may be used as an optional admin layout utility layer for flex, grid, spacing, alignment, and responsive helpers. It must not replace PrimeVue Styled Mode or recreate PrimeVue component states.
+- For protected `admin` pages, migrate UI to the PrimeVue suite progressively, excluding `LoginPage` unless the maintainer explicitly scopes login redesign. Dashboard, admin users, roles, sessions, system settings, audit logs, risk logs, and 403 should use PrimeVue components and admin-owned wrappers instead of spreading hand-written control styles.
+- A third-party CSS utility or theme library may be introduced inside the owning frontend only. Do not create a cross-app shared package.
+- Do not hand-roll complex component internals when a proven library already provides the behavior, unless the maintainer explicitly asks for a custom implementation.
+
 ## Admin Rules
 
 - `admin` calls only `/admin-api/*`.

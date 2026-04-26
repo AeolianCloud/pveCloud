@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Edit3, Plus, RefreshCw, Search, ShieldCheck } from 'lucide-vue-next'
+import { ShieldCheck } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 
 import { createAdminRole, getAdminPermissions, getAdminRoles, updateAdminRole } from '../api/adminRole'
+import AdminEmptyState from '../components/AdminEmptyState.vue'
+import AdminPageHeader from '../components/AdminPageHeader.vue'
+import AdminTablePanel from '../components/AdminTablePanel.vue'
 import type { AdminPermissionGroup, AdminRoleItem, AdminRoleStatus } from '../types/adminRole'
+import { useConfirmAction } from '../utils/confirmAction'
 
 const route = useRoute()
 const router = useRouter()
+const confirmAction = useConfirmAction()
 const loading = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
@@ -32,7 +37,13 @@ const form = reactive({
   permissionCodes: [] as string[],
 })
 
-const lastPage = computed(() => Math.max(1, Math.ceil(total.value / perPage)))
+const statusOptions = [
+  { label: '全部状态', value: '' },
+  { label: '启用', value: 'active' },
+  { label: '禁用', value: 'disabled' },
+]
+
+const first = computed(() => (page.value - 1) * perPage)
 const formTitle = computed(() => (editing.value ? '编辑角色' : '创建角色'))
 
 async function loadRoles() {
@@ -75,8 +86,8 @@ async function applyFilters() {
   await loadRoles()
 }
 
-async function changePage(nextPage: number) {
-  page.value = Math.min(Math.max(1, nextPage), lastPage.value)
+async function changePaginator(event: { page: number }) {
+  page.value = event.page + 1
   await syncQuery()
   await loadRoles()
 }
@@ -133,7 +144,12 @@ async function submitForm() {
 async function toggleStatus(row: AdminRoleItem) {
   const nextStatus: AdminRoleStatus = row.status === 'active' ? 'disabled' : 'active'
   const label = nextStatus === 'active' ? '启用' : '禁用'
-  if (!window.confirm(`${label}角色 ${row.name}？`)) {
+  const confirmed = await confirmAction({
+    header: `${label}角色`,
+    message: `确认${label}角色 ${row.name} 吗`,
+    acceptLabel: label,
+  })
+  if (!confirmed) {
     return
   }
   submitting.value = true
@@ -152,6 +168,10 @@ function statusLabel(status: AdminRoleStatus) {
   return status === 'active' ? '启用' : '禁用'
 }
 
+function statusSeverity(status: AdminRoleStatus) {
+  return status === 'active' ? 'success' : 'danger'
+}
+
 function formatDate(value: string) {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
@@ -163,135 +183,95 @@ onMounted(async () => {
 
 <template>
   <section class="admin-role-page">
-    <header class="admin-role-toolbar">
-      <div class="admin-role-title">
-        <span class="admin-role-title-icon">
-          <ShieldCheck :size="20" aria-hidden="true" />
-        </span>
-        <div>
-          <span>角色权限</span>
-          <h1>角色权限</h1>
-        </div>
-      </div>
-      <div class="admin-role-filters">
-        <label>
-          <Search :size="15" aria-hidden="true" />
-          <input v-model="filters.keyword" type="search" placeholder="编码 / 名称 / 说明" @keyup.enter="applyFilters" />
-        </label>
-        <select v-model="filters.status" aria-label="角色状态">
-          <option value="">全部状态</option>
-          <option value="active">启用</option>
-          <option value="disabled">禁用</option>
-        </select>
-        <button type="button" @click="applyFilters">
-          <Search :size="15" aria-hidden="true" />
-          查询
-        </button>
-        <button type="button" :disabled="loading" title="刷新" aria-label="刷新" @click="loadRoles">
-          <RefreshCw :class="{ spinning: loading }" :size="15" aria-hidden="true" />
-        </button>
-        <button class="primary-action" type="button" @click="openCreate">
-          <Plus :size="15" aria-hidden="true" />
-          创建
-        </button>
-      </div>
-    </header>
+    <AdminPageHeader eyebrow="角色权限" title="角色权限" :icon="ShieldCheck">
+      <IconField>
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="filters.keyword" type="search" placeholder="编码 / 名称 / 说明" @keyup.enter="applyFilters" />
+      </IconField>
+      <Select v-model="filters.status" :options="statusOptions" option-label="label" option-value="value" aria-label="角色状态" />
+      <Button type="button" label="查询" icon="pi pi-search" @click="applyFilters" />
+      <Button type="button" icon="pi pi-refresh" :loading="loading" severity="secondary" outlined aria-label="刷新" @click="loadRoles" />
+      <Button type="button" label="创建" icon="pi pi-plus" @click="openCreate" />
+    </AdminPageHeader>
 
-    <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
+    <Message v-if="errorMessage" severity="error" :closable="false">{{ errorMessage }}</Message>
 
-    <article class="admin-role-table-card">
-      <div v-if="loading && rows.length === 0" class="admin-role-state">角色加载中...</div>
-      <div v-else-if="rows.length === 0" class="admin-role-state">
-        <ShieldCheck :size="18" aria-hidden="true" />
-        暂无角色
-      </div>
-      <div v-else class="admin-role-table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>角色</th>
-              <th>权限数</th>
-              <th>状态</th>
-              <th>更新时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in rows" :key="row.id">
-              <td>
-                <strong>{{ row.name }}</strong>
-                <small>{{ row.code }}{{ row.description ? ` · ${row.description}` : '' }}</small>
-              </td>
-              <td>{{ row.permission_codes.length }}</td>
-              <td>
-                <span class="status-pill" :class="`status-${row.status}`">{{ statusLabel(row.status) }}</span>
-              </td>
-              <td>{{ formatDate(row.updated_at) }}</td>
-              <td class="row-actions">
-                <button type="button" title="编辑" aria-label="编辑" @click="openEdit(row)">
-                  <Edit3 :size="15" aria-hidden="true" />
-                </button>
-                <button type="button" :disabled="submitting" @click="toggleStatus(row)">
-                  {{ row.status === 'active' ? '禁用' : '启用' }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <footer class="admin-role-pagination">
+    <AdminTablePanel>
+      <AdminEmptyState v-if="loading && rows.length === 0" text="角色加载中..." />
+      <AdminEmptyState v-else-if="rows.length === 0" text="暂无角色" :icon="ShieldCheck" />
+      <DataTable v-else :value="rows" class="admin-prime-table" data-key="id" striped-rows>
+        <Column header="角色">
+          <template #body="{ data }">
+            <strong>{{ data.name }}</strong>
+            <small>{{ data.code }}{{ data.description ? ` · ${data.description}` : '' }}</small>
+          </template>
+        </Column>
+        <Column header="权限数">
+          <template #body="{ data }">{{ data.permission_codes.length }}</template>
+        </Column>
+        <Column header="状态">
+          <template #body="{ data }">
+            <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
+          </template>
+        </Column>
+        <Column header="更新时间">
+          <template #body="{ data }">{{ formatDate(data.updated_at) }}</template>
+        </Column>
+        <Column header="操作">
+          <template #body="{ data }">
+            <div class="row-actions">
+              <Button icon="pi pi-pencil" severity="secondary" text rounded aria-label="编辑" @click="openEdit(data)" />
+              <Button
+                :label="data.status === 'active' ? '禁用' : '启用'"
+                :severity="data.status === 'active' ? 'danger' : 'success'"
+                text
+                :disabled="submitting"
+                @click="toggleStatus(data)"
+              />
+            </div>
+          </template>
+        </Column>
+      </DataTable>
+      <template #footer>
         <span>共 {{ total }} 个角色</span>
-        <div>
-          <button type="button" :disabled="page <= 1 || loading" @click="changePage(page - 1)">上一页</button>
-          <strong>{{ page }} / {{ lastPage }}</strong>
-          <button type="button" :disabled="page >= lastPage || loading" @click="changePage(page + 1)">下一页</button>
-        </div>
-      </footer>
-    </article>
+        <Paginator :first="first" :rows="perPage" :total-records="total" template="PrevPageLink PageLinks NextPageLink" @page="changePaginator" />
+      </template>
+    </AdminTablePanel>
 
-    <div v-if="showForm" class="admin-role-modal" role="dialog" aria-modal="true">
-      <form class="admin-role-dialog" @submit.prevent="submitForm">
-        <header>
-          <h2>{{ formTitle }}</h2>
-          <button type="button" aria-label="关闭" @click="showForm = false">×</button>
-        </header>
-        <label>
+    <Dialog v-model:visible="showForm" modal :header="formTitle" class="admin-form-dialog admin-form-dialog--wide">
+      <form class="admin-form-grid" @submit.prevent="submitForm">
+        <label class="admin-field">
           <span>角色编码</span>
-          <input v-model="form.code" :disabled="Boolean(editing)" required minlength="2" maxlength="64" />
+          <InputText v-model="form.code" :disabled="Boolean(editing)" required minlength="2" maxlength="64" />
         </label>
-        <label>
+        <label class="admin-field">
           <span>角色名称</span>
-          <input v-model="form.name" required maxlength="64" />
+          <InputText v-model="form.name" required maxlength="64" />
         </label>
-        <label>
+        <label class="admin-field">
           <span>角色说明</span>
-          <input v-model="form.description" maxlength="255" />
+          <InputText v-model="form.description" maxlength="255" />
         </label>
-        <label>
+        <label class="admin-field">
           <span>状态</span>
-          <select v-model="form.status">
-            <option value="active">启用</option>
-            <option value="disabled">禁用</option>
-          </select>
+          <Select v-model="form.status" :options="statusOptions.slice(1)" option-label="label" option-value="value" />
         </label>
         <div class="permission-panel">
           <section v-for="group in permissionGroups" :key="group.group_name">
             <h3>{{ group.group_name }}</h3>
             <label v-for="permission in group.permissions" :key="permission.code" class="permission-option">
-              <input v-model="form.permissionCodes" type="checkbox" :value="permission.code" />
+              <Checkbox v-model="form.permissionCodes" :input-id="`permission-${permission.code}`" :value="permission.code" />
               <span>{{ permission.name }}</span>
               <small>{{ permission.code }}</small>
             </label>
           </section>
         </div>
         <footer>
-          <button type="button" @click="showForm = false">取消</button>
-          <button class="primary-action" type="submit" :disabled="submitting">
-            {{ submitting ? '提交中...' : '保存' }}
-          </button>
+          <Button type="button" label="取消" severity="secondary" outlined @click="showForm = false" />
+          <Button type="submit" label="保存" :loading="submitting" />
         </footer>
       </form>
-    </div>
+    </Dialog>
   </section>
 </template>
 
@@ -301,271 +281,29 @@ onMounted(async () => {
   gap: 14px;
 }
 
-.admin-role-toolbar,
-.admin-role-table-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: var(--shadow-soft);
-}
-
-.admin-role-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px;
-}
-
-.admin-role-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.admin-role-title-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: var(--primary);
-  background: var(--primary-soft);
-}
-
-.admin-role-title span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.admin-role-title h1 {
-  margin: 3px 0 0;
-  font-size: 20px;
-  line-height: 1.2;
-}
-
-.admin-role-filters {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.admin-role-filters label,
-.admin-role-filters button,
-.admin-role-filters select,
-.admin-role-pagination button,
-.row-actions button {
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--muted-strong);
-  background: var(--panel);
-  font-size: 13px;
-  font-weight: 750;
-  cursor: pointer;
-}
-
-.admin-role-filters input {
-  width: 170px;
-  border: 0;
-  outline: 0;
-  color: var(--text);
-  background: transparent;
-}
-
-.primary-action {
-  border-color: transparent !important;
-  color: #fff !important;
-  background: var(--primary) !important;
-}
-
-.admin-role-table-card {
-  overflow: hidden;
-}
-
-.admin-role-table-scroll {
-  overflow-x: auto;
-  padding: 0 10px;
-}
-
-table {
-  width: 100%;
-  min-width: 860px;
-  border-collapse: collapse;
-  color: var(--muted-strong);
-  font-size: 13px;
-}
-
-th,
-td {
-  height: 48px;
-  padding: 0 9px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  white-space: nowrap;
-}
-
-th {
-  height: 38px;
-  color: var(--table-head-text);
-  background: var(--panel-soft);
-  font-weight: 800;
-}
-
-td strong,
-td small {
-  display: block;
-}
-
-td strong {
-  color: var(--text);
-}
-
-td small {
-  margin-top: 3px;
-  color: var(--muted);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-weight: 850;
-}
-
-.status-active {
-  color: var(--success);
-  background: var(--success-soft);
-}
-
-.status-disabled {
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-
 .row-actions {
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 48px;
-}
-
-.admin-role-state {
-  min-height: 220px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--muted);
-  font-weight: 800;
-}
-
-.admin-role-pagination {
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 14px;
-  color: var(--muted);
-}
-
-.admin-role-pagination div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.admin-role-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgb(15 23 42 / 46%);
-}
-
-.admin-role-dialog {
-  width: min(720px, 100%);
-  max-height: min(760px, calc(100vh - 40px));
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: var(--shadow-strong);
-  overflow: auto;
-}
-
-.admin-role-dialog header,
-.admin-role-dialog footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.admin-role-dialog h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.admin-role-dialog > label {
-  display: grid;
-  gap: 6px;
-  color: var(--muted-strong);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.admin-role-dialog input:not([type='checkbox']),
-.admin-role-dialog select {
-  min-height: 38px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0 10px;
-  color: var(--text);
-  background: var(--panel);
-}
-
-.admin-role-dialog header button,
-.admin-role-dialog footer button {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--muted-strong);
-  background: var(--panel);
-  cursor: pointer;
+  min-height: 48px;
 }
 
 .permission-panel {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  margin: 14px 18px 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
 }
 
 .permission-panel section {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
-  background: var(--panel-soft);
+  background: var(--panel);
 }
 
 .permission-panel h3 {
@@ -575,7 +313,7 @@ button:disabled {
 }
 
 .permission-option {
-  min-height: 30px;
+  min-height: 34px;
   display: grid;
   grid-template-columns: 18px minmax(80px, 1fr) minmax(120px, 1.3fr);
   align-items: center;
@@ -584,37 +322,11 @@ button:disabled {
   font-size: 12px;
 }
 
-.permission-option input[type='checkbox'] {
-  min-height: 0;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-}
-
 .permission-option small {
   color: var(--muted);
 }
 
-.spinning {
-  animation: spin 800ms linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (max-width: 960px) {
-  .admin-role-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .admin-role-filters {
-    justify-content: flex-start;
-  }
-
   .permission-panel {
     grid-template-columns: 1fr;
   }

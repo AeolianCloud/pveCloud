@@ -39,6 +39,7 @@ For implementation, migration, API, page behavior, config, deployment, operation
 7. Implement contract/behavior work only after explicit confirmation.
 8. For pure UI/UX polish, implement directly after reading frontend guardrails; do not write style-only preferences into docs.
 9. Verify with focused tests/builds.
+10. At wrap-up for branch-based work, merge the completed branch into the maintained base branch after approval, then delete local branches already merged into that base. Keep unmerged branches until the maintainer explicitly approves deletion.
 
 Read-only investigation and pure explanation do not need the confirmation gate unless edits become necessary.
 
@@ -58,6 +59,7 @@ Pure UI/UX polish means visual-only changes such as spacing, layout, colors, typ
 - For non-trivial changes, include a multi-line commit body that records the main modules changed, important behavior or contract effects, and verification commands that passed.
 - Mention user-visible behavior, API/schema/menu/permission changes, data safety changes, or migration effects when they exist.
 - Do not include unrelated dirty files in a commit. If files such as `.claude/` are unrelated or untracked, leave them out unless the maintainer explicitly asks to commit them.
+- After a completed branch is merged, check stale local branches and clean up branches already merged into the maintained base branch. Report any remaining unmerged branches instead of silently deleting them.
 
 ## Code Style
 

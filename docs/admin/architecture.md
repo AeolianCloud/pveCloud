@@ -14,6 +14,9 @@
 | State | Pinia |
 | HTTP | Axios |
 | Icons | lucide-vue-next |
+| Base UI components | PrimeVue + admin-owned wrapper components when needed |
+| Component theme | PrimeVue Styled Mode with official preset theme |
+| Utility CSS | Optional PrimeFlex for layout utilities |
 
 ## 独立边界
 
@@ -28,12 +31,18 @@
 - 页面或组件私有样式写在对应 Vue SFC 的 `<style scoped>` 中，避免把页面级 class 长期堆进全局 CSS。
 - 需要在管理端多个页面复用的样式，只能在 `admin/` 内部抽取，不与 `web/` 共用样式包。
 - 主题相关颜色、边框、阴影和交互态使用语义化 CSS 变量；页面局部变量可定义在页面根 class 上。
+- 管理端基础组件采用 PrimeVue。优先直接使用 PrimeVue 的稳定组件能力，只有当 pveCloud 需要统一业务语义、固定组合结构或屏蔽重复配置时，才在 `admin/src/components/` 内部进行二次封装。
+- 管理端控件视觉采用 PrimeVue Styled Mode 和官方 preset 主题作为基础，不以项目自写 CSS 变量系统作为主要控件样式来源。项目样式只负责 pveCloud 特有的布局修正、品牌细节、页面级组合和必要覆盖。
+- 布局辅助可以使用 PrimeFlex。PrimeFlex 只负责 flex、grid、间距、对齐和响应式等布局工具，不替代 PrimeVue 主题，也不用于重写 PrimeVue 控件状态。
+- 成熟第三方库可以用于标准化、易出错或已有稳定实现的前端能力，例如弹窗、选择器、日期、表格交互、虚拟滚动、图表和复杂可访问性组件。不要手写这类底层行为来重复造轮子。
 
 ## 页面范围
 
 当前阶段只完善基础后台管理能力，不开放产品套餐、订单、支付、实例、工单等业务模块。
 
 基础后台页面范围包含 Login、Dashboard、Admin users、Roles、Permissions、Admin sessions、System settings、Audit logs、Risk logs 和 403 无权访问页。业务模块在对应功能完成前不出现在侧边栏菜单和受保护业务路由中。
+
+除 Login 外，管理后台受保护页面统一按 PrimeVue 套件逐步改造。Dashboard、管理员、角色权限、登录会话、系统设置、审计日志、高危操作日志和 403 页面应优先使用 PrimeVue 组件、PrimeVue Styled Mode 主题和必要的管理端封装组件承载 UI，不继续扩散手写控件样式。
 
 基础后台菜单按后端 `data.menus` 渲染。第一阶段可开放的菜单为 Dashboard、管理员、角色权限、登录会话、系统设置、审计日志、高危操作日志。菜单可见性仍由后端 RBAC 返回结果决定，前端 fallback 菜单只作为恢复登录态之前的兜底。
 
