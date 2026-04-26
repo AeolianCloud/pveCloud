@@ -34,11 +34,11 @@ const chartPoints = '0,62 72,64 144,68 216,72 288,24 360,52 432,76 504,58'
 const sparkline = '0,48 18,43 36,45 54,30 72,36 90,28 108,33 126,14'
 
 const productShares = [
-  { name: '标准型云服务器', value: '38.7%', color: '#2f7cf6' },
-  { name: '计算型云服务器', value: '23.1%', color: '#2fc28b' },
-  { name: '内存型云服务器', value: '16.8%', color: '#f59e0b' },
-  { name: 'GPU云服务器', value: '11.4%', color: '#ff4f5c' },
-  { name: '其他套餐', value: '10.0%', color: '#7c8aa4' },
+  { name: '标准型云服务器', value: '38.7%', color: 'var(--chart-blue)' },
+  { name: '计算型云服务器', value: '23.1%', color: 'var(--chart-green)' },
+  { name: '内存型云服务器', value: '16.8%', color: 'var(--warning)' },
+  { name: 'GPU云服务器', value: '11.4%', color: 'var(--chart-red)' },
+  { name: '其他套餐', value: '10.0%', color: 'var(--chart-muted)' },
 ]
 
 const resourceItems = [
@@ -320,7 +320,7 @@ onMounted(loadDashboard)
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--on-primary);
   background: var(--stat-color);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--stat-color) 18%, transparent);
 }
@@ -522,11 +522,11 @@ onMounted(loadDashboard)
   aspect-ratio: 1;
   border-radius: 50%;
   background: conic-gradient(
-    #2f7cf6 0 38.7%,
-    #2fc28b 38.7% 61.8%,
-    #f59e0b 61.8% 78.6%,
-    #ff4f5c 78.6% 90%,
-    #7c8aa4 90% 100%
+    var(--chart-blue) 0 38.7%,
+    var(--chart-green) 38.7% 61.8%,
+    var(--warning) 61.8% 78.6%,
+    var(--chart-red) 78.6% 90%,
+    var(--chart-muted) 90% 100%
   );
 }
 
@@ -658,6 +658,7 @@ onMounted(loadDashboard)
 }
 
 .resource-item strong {
+  color: var(--text);
   font-size: 15px;
 }
 
@@ -720,7 +721,7 @@ onMounted(loadDashboard)
 }
 
 .dot-yellow {
-  background: #f7c948;
+  background: var(--chart-yellow);
 }
 
 .dot-blue {
@@ -750,6 +751,7 @@ onMounted(loadDashboard)
 .table-scroll {
   overflow-x: auto;
   padding: 0 10px 12px;
+  scrollbar-gutter: stable;
 }
 
 table {
@@ -766,7 +768,7 @@ table {
 
 th {
   height: 36px;
-  color: #53627a;
+  color: var(--table-head-text);
   background: var(--panel-soft);
   font-weight: 800;
   text-align: left;
@@ -814,7 +816,7 @@ td a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #2e4262;
+  color: var(--node-title);
   font-weight: 800;
 }
 

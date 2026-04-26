@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  Bell,
   ChevronDown,
   ChevronLeft,
-  CircleHelp,
   ClipboardList,
   Cloud,
   LayoutDashboard,
@@ -15,7 +13,6 @@ import {
   Package,
   Palette,
   ReceiptText,
-  Search,
   Server,
   Settings,
   UserRound,
@@ -139,12 +136,6 @@ async function logout() {
           <strong>{{ pageTitle }}</strong>
         </div>
 
-        <label class="topbar-search" aria-label="全局搜索">
-          <Search :size="17" aria-hidden="true" />
-          <input type="search" placeholder="搜索订单、客户、实例、工单" />
-          <kbd>Ctrl K</kbd>
-        </label>
-
         <div class="topbar-actions">
           <button
             class="theme-switch-button"
@@ -155,13 +146,6 @@ async function logout() {
           >
             <Palette :size="16" aria-hidden="true" />
             <span>{{ themeLabel }}</span>
-          </button>
-          <button class="topbar-icon-button notification-button" type="button" title="通知" aria-label="通知">
-            <Bell :size="18" aria-hidden="true" />
-            <span>12</span>
-          </button>
-          <button class="topbar-icon-button" type="button" title="帮助" aria-label="帮助">
-            <CircleHelp :size="18" aria-hidden="true" />
           </button>
           <div class="admin-profile">
             <span class="profile-avatar">
