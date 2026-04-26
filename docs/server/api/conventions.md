@@ -1,15 +1,12 @@
 # API 约定
 
-接口最终契约维护在 `docs/server/api/openapi.yaml`。本文件记录跨接口通用约定：响应包裹、错误码、鉴权、幂等和 OpenAPI 暴露方式。
+接口最终契约维护在 `docs/server/api/` 和对应业务文档中。本文件记录跨接口通用约定：响应包裹、错误码、鉴权和幂等。
 
-## OpenAPI
+## 接口文档
 
-- API 契约源文件是 `docs/server/api/openapi-src/`。
-- 机器可执行的最终 API 契约是生成文件 `docs/server/api/openapi.yaml`。
-- 不要手动编辑生成后的 `docs/server/api/openapi.yaml`；接口变更后运行 `node ./scripts/generate-openapi.mjs`。
-- 可以运行 `node ./scripts/generate-openapi.mjs --check` 检查生成文件是否最新。
-- API 进程在启用 OpenAPI 时暴露 `GET /openapi.yaml`。
-- 启动阶段启用 OpenAPI 时必须校验规范文件。
+- 当前已确认接口清单维护在 `docs/server/api/endpoints.md`。
+- 新增或修改接口时，先更新 `docs/server/api/` 下的接口说明，再同步更新涉及的后端、管理端或用户端业务文档。
+- 接口文档应说明方法、路径、鉴权要求、请求参数、响应数据、主要错误状态和权限码。
 - 初始化检查接口：
   - `GET /healthz`
   - `GET /api/ping`
@@ -48,7 +45,7 @@
 
 - 用户端 JWT 使用用户端 secret 和 issuer。
 - 管理端 JWT 使用管理端 secret 和 issuer。
-- 管理端接口通过 OpenAPI `security` 声明保护状态。
+- 管理端接口必须在接口文档、路由中间件和处理器注释中保持鉴权要求一致。
 - 管理端权限码采用 `domain:action` 格式，例如 `dashboard:view`、`payment:manual_credit`。
 - 缺少、错误或过期 token 返回 `40101 未登录或登录已过期`。
 - 权限不足返回 `40301 无权限`。

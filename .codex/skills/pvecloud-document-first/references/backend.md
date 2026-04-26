@@ -1,6 +1,6 @@
 # Backend Implementation Guardrails
 
-This file is for AI implementation rules. Backend architecture, API conventions, jobs, business status lists, and integration design live in `docs/server/`; endpoint contracts live in `docs/server/api/openapi.yaml`.
+This file is for AI implementation rules. Backend architecture, API conventions, jobs, business status lists, and integration design live in `docs/server/`; endpoint contracts live in `docs/server/api/` and matching business docs.
 
 ## Required Docs
 
@@ -10,7 +10,7 @@ Read these before backend work:
 - `docs/server/architecture.md`
 - `docs/server/go-technical.md`
 - `docs/server/api/conventions.md`
-- `docs/server/api/openapi-src/` and generated `docs/server/api/openapi.yaml` when routes, handlers, DTOs, auth, response shapes, or status codes change
+- `docs/server/api/` and matching backend docs when routes, handlers, DTOs, auth, response shapes, or status codes change
 - `docs/server/jobs.md` when async task behavior changes
 - `docs/server/integrations/README.md` when external systems are involved
 - `docs/server/database/design.md` and `server/migrations/` when persistence changes
@@ -23,14 +23,12 @@ Read these before backend work:
 - Use shared models under `server/internal/models/`; do not split models by frontend.
 - Use `server/internal/pkg` only for stable infrastructure such as response, errors, JWT, password, pagination, validator, and logger.
 - API handlers must use unified `pkg/errors` and `pkg/response`.
-- Handler comments must stay aligned with OpenAPI.
-- Startup OpenAPI validation remains the safety net when enabled.
-- Do not hand-edit generated `docs/server/api/openapi.yaml`; edit source fragments under `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`.
+- Handler comments must stay aligned with `docs/server/api/`.
 
 ## Auth and Permission
 
 - Follow `docs/server/api/conventions.md` for auth and response semantics.
-- Follow OpenAPI for protected endpoint declarations.
+- Keep protected endpoint declarations aligned between route middleware, handler comments, and `docs/server/api/`.
 - Admin permission checks belong in admin permission middleware.
 - Handlers declare required permission codes; they do not hand-roll permission logic.
 - Backend RBAC is authoritative even if the frontend hides menu items.
@@ -52,4 +50,4 @@ gofmt -w .
 go test ./...
 ```
 
-For API changes, also ensure the OpenAPI loader test passes.
+For API changes, ensure route tests or focused handler/service tests cover the contract change where practical.

@@ -1,7 +1,0 @@
-    AdminLoginResponse:
-      allOf:
-        - $ref: "#/components/schemas/ResponseEnvelope"
-        - type: object
-          properties:
-            data:
-              $ref: "#/components/schemas/AdminLoginData"

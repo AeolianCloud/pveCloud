@@ -34,7 +34,6 @@ database
 redis
 jwt
 worker
-openapi
 pve
 payment
 mail

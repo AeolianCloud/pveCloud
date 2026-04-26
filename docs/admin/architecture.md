@@ -1,6 +1,6 @@
 # Admin 前端
 
-管理后台面向平台运营、客服和管理员工作流。接口边界是 `/admin-api/*`，最终接口契约以 `docs/server/api/openapi.yaml` 为准。
+管理后台面向平台运营、客服和管理员工作流。接口边界是 `/admin-api/*`，最终接口契约以 `docs/server/api/` 和对应后端业务文档为准。
 
 ## 技术栈
 

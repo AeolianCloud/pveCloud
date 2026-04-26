@@ -6,7 +6,7 @@
 
 | 内容 | 维护位置 |
 | --- | --- |
-| API 最终契约 | `docs/server/api/openapi.yaml` |
+| API 最终契约 | `docs/server/api/` 和对应业务文档 |
 | API 响应、错误码、鉴权约定 | `docs/server/api/conventions.md` |
 | 后端架构和业务规则 | `docs/server/architecture.md` |
 | 后端技术栈、目录、配置和命令 | `docs/server/go-technical.md` |
@@ -22,7 +22,7 @@
 
 ## 维护规则
 
-- 新增或修改接口：先改 `docs/server/api/openapi.yaml`，再按需更新 `docs/server/api/conventions.md`。
+- 新增或修改接口：先更新 `docs/server/api/` 下的接口文档，再按需更新对应业务文档和 `docs/server/api/conventions.md`。
 - 新增或修改表结构：先更新 `server/migrations/`，设计口径同步写入 `docs/server/database/design.md`。
 - 新增或修改页面、状态、菜单、路由、权限展示：更新对应前端文档。
 - 新增或修改开发流程、AI 门禁、工程实现守则：更新 `.codex/skills/pvecloud-document-first/`。

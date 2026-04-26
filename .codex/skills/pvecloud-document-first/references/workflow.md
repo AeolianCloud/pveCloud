@@ -14,8 +14,7 @@ This file defines how AI agents work in this repository. It does not define API 
 | Content | Source of truth |
 | --- | --- |
 | AI workflow and gates | `.codex/skills/pvecloud-document-first/` |
-| API source fragments | `docs/server/api/openapi-src/` |
-| API generated contract | `docs/server/api/openapi.yaml` |
+| API contracts and conventions | `docs/server/api/` |
 | API conventions | `docs/server/api/conventions.md` |
 | Backend architecture and business design | `docs/server/` |
 | Database design | `docs/server/database/design.md` |
@@ -35,7 +34,7 @@ For implementation, migration, API, page behavior, config, deployment, operation
 2. Read the relevant skill guardrail.
 3. Read the matching project docs and machine contracts.
 4. Decide whether the work changes contracts/behavior or is pure UI/UX polish.
-5. For contract/behavior work, update the matching docs/contracts first. For API changes, edit `docs/server/api/openapi-src/` and run `node ./scripts/generate-openapi.mjs`; do not hand-edit generated `docs/server/api/openapi.yaml`.
+5. For contract/behavior work, update the matching docs/contracts first. For API changes, update `docs/server/api/` and the matching backend/frontend docs.
 6. Stop and ask the maintainer to confirm the design or contract.
 7. Implement contract/behavior work only after explicit confirmation.
 8. For pure UI/UX polish, implement directly after reading frontend guardrails; do not write style-only preferences into docs.
@@ -56,7 +55,7 @@ Pure UI/UX polish means visual-only changes such as spacing, layout, colors, typ
 
 - Public functions, types, interfaces, and package variables use block comment style: `/** ... */`.
 - The first comment paragraph is Chinese and explains purpose.
-- API handler comments can use `@route`, `@request`, `@response`, and `@auth`; keep them aligned with OpenAPI.
+- API handler comments can use `@route`, `@request`, `@response`, and `@auth`; keep them aligned with `docs/server/api/`.
 - Internal comments should be Chinese and explain non-obvious business rules, idempotency, transactions, permissions, compensation, concurrency, and external-system boundaries.
 - Do not write empty comments that only restate the code.
 - Logs, errors, API `message`, CLI prompts, and user/admin/operator-facing output use Chinese.

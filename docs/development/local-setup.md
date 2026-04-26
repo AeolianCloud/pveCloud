@@ -45,7 +45,6 @@ server/migrations/001_init.sql
 
 ```text
 GET http://localhost:8080/healthz
-GET http://localhost:8080/openapi.yaml
 GET http://localhost:8080/api/ping
 GET http://localhost:8080/admin-api/ping
 ```

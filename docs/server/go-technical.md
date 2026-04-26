@@ -11,7 +11,6 @@
 | Config | YAML |
 | Dev reload | Air |
 | Logging | standard `log/slog` JSON logs |
-| OpenAPI | `github.com/getkin/kin-openapi` |
 | JWT | `github.com/golang-jwt/jwt/v5` |
 | Redis | `github.com/redis/go-redis/v9` |
 | Password | bcrypt from `golang.org/x/crypto/bcrypt` |
@@ -32,7 +31,6 @@ server/
 ├─ internal/
 │  ├─ bootstrap/
 │  ├─ routes/
-│  ├─ openapi/
 │  ├─ api/
 │  │  ├─ web/
 │  │  └─ admin/
@@ -57,7 +55,7 @@ server/
 - 真实配置默认路径是 `server/config.yaml`，保持忽略，不提交。
 - API 和 Worker 支持 `-config config.yaml`。
 - 配置示例维护在 `server/config.example.yaml`。
-- 当前配置组：`app`、`database`、`redis`、`jwt`、`worker`、`openapi`、`log`。
+- 当前配置组：`app`、`database`、`redis`、`jwt`、`worker`、`log`。
 - 后续可增加：`pve`、`payment`、`mail`、`sms`。
 - 不支持运行时热更新配置，配置变更后重启进程。
 - Redis 是后端运行时基础依赖，用于缓存、限流、短 TTL 状态、验证码、一次性 token、幂等短锁和防重复提交标记；业务事实、管理端会话有效性、权限和异步任务最终状态仍以 MariaDB 为准。
@@ -71,8 +69,6 @@ cd server
 Copy-Item config.example.yaml config.yaml
 go mod tidy
 gofmt -w .
-node ../scripts/generate-openapi.mjs
-node ../scripts/generate-openapi.mjs --check
 go test ./...
 go run ./cmd/api -config config.yaml
 go run ./cmd/worker -config config.yaml
@@ -87,5 +83,5 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 - `go test ./...` 成功。
 - API 可以启动。
 - Redis 未启动或配置错误时，API 和 Worker 必须启动失败并输出明确错误。
-- `/healthz`、`/api/ping`、`/admin-api/ping`、`/openapi.yaml` 可访问。
+- `/healthz`、`/api/ping`、`/admin-api/ping` 可访问。
 - Worker 可以启动和停止。

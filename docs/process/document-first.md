@@ -5,7 +5,7 @@
 ## 维护边界
 
 - 流程门禁和 AI 执行细节维护在 `.codex/skills/pvecloud-document-first/`。
-- 接口契约维护在 `docs/server/api/openapi.yaml`。
+- 接口契约维护在 `docs/server/api/` 和对应业务文档中。
 - 数据库结构维护在 `server/migrations/`。
 - 项目设计和业务规则维护在 `docs/`。
 
