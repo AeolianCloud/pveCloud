@@ -51,6 +51,14 @@ Pure UI/UX polish means visual-only changes such as spacing, layout, colors, typ
 - If dirty files overlap with the task, work with them instead of reverting.
 - Keep final reports concise and include verification results after code changes.
 
+## Git Commit Rules
+
+- Commit messages must describe the real scope and outcome of the change. Do not use vague one-line messages such as `update`, `fix`, `change`, `wip`, or `调整`.
+- Use a clear Conventional Commit style subject, for example `feat: complete basic admin foundation` or `fix: restore admin auth session validation`.
+- For non-trivial changes, include a multi-line commit body that records the main modules changed, important behavior or contract effects, and verification commands that passed.
+- Mention user-visible behavior, API/schema/menu/permission changes, data safety changes, or migration effects when they exist.
+- Do not include unrelated dirty files in a commit. If files such as `.claude/` are unrelated or untracked, leave them out unless the maintainer explicitly asks to commit them.
+
 ## Code Style
 
 - Public functions, types, interfaces, and package variables use block comment style: `/** ... */`.
