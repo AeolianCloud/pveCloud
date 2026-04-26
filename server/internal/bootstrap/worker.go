@@ -44,7 +44,6 @@ func (w *Worker) Run(ctx context.Context) error {
 			w.app.Logger.Info("Worker 已停止", "worker_id", w.app.Config.Worker.ID)
 			return nil
 		case <-timer.C:
-			w.app.Logger.Debug("Worker 心跳", "worker_id", w.app.Config.Worker.ID)
 			timer.Reset(w.app.Config.Worker.PollInterval())
 		}
 	}
