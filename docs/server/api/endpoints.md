@@ -45,6 +45,7 @@
 - 鉴权：管理端 Bearer Token。
 - 用途：恢复当前管理员、角色、权限、菜单和会话状态。
 - 成功响应：`data.admin`、`data.role_ids`、`data.permission_codes`、`data.menus`、`data.session`。
+- 菜单范围：当前只返回已完成功能菜单，第一阶段只包含 `/dashboard`。
 - 失败响应：未登录、token 无效、token 已吊销、token 过期或管理员账号已禁用。
 
 ### `POST /admin-api/auth/logout`
@@ -69,5 +70,6 @@
 - 权限：`dashboard:view`。
 - 用途：获取管理端首页初始数据。
 - 成功响应：同 `GET /admin-api/auth/me`，并额外返回 `data.metrics`。
+- 菜单范围：当前只返回已完成功能菜单，第一阶段只包含 `/dashboard`。
 - 指标字段：`key`、`title`、`value`、`unit`。
 - 失败响应：未登录、token 无效、token 已吊销、token 过期或缺少权限。

@@ -4,20 +4,7 @@ import AdminLayout from '../components/AdminLayout.vue'
 import DashboardPage from '../pages/DashboardPage.vue'
 import ForbiddenPage from '../pages/ForbiddenPage.vue'
 import LoginPage from '../pages/LoginPage.vue'
-import PlaceholderPage from '../pages/PlaceholderPage.vue'
 import { useAuthStore } from '../stores/auth'
-
-const protectedPlaceholderRoutes = [
-  { path: 'instances', name: 'instances', title: '云服务器', permissionCode: 'instance:view' },
-  { path: 'products', name: 'products', title: '产品套餐', permissionCode: 'product:update' },
-  { path: 'orders', name: 'orders', title: '订单管理', permissionCode: 'order:view' },
-  { path: 'users', name: 'users', title: '客户管理', permissionCode: 'user:view' },
-  { path: 'tickets', name: 'tickets', title: '工单服务', permissionCode: 'ticket:reply' },
-  { path: 'payments', name: 'payments', title: '财务中心', permissionCode: 'payment:view' },
-  { path: 'audit', name: 'audit', title: '资源监控', permissionCode: 'audit:view' },
-  { path: 'admins', name: 'admins', title: '营销活动', permissionCode: 'admin:manage' },
-  { path: 'system', name: 'system', title: '系统设置', permissionCode: 'system:update' },
-]
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -60,16 +47,6 @@ export const router = createRouter({
             requiresAuth: true,
           },
         },
-        ...protectedPlaceholderRoutes.map((item) => ({
-          path: item.path,
-          name: item.name,
-          component: PlaceholderPage,
-          meta: {
-            title: item.title,
-            requiresAuth: true,
-            permissionCode: item.permissionCode,
-          },
-        })),
       ],
     },
   ],

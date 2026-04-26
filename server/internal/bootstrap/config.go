@@ -83,7 +83,9 @@ type WorkerConfig struct {
 }
 
 /**
- * OpenAPIConfig 表示 OpenAPI 规范加载和公开配置。
+ * OpenAPIConfig 兼容历史配置项。
+ *
+ * 项目不再维护 OpenAPI 生成文件，运行时不会读取该配置。
  */
 type OpenAPIConfig struct {
 	Enabled  bool   `yaml:"enabled"`
@@ -166,10 +168,6 @@ func defaultConfig() *Config {
 			LockTTLSeconds:      60,
 			BatchSize:           10,
 		},
-		OpenAPI: OpenAPIConfig{
-			Enabled:  true,
-			SpecPath: "../docs/server/api/openapi.yaml",
-		},
 		Log: LogConfig{
 			Level: "info",
 		},
@@ -200,10 +198,6 @@ func (cfg *Config) Validate() error {
 	if cfg.JWT.UserSecret == "" || cfg.JWT.AdminSecret == "" {
 		return fmt.Errorf("jwt.user_secret 和 jwt.admin_secret 不能为空")
 	}
-	if cfg.OpenAPI.Enabled && cfg.OpenAPI.SpecPath == "" {
-		return fmt.Errorf("启用 OpenAPI 时 openapi.spec_path 不能为空")
-	}
-
 	return nil
 }
 

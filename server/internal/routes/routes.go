@@ -33,10 +33,6 @@ func NewRouter(app *bootstrap.App) *gin.Engine {
 	)
 
 	router.GET("/healthz", healthz(app))
-	if app.Config.OpenAPI.Enabled && app.OpenAPISpec != nil {
-		// OpenAPI 规范文件已经在启动阶段校验过，这里只负责只读输出。
-		router.GET("/openapi.yaml", openAPI(app))
-	}
 	RegisterWebRoutes(router.Group("/api"))
 	RegisterAdminRoutes(router.Group("/admin-api"), app)
 
@@ -75,17 +71,5 @@ func healthz(app *bootstrap.App) gin.HandlerFunc {
 				"time":     time.Now().Format(time.RFC3339),
 			},
 		})
-	}
-}
-
-func openAPI(app *bootstrap.App) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		data, err := app.OpenAPISpec.Read()
-		if err != nil {
-			response.Error(c, apperrors.ErrInternal.WithMessage("OpenAPI 规范文件读取失败"))
-			return
-		}
-
-		c.Data(http.StatusOK, "application/yaml; charset=utf-8", data)
 	}
 }

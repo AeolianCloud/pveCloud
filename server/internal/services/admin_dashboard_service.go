@@ -133,16 +133,7 @@ func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
 
 func adminMenuCatalog() []admindto.MenuItem {
 	return []admindto.MenuItem{
-		menuItem("dashboard", "首页", "/dashboard", "layout-dashboard", "dashboard:view"),
-		menuItem("users", "用户", "/users", "users", "user:view"),
-		menuItem("products", "产品配置", "/products", "package", "product:update"),
-		menuItem("orders", "订单", "/orders", "receipt-text", "order:view"),
-		menuItem("payments", "支付与钱包", "/payments", "wallet-cards", "payment:view"),
-		menuItem("instances", "实例", "/instances", "server", "instance:view"),
-		menuItem("tickets", "工单", "/tickets", "message-square", "ticket:reply"),
-		menuItem("admins", "管理员", "/admins", "shield-check", "admin:manage"),
-		menuItem("system", "系统设置", "/system", "settings", "system:update"),
-		menuItem("audit", "审计日志", "/audit", "clipboard-list", "audit:view"),
+		menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "dashboard:view"),
 	}
 }
 

@@ -31,16 +31,7 @@
 
 ## 页面范围
 
-- Login
-- Dashboard
-- Users
-- Products / plans / regions / nodes / images / prices
-- Orders
-- Payments / wallet flows / manual credit
-- Instances
-- Tickets
-- Admin users / roles / permissions
-- System settings and audit logs
+当前管理端只开放已完成基础能力的页面：Login、Dashboard 和 403 无权访问页。Users、Products、Orders、Payments、Instances、Tickets、Admin users、System settings、Audit logs 等业务模块在对应功能完成前不出现在侧边栏菜单和受保护业务路由中。
 
 ## 状态设计
 

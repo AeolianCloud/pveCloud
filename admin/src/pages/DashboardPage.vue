@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
-  BadgeCheck,
-  Box,
   CircleDollarSign,
   ClipboardCheck,
   Layers3,
   RefreshCw,
   Server,
-  ShoppingCart,
   TicketCheck,
   Users,
 } from 'lucide-vue-next'
@@ -179,25 +176,12 @@ onMounted(loadDashboard)
         </div>
       </article>
 
-      <article class="dashboard-card quick-card">
-        <header class="card-header">
-          <h2>快捷操作</h2>
-        </header>
-        <div class="quick-actions">
-          <button type="button"><ShoppingCart :size="17" aria-hidden="true" />创建订单</button>
-          <button type="button"><Box :size="17" aria-hidden="true" />新增套餐</button>
-          <button type="button"><Users :size="17" aria-hidden="true" />客户管理</button>
-          <button type="button"><TicketCheck :size="17" aria-hidden="true" />工单处理</button>
-          <button type="button"><BadgeCheck :size="17" aria-hidden="true" />权限配置</button>
-        </div>
-      </article>
     </div>
 
     <div class="dashboard-bottom-grid">
       <article class="dashboard-card resource-card">
         <header class="card-header">
           <h2>资源使用与告警</h2>
-          <a href="/audit">查看监控</a>
         </header>
         <div class="resource-list">
           <div v-for="item in resourceItems" :key="item.label" class="resource-item">
@@ -220,7 +204,6 @@ onMounted(loadDashboard)
       <article class="dashboard-card table-card orders-card">
         <header class="card-header">
           <h2>最新订单</h2>
-          <a href="/orders">查看订单</a>
         </header>
         <div class="table-scroll">
           <table>
@@ -237,7 +220,7 @@ onMounted(loadDashboard)
             </thead>
             <tbody>
               <tr v-for="order in orders" :key="order[0]">
-                <td><a href="/orders">{{ order[0] }}</a></td>
+                <td>{{ order[0] }}</td>
                 <td>{{ order[1] }}</td>
                 <td>{{ order[2] }}</td>
                 <td>{{ order[3] }}</td>
@@ -253,7 +236,6 @@ onMounted(loadDashboard)
       <article class="dashboard-card table-card node-card">
         <header class="card-header">
           <h2>节点运行状态</h2>
-          <a href="/instances">查看节点</a>
         </header>
         <div class="table-scroll">
           <table>
@@ -392,7 +374,7 @@ onMounted(loadDashboard)
 
 .dashboard-main-grid {
   display: grid;
-  grid-template-columns: minmax(420px, 1.35fr) minmax(380px, 1.1fr) minmax(220px, 0.58fr);
+  grid-template-columns: minmax(420px, 1.35fr) minmax(380px, 1.1fr);
   gap: 14px;
 }
 
@@ -587,47 +569,6 @@ onMounted(loadDashboard)
   white-space: nowrap;
 }
 
-.quick-card {
-  min-height: 266px;
-}
-
-.quick-actions {
-  display: grid;
-  gap: 9px;
-  padding: 8px 14px 14px;
-}
-
-.quick-actions button {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, currentColor 18%, var(--border));
-  border-radius: 6px;
-  color: var(--primary);
-  background: color-mix(in srgb, currentColor 8%, var(--panel));
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.quick-actions button:nth-child(2) {
-  color: var(--success);
-}
-
-.quick-actions button:nth-child(3) {
-  color: var(--purple);
-}
-
-.quick-actions button:nth-child(4) {
-  color: var(--orange);
-}
-
-.quick-actions button:nth-child(5) {
-  color: var(--primary);
-}
-
 .resource-card {
   min-height: 298px;
 }
@@ -783,12 +724,6 @@ th,
 td {
   padding: 0 8px;
   white-space: nowrap;
-}
-
-td a {
-  color: var(--primary);
-  font-weight: 800;
-  text-decoration: none;
 }
 
 .status-pill,
