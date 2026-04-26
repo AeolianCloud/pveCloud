@@ -101,6 +101,30 @@ func (AdminSession) TableName() string {
 }
 
 /**
+ * SystemConfig 映射 system_configs 系统配置表。
+ */
+type SystemConfig struct {
+	ID          uint64    `gorm:"column:id;primaryKey"`
+	ConfigKey   string    `gorm:"column:config_key"`
+	ConfigValue *string   `gorm:"column:config_value"`
+	ValueType   string    `gorm:"column:value_type"`
+	GroupName   string    `gorm:"column:group_name"`
+	IsSecret    bool      `gorm:"column:is_secret"`
+	Description *string   `gorm:"column:description"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+}
+
+/**
+ * TableName 返回系统配置表名。
+ *
+ * @return string 表名
+ */
+func (SystemConfig) TableName() string {
+	return "system_configs"
+}
+
+/**
  * AdminAuditLog 映射 admin_audit_logs 后台操作审计表。
  */
 type AdminAuditLog struct {
@@ -124,4 +148,33 @@ type AdminAuditLog struct {
  */
 func (AdminAuditLog) TableName() string {
 	return "admin_audit_logs"
+}
+
+/**
+ * AdminRiskLog 映射 admin_risk_logs 后台高危操作日志表。
+ */
+type AdminRiskLog struct {
+	ID         uint64    `gorm:"column:id;primaryKey"`
+	AuditLogID *uint64   `gorm:"column:audit_log_id"`
+	AdminID    *uint64   `gorm:"column:admin_id"`
+	RiskLevel  string    `gorm:"column:risk_level"`
+	Action     string    `gorm:"column:action"`
+	ObjectType string    `gorm:"column:object_type"`
+	ObjectID   *string   `gorm:"column:object_id"`
+	RiskReason string    `gorm:"column:risk_reason"`
+	BeforeData *string   `gorm:"column:before_data"`
+	AfterData  *string   `gorm:"column:after_data"`
+	IP         *string   `gorm:"column:ip"`
+	UserAgent  *string   `gorm:"column:user_agent"`
+	Remark     *string   `gorm:"column:remark"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+}
+
+/**
+ * TableName 返回后台高危操作日志表名。
+ *
+ * @return string 表名
+ */
+func (AdminRiskLog) TableName() string {
+	return "admin_risk_logs"
 }

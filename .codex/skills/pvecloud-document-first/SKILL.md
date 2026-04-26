@@ -18,6 +18,7 @@ This skill is an AI working method, not the project documentation source of trut
 - API contracts and conventions: `docs/server/api/` and matching business docs under `docs/server/`.
 - Database machine contract: `server/migrations/`.
 - Config example contract: `server/config.example.yaml`.
+- Current-stage plans and progress: `docs/analysis/`, `docs/plan/`, and `docs/progress/`.
 
 If a skill reference conflicts with `docs/` or a machine contract, the document or machine contract wins. Fix the stale skill reference before implementing.
 
@@ -31,6 +32,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
    - database or transaction work: `references/database.md`
    - admin/web frontend work: `references/frontend.md`
    - setup/deployment/operations work: `references/operations.md`
+   - basic admin foundation work: `.codex/skills/pvecloud-basic-admin/SKILL.md`
 5. Read the matching project docs or machine contracts:
    - API: `docs/server/api/`
    - backend design: `docs/server/`
@@ -39,6 +41,7 @@ If a skill reference conflicts with `docs/` or a machine contract, the document 
    - database: `docs/server/database/` and `server/migrations/`
    - operations: `docs/development/` and `docs/operations/`
    - config: `server/config.example.yaml`
+   - active plans and progress: `docs/analysis/`, `docs/plan/`, and `docs/progress/`
 6. Decide whether the change is contract/behavior work or pure UI/UX polish.
    - Contract/behavior work changes APIs, schema, permissions, routes, page workflow, state semantics, config, deployment, operations, or business process.
    - Pure UI/UX polish only changes visual presentation, layout, spacing, colors, typography, icons, responsive styling, or copy that does not alter workflow or contracts.

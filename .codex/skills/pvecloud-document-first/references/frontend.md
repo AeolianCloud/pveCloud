@@ -32,6 +32,7 @@ Read these before frontend work:
 - `admin` calls only `/admin-api/*`.
 - Backend RBAC remains authoritative; frontend permission checks are only usability and navigation control.
 - Route guards, request wrappers, auth stores, permission stores, menu constants, and layout behavior must match `docs/admin/architecture.md` and backend API docs.
+- 前端页面、请求、类型和 store 文件必须按业务领域命名，避免用 `logs`、`common`、`utils`、`helper` 这类泛名承载具体业务；审计域统一使用 `audit` 命名，高危操作日志属于审计域。
 
 ## Web Rules
 

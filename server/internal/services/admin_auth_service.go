@@ -36,6 +36,8 @@ const (
 	adminLoginSuccessAction    = "admin.login.success"
 	adminLogoutAction          = "admin.logout"
 	adminRefreshAction         = "admin.refresh"
+	adminCaptchaLimitedAction  = "admin.captcha.limited"
+	adminLoginLimitedAction    = "admin.login.limited"
 	adminAuditObjectAuth       = "admin_auth"
 	adminLoginFailureLimit     = int64(5)
 	adminLoginFailureWindowMin = 15
@@ -48,9 +50,10 @@ const (
  * AdminAuthService 处理管理端登录、会话和 token 签发。
  */
 type AdminAuthService struct {
-	db    *gorm.DB
-	redis *cache.Redis
-	cfg   bootstrap.JWTConfig
+	db           *gorm.DB
+	redis        *cache.Redis
+	cfg          bootstrap.JWTConfig
+	auditService *AdminAuditService
 }
 
 /**
@@ -59,10 +62,14 @@ type AdminAuthService struct {
  * @param db 数据库连接
  * @param redis Redis 访问器
  * @param cfg JWT 配置
+ * @param auditService 后台审计服务
  * @return *AdminAuthService 管理端认证服务
  */
-func NewAdminAuthService(db *gorm.DB, redis *cache.Redis, cfg bootstrap.JWTConfig) *AdminAuthService {
-	return &AdminAuthService{db: db, redis: redis, cfg: cfg}
+func NewAdminAuthService(db *gorm.DB, redis *cache.Redis, cfg bootstrap.JWTConfig, auditService *AdminAuditService) *AdminAuthService {
+	if auditService == nil {
+		auditService = NewAdminAuditService(db)
+	}
+	return &AdminAuthService{db: db, redis: redis, cfg: cfg, auditService: auditService}
 }
 
 /**
@@ -169,7 +176,7 @@ func (s *AdminAuthService) Login(ctx context.Context, req admindto.LoginRequest,
 			return err
 		}
 
-		return s.createAudit(ctx, tx, &admin.ID, adminLoginSuccessAction, result.Session.SessionID, clientIP, userAgent, "登录成功")
+		return s.recordAudit(ctx, tx, &admin.ID, adminLoginSuccessAction, result.Session.SessionID, clientIP, userAgent, "登录成功")
 	}); err != nil {
 		return admindto.LoginResponse{}, err
 	}
@@ -223,7 +230,7 @@ func (s *AdminAuthService) Logout(ctx context.Context, adminID uint64, sessionID
 			}).Error; err != nil {
 			return err
 		}
-		return s.createAudit(ctx, tx, &adminID, adminLogoutAction, sessionID, clientIP, userAgent, "退出登录")
+		return s.recordAudit(ctx, tx, &adminID, adminLogoutAction, sessionID, clientIP, userAgent, "退出登录")
 	})
 }
 
@@ -288,7 +295,7 @@ func (s *AdminAuthService) Refresh(ctx context.Context, adminID uint64, sessionI
 			return issueErr
 		}
 		result = issued
-		return s.createAudit(ctx, tx, &adminID, adminRefreshAction, result.Session.SessionID, clientIP, userAgent, "刷新登录会话")
+		return s.recordAudit(ctx, tx, &adminID, adminRefreshAction, result.Session.SessionID, clientIP, userAgent, "刷新登录会话")
 	}); err != nil {
 		return admindto.LoginResponse{}, err
 	}
@@ -362,6 +369,18 @@ func (s *AdminAuthService) ensureLoginAllowed(ctx context.Context, identifier st
 		return err
 	}
 	if count >= adminLoginFailureLimit {
+		_ = s.recordRiskAudit(
+			ctx,
+			s.db,
+			nil,
+			adminLoginLimitedAction,
+			loginThrottleObjectID(identifier),
+			"high",
+			"登录失败次数达到限制",
+			clientIP,
+			"",
+			"登录失败次数过多",
+		)
 		return apperrors.ErrTooManyRequests.WithMessage("登录失败次数过多，请 15 分钟后再试")
 	}
 	return nil
@@ -371,7 +390,7 @@ func (s *AdminAuthService) recordLoginFailure(ctx context.Context, adminID *uint
 	if err := s.increaseLoginFailures(ctx, identifier, clientIP); err != nil {
 		return err
 	}
-	return s.createAudit(ctx, s.db, adminID, adminLoginFailureAction, loginThrottleObjectID(identifier), clientIP, userAgent, remark)
+	return s.recordAudit(ctx, s.db, adminID, adminLoginFailureAction, loginThrottleObjectID(identifier), clientIP, userAgent, remark)
 }
 
 func (s *AdminAuthService) increaseLoginFailures(ctx context.Context, identifier string, clientIP string) error {
@@ -402,6 +421,18 @@ func (s *AdminAuthService) ensureCaptchaAllowed(ctx context.Context, clientIP st
 		}
 	}
 	if count > adminCaptchaRateLimit {
+		_ = s.recordRiskAudit(
+			ctx,
+			s.db,
+			nil,
+			adminCaptchaLimitedAction,
+			"captcha_"+hashText(clientIP)[:32],
+			"medium",
+			"验证码获取频率达到限制",
+			clientIP,
+			"",
+			"验证码获取过于频繁",
+		)
 		return apperrors.ErrTooManyRequests.WithMessage("验证码获取过于频繁，请稍后再试")
 	}
 	return nil
@@ -436,17 +467,32 @@ func (s *AdminAuthService) loginCaptchaRedisKey(captchaID string) string {
 	return s.redis.Key("admin", "login_captcha", captchaID)
 }
 
-func (s *AdminAuthService) createAudit(ctx context.Context, db *gorm.DB, adminID *uint64, action string, objectID string, clientIP string, userAgent string, remark string) error {
-	log := models.AdminAuditLog{
+func (s *AdminAuthService) recordAudit(ctx context.Context, db *gorm.DB, adminID *uint64, action string, objectID string, clientIP string, userAgent string, remark string) error {
+	return s.auditService.Record(ctx, db, AdminAuditWriteInput{
 		AdminID:    adminID,
 		Action:     action,
 		ObjectType: adminAuditObjectAuth,
-		ObjectID:   stringPtr(objectID),
-		IP:         stringPtr(clientIP),
-		UserAgent:  stringPtr(trimTo(userAgent, 500)),
-		Remark:     stringPtr(remark),
-	}
-	return db.WithContext(ctx).Create(&log).Error
+		ObjectID:   objectID,
+		IP:         clientIP,
+		UserAgent:  userAgent,
+		Remark:     remark,
+	})
+}
+
+func (s *AdminAuthService) recordRiskAudit(ctx context.Context, db *gorm.DB, adminID *uint64, action string, objectID string, riskLevel string, riskReason string, clientIP string, userAgent string, remark string) error {
+	return s.auditService.RecordRisk(ctx, db, AdminRiskWriteInput{
+		AdminAuditWriteInput: AdminAuditWriteInput{
+			AdminID:    adminID,
+			Action:     action,
+			ObjectType: adminAuditObjectAuth,
+			ObjectID:   objectID,
+			IP:         clientIP,
+			UserAgent:  userAgent,
+			Remark:     remark,
+		},
+		RiskLevel:  riskLevel,
+		RiskReason: riskReason,
+	})
 }
 
 func roleIDs(ctx context.Context, db *gorm.DB, adminID uint64) ([]uint64, error) {

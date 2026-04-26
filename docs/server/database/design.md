@@ -74,15 +74,24 @@ tickets
 ticket_messages
 system_configs
 admin_audit_logs
+admin_risk_logs
 ```
 
 ## 关键业务规则
 
 - 管理端专用表使用 `admin_` 前缀。
 - 管理端权限码使用 `domain:action`，例如 `order:view` 和 `payment:manual_credit`。
+- 当前基础后台管理阶段只开放 `dashboard:view`、`admin:manage`、`system:update` 和 `audit:view` 对应功能；产品、订单、支付、实例、工单等业务权限码可以保留在种子数据中，但菜单和路由不开放对应业务模块。
 - 管理端登录会话使用 `admin_sessions` 持久化，`session_id` 对应 JWT `jti`，用于退出登录、刷新轮换、账号禁用后的会话吊销和会话自检。
 - `admin_sessions.status` 使用 `active`、`revoked`、`expired`；退出登录将当前会话标记为 `revoked/logout`，刷新 token 将旧会话标记为 `revoked/refresh` 并创建新会话。
 - 管理端权限以数据库 RBAC 为最终边界；JWT 中的角色和权限只作为登录响应快照，不作为受保护接口的唯一授权来源。
+- `admin_permissions` 由系统迁移和种子维护，后台页面只读展示权限码，不提供新增或删除权限码入口。
+- `system_configs.is_secret=1` 的配置不通过后台接口返回明文，只返回是否已设置；更新时写入新值并记录审计。
+- `admin_audit_logs` 是后台普通操作事实记录，不提供编辑和删除入口。
+- `admin_risk_logs` 是后台高危操作记录，不提供编辑和删除入口；高危行为必须同时写入 `admin_audit_logs` 和 `admin_risk_logs`，普通行为只写入 `admin_audit_logs`。
+- 高危行为包括重置管理员密码、禁用管理员、修改管理员角色、创建或禁用角色、修改角色权限、吊销他人会话、修改敏感配置、登录失败触发限制和验证码频繁获取触发限制。
+- `admin_risk_logs.risk_level` 使用 `medium`、`high`、`critical`；普通低风险行为不写入 `admin_risk_logs`。
+- `audit:view` 只能查看日志主信息；`audit:sensitive_view` 才能查看已脱敏的 `before_data`、`after_data` 和 `user_agent`。密码、token、secret、验证码和敏感配置明文不得进入接口响应。
 - 产品价格唯一性是 `plan_id + region_id + billing_period`。
 - 第一阶段一个订单对应一个实例，不添加 `quantity`。
 - 订单保存产品和价格快照，避免后续改价影响历史订单。
@@ -116,6 +125,7 @@ admin_audit_logs
 - `async_tasks.status + run_at`、`async_tasks.locked_until`。
 - `tickets.status + updated_at`。
 - `admin_audit_logs.admin_id + created_at`、`admin_audit_logs.object_type + object_id`。
+- `admin_risk_logs.admin_id + created_at`、`admin_risk_logs.risk_level + created_at`、`admin_risk_logs.object_type + object_id`。
 - `admin_sessions.admin_id + status`、`admin_sessions.status + expires_at`。
 
 管理端认证事务：

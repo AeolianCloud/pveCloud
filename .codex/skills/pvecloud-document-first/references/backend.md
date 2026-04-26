@@ -24,6 +24,24 @@ Read these before backend work:
 - Use `server/internal/pkg` only for stable infrastructure such as response, errors, JWT, password, pagination, validator, and logger.
 - API handlers must use unified `pkg/errors` and `pkg/response`.
 - Handler comments must stay aligned with `docs/server/api/`.
+- 管理端普通操作写入 `admin_audit_logs`；高危操作必须同时写入普通审计日志和 `admin_risk_logs`，不要只写其中一边。
+- 高危操作判断、风险等级和脱敏字段以 `docs/server/database/design.md`、`docs/server/api/` 和迁移 SQL 为准，技能只提醒双写规则。
+
+## Go Naming and Code Rules
+
+- Go code must follow idiomatic Go naming: exported identifiers use PascalCase, unexported identifiers use camelCase, and initialisms stay uppercase consistently, for example `ID`, `IP`, `URL`, `API`, `JWT`, not `Id`, `Ip`, `Url`.
+- File names use lowercase snake_case and include business domain plus responsibility, for example `admin_audit_service.go`, `admin_user_handler.go`, `system_config_dto.go`.
+- Backend files, types, services, handlers, DTOs, and helpers must use explicit business-domain names. Avoid vague buckets such as `log`, `manager`, `common`, `helper`, `utils`, `data`, or `base` for business code.
+- If a capability is truly shared infrastructure, it belongs under `server/internal/pkg/` with a stable infrastructure name such as `response`, `validator`, `password`, `jwt`, `pagination`, or `logger`. Do not move business rules into `pkg`.
+- Current project packages are broad (`services`, `api/admin`, `dto/admin`), so exported types must include domain and responsibility, for example `AdminAuditService`, `AdminUserHandler`, `SystemConfigRequest`. Do not use generic exported names such as `Service`, `Handler`, or `Manager` inside broad packages.
+- Interfaces are introduced only when there is a real boundary or test seam. Do not create Java-style `IUserService` interfaces. Name interfaces by behavior when useful, for example `Reader`, `Writer`, `Validator`, or a precise domain behavior.
+- Constants and variables use Go style, not screaming snake case. Use names like `adminStatusActive`, `adminSessionStatusRevoked`, or exported `ErrUnauthorized` where appropriate.
+- Exported functions, types, interfaces, and package variables must keep the project block-comment style, with the first paragraph in Chinese explaining purpose. The first sentence should start with the identifier when practical.
+- Keep handlers thin: bind and validate request, call service, return unified response. Business rules belong in services/jobs, not handlers or middleware.
+- Return errors upward and convert them to unified API responses at the boundary. Do not use `panic` for business errors.
+- Pass `context.Context` from request entry into database, Redis, jobs, and external calls.
+- Keep database transactions short. Do not call external PVE/payment/notify systems inside long transactions.
+- Logs, errors, API messages, CLI prompts, and operator-facing output use Chinese unless a third-party protocol requires fixed English.
 
 ## Auth and Permission
 

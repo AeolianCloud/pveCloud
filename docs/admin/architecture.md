@@ -31,7 +31,11 @@
 
 ## 页面范围
 
-当前管理端只开放已完成基础能力的页面：Login、Dashboard 和 403 无权访问页。Users、Products、Orders、Payments、Instances、Tickets、Admin users、System settings、Audit logs 等业务模块在对应功能完成前不出现在侧边栏菜单和受保护业务路由中。
+当前阶段只完善基础后台管理能力，不开放产品套餐、订单、支付、实例、工单等业务模块。
+
+基础后台页面范围包含 Login、Dashboard、Admin users、Roles、Permissions、Admin sessions、System settings、Audit logs、Risk logs 和 403 无权访问页。业务模块在对应功能完成前不出现在侧边栏菜单和受保护业务路由中。
+
+基础后台菜单按后端 `data.menus` 渲染。第一阶段可开放的菜单为 Dashboard、管理员、角色权限、登录会话、系统设置、审计日志、高危操作日志。菜单可见性仍由后端 RBAC 返回结果决定，前端 fallback 菜单只作为恢复登录态之前的兜底。
 
 ## 状态设计
 
@@ -102,6 +106,22 @@ GET /admin-api/dashboard
 ```
 
 Dashboard 在路由守卫通过后调用，后端仍校验 JWT、会话状态和 `dashboard:view`。页面使用返回的管理员摘要、角色 ID、权限码、可见菜单和概览指标渲染初始管理工作台。
+
+## 基础后台管理页
+
+管理员页面调用 `/admin-api/admin-users`，支持列表、创建、编辑、禁用、启用、重置密码和分配角色。超级管理员账号可以查看，但不能被自己禁用或删除。
+
+角色权限页面调用 `/admin-api/admin-roles` 和 `/admin-api/admin-permissions`，支持角色列表、创建、编辑、启用、禁用和分配权限。权限码由系统维护，前端只读展示，不提供新增或删除权限码入口。
+
+登录会话页面调用 `/admin-api/admin-sessions`，支持查看会话列表和吊销指定活跃会话。当前会话不能通过列表操作吊销，退出登录继续使用 `/admin-api/auth/logout`。
+
+系统设置页面调用 `/admin-api/system-configs`，支持按分组查看和更新配置。敏感配置不返回明文，只显示是否已设置；更新敏感配置时只提交新值。
+
+审计日志页面调用 `/admin-api/audit-logs`，只读展示后台登录、退出、刷新、管理员、角色、系统设置和会话吊销等普通操作事实。审计日志不提供编辑和删除入口。
+
+高危操作日志页面调用 `/admin-api/risk-logs`，只读展示重置管理员密码、禁用管理员、修改管理员角色、修改角色权限、吊销他人会话、修改敏感配置、登录失败触发限制等高危行为。高危操作日志不提供编辑和删除入口。高危行为应同时写入普通审计日志和高危操作日志，普通行为只写入普通审计日志。
+
+所有基础后台列表默认使用 `page` 和 `per_page` 分页参数，筛选条件写入 URL query。页面必须提供加载态、空状态、错误重试、提交中禁用、删除或吊销类操作二次确认和后端错误消息展示。
 
 ## 本地开发
 

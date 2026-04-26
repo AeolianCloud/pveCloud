@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -86,11 +87,12 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 		unit  string
 	}
 
+	today := time.Now().Format("2006-01-02")
 	queries := []metricQuery{
-		{key: "active_users", title: "活跃用户", table: "users", where: "status = 'active' AND deleted_at IS NULL", unit: "人"},
-		{key: "pending_orders", title: "待支付订单", table: "orders", where: "status = 'pending'", unit: "单"},
-		{key: "running_instances", title: "运行中实例", table: "instances", where: "status = 'running' AND deleted_at IS NULL", unit: "台"},
-		{key: "open_tickets", title: "待处理工单", table: "tickets", where: "status IN ('open', 'pending_admin')", unit: "单"},
+		{key: "active_admins", title: "启用管理员", table: "admin_users", where: "status = 'active' AND deleted_at IS NULL", unit: "人"},
+		{key: "active_roles", title: "启用角色", table: "admin_roles", where: "status = 'active'", unit: "个"},
+		{key: "active_sessions", title: "活跃会话", table: "admin_sessions", where: "status = 'active' AND expires_at > NOW(3)", unit: "个"},
+		{key: "risk_logs_today", title: "今日高危操作", table: "admin_risk_logs", where: "created_at >= '" + today + "'", unit: "次"},
 	}
 
 	metrics := make([]admindto.DashboardMetric, 0, len(queries))
@@ -134,6 +136,12 @@ func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
 func adminMenuCatalog() []admindto.MenuItem {
 	return []admindto.MenuItem{
 		menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "dashboard:view"),
+		menuItem("admin_users", "管理员账号", "/admin-users", "users", "admin:manage"),
+		menuItem("admin_roles", "角色权限", "/admin-roles", "shield-check", "admin:manage"),
+		menuItem("admin_sessions", "登录会话", "/admin-sessions", "monitor-check", "admin:manage"),
+		menuItem("system_configs", "系统设置", "/system-configs", "settings", "system:update"),
+		menuItem("audit_logs", "审计日志", "/audit-logs", "clipboard-list", "audit:view"),
+		menuItem("risk_logs", "高危操作日志", "/risk-logs", "shield-alert", "audit:view"),
 	}
 }
 

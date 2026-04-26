@@ -16,6 +16,9 @@
 | 外部系统集成 | `docs/server/integrations/README.md` |
 | 管理端前端设计 | `docs/admin/architecture.md` |
 | 用户端前端设计 | `docs/web/architecture.md` |
+| 基础后台缺口分析 | `docs/analysis/basic-admin-gap.md` |
+| 基础后台实施计划 | `docs/plan/basic-admin-foundation.md` |
+| 基础后台进度跟踪 | `docs/progress/MASTER.md` |
 | 本地开发 | `docs/development/local-setup.md` |
 | 部署和运维 | `docs/operations/deployment.md` |
 | AI 文档先行工作流 | `.codex/skills/pvecloud-document-first/` |
