@@ -1,16 +1,7 @@
 <script setup lang="ts">
-import { EditPen, Key, Plus, Refresh, Search, SwitchButton } from '@element-plus/icons-vue'
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import {
-  ElMessage,
-  ElMessageBox,
-  type FilterNodeMethodFunction,
-  type FormInstance,
-  type FormRules,
-  type TreeInstance,
-} from 'element-plus'
+import { computed, reactive, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
 
-import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
 import {
   createAdminRole,
@@ -32,67 +23,24 @@ import {
   type AdminUserUpdateRequest,
 } from '../../api/admin-user'
 import { usePermissionStore } from '../../store/modules/permission'
-
-type EditorMode = 'create' | 'edit'
-type AdminStatus = 'active' | 'disabled'
-type RoleStatus = 'active' | 'disabled'
-
-interface UserQueryFormState {
-  keyword: string
-  status: '' | AdminStatus
-  role_id: number | undefined
-}
-
-interface RoleQueryFormState {
-  keyword: string
-  status: '' | RoleStatus
-}
-
-interface UserEditorState {
-  username: string
-  email: string
-  display_name: string
-  password: string
-  status: AdminStatus
-  role_ids: number[]
-}
-
-interface UserEditorSnapshot {
-  email: string
-  display_name: string
-  status: AdminStatus
-  role_ids: number[]
-}
-
-interface PasswordFormState {
-  password: string
-}
-
-interface RoleEditorState {
-  code: string
-  name: string
-  description: string
-  status: RoleStatus
-  permission_codes: string[]
-}
-
-interface RoleEditorSnapshot {
-  name: string
-  description: string
-  status: RoleStatus
-  permission_codes: string[]
-}
-
-interface PermissionTreeNode {
-  id: string
-  label: string
-  type: 'group' | 'permission'
-  code?: string
-  count?: number
-  description?: string | null
-  children?: PermissionTreeNode[]
-  disabled?: boolean
-}
+import AdminRolesTab from './components/AdminRolesTab.vue'
+import AdminUsersTab from './components/AdminUsersTab.vue'
+import PasswordResetDialog from './components/PasswordResetDialog.vue'
+import RoleEditorDialog from './components/RoleEditorDialog.vue'
+import UserEditorDialog from './components/UserEditorDialog.vue'
+import type {
+  AdminStatus,
+  EditorMode,
+  PasswordFormState,
+  PaginationState,
+  RoleEditorSnapshot,
+  RoleEditorState,
+  RoleQueryFormState,
+  RoleStatus,
+  UserEditorSnapshot,
+  UserEditorState,
+  UserQueryFormState,
+} from './types'
 
 const activeTab = ref<'users' | 'roles'>('users')
 const permissionStore = usePermissionStore()
@@ -118,14 +66,14 @@ const roleOptions = ref<AdminRoleItem[]>([])
 const roles = ref<AdminRoleItem[]>([])
 const permissionGroups = ref<AdminPermissionGroup[]>([])
 
-const userPagination = reactive({
+const userPagination = reactive<PaginationState>({
   page: 1,
   per_page: 15,
   total: 0,
   last_page: 0,
 })
 
-const rolePagination = reactive({
+const rolePagination = reactive<PaginationState>({
   page: 1,
   per_page: 15,
   total: 0,
@@ -146,13 +94,11 @@ const roleQueryForm = reactive<RoleQueryFormState>({
 const userEditorVisible = ref(false)
 const userEditorMode = ref<EditorMode>('create')
 const editingUser = ref<AdminUserItem | null>(null)
-const userEditorFormRef = ref<FormInstance>()
 const userEditorForm = reactive<UserEditorState>(createDefaultUserEditorForm())
 const userEditorSnapshot = ref<UserEditorSnapshot | null>(null)
 
 const passwordVisible = ref(false)
 const passwordTarget = ref<AdminUserItem | null>(null)
-const passwordFormRef = ref<FormInstance>()
 const passwordForm = reactive<PasswordFormState>({
   password: '',
 })
@@ -160,9 +106,6 @@ const passwordForm = reactive<PasswordFormState>({
 const roleEditorVisible = ref(false)
 const roleEditorMode = ref<EditorMode>('create')
 const editingRole = ref<AdminRoleItem | null>(null)
-const roleEditorFormRef = ref<FormInstance>()
-const rolePermissionTreeRef = ref<TreeInstance>()
-const permissionFilterText = ref('')
 const roleEditorForm = reactive<RoleEditorState>(createDefaultRoleEditorForm())
 const roleEditorSnapshot = ref<RoleEditorSnapshot | null>(null)
 
@@ -186,30 +129,7 @@ const userEditorTitle = computed(() => (isUserCreateMode.value ? '新建管理�
 const isRoleCreateMode = computed(() => roleEditorMode.value === 'create')
 const roleEditorTitle = computed(() => (isRoleCreateMode.value ? '新建管理组' : '编辑管理组'))
 const isBuiltInRole = computed(() => editingRole.value?.code === 'super_admin')
-const rolePermissionCount = computed(() => roleEditorForm.permission_codes.length)
-const permissionTreeData = computed<PermissionTreeNode[]>(() =>
-  permissionGroups.value.map((group) => ({
-    id: `group:${group.group_name}`,
-    label: group.group_name,
-    type: 'group',
-    count: group.permissions.length,
-    disabled: isBuiltInRole.value,
-    children: group.permissions.map((permission) => ({
-      id: permission.code,
-      label: permission.name,
-      type: 'permission',
-      code: permission.code,
-      description: permission.description,
-      disabled: isBuiltInRole.value,
-    })),
-  })),
-)
-
-const permissionTreeProps = {
-  children: 'children',
-  label: 'label',
-  disabled: 'disabled',
-}
+const passwordTargetLabel = computed(() => passwordTarget.value?.display_name || passwordTarget.value?.username || '')
 
 const userEditorRules: FormRules<UserEditorState> = {
   username: [
@@ -264,6 +184,12 @@ const roleEditorRules: FormRules<RoleEditorState> = {
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
+watch([canViewUsersTab, canViewRolesTab], () => {
+  syncVisibleTab()
+}, { immediate: true })
+
+void initializePage()
+
 async function initializePage() {
   initialLoading.value = true
   errorMessage.value = ''
@@ -276,7 +202,7 @@ async function initializePage() {
       tasks.push(loadRoleOptions())
     }
     if (canViewRolesTab.value && canViewRolesResource.value) {
-      tasks.push(loadPermissionGroups(), loadRolesData(), loadRoleOptions())
+      tasks.push(loadPermissionGroups(), loadRolesData())
     }
     await Promise.all(tasks)
     syncVisibleTab()
@@ -286,14 +212,6 @@ async function initializePage() {
     initialLoading.value = false
   }
 }
-
-watch(permissionFilterText, (value) => {
-  rolePermissionTreeRef.value?.filter(value)
-})
-
-watch([canViewUsersTab, canViewRolesTab], () => {
-  syncVisibleTab()
-}, { immediate: true })
 
 async function loadRoleOptions() {
   roleOptionsLoading.value = true
@@ -339,7 +257,11 @@ async function loadRolesData() {
 }
 
 async function reloadRoleDataForAllViews() {
-  await Promise.all([loadRoleOptions(), loadRolesData()])
+  const tasks: Promise<unknown>[] = [loadRolesData()]
+  if (canReadRoleOptions.value) {
+    tasks.push(loadRoleOptions())
+  }
+  await Promise.all(tasks)
 }
 
 async function handleUserRefresh() {
@@ -447,9 +369,6 @@ function openCreateUserDialog() {
   editingUser.value = null
   resetUserEditorForm()
   userEditorVisible.value = true
-  void nextTick(() => {
-    userEditorFormRef.value?.clearValidate()
-  })
 }
 
 function openEditUserDialog(user: AdminUserItem) {
@@ -468,9 +387,6 @@ function openEditUserDialog(user: AdminUserItem) {
     role_ids: [...user.role_ids],
   }
   userEditorVisible.value = true
-  void nextTick(() => {
-    userEditorFormRef.value?.clearValidate()
-  })
 }
 
 function handleUserEditorClosed() {
@@ -488,11 +404,6 @@ function syncVisibleTab() {
 }
 
 async function submitUserEditor() {
-  if (!userEditorFormRef.value) {
-    return
-  }
-  await userEditorFormRef.value.validate()
-
   userSubmitting.value = true
   try {
     if (isUserCreateMode.value) {
@@ -546,9 +457,6 @@ function openPasswordDialog(user: AdminUserItem) {
   passwordTarget.value = user
   passwordVisible.value = true
   passwordForm.password = ''
-  void nextTick(() => {
-    passwordFormRef.value?.clearValidate()
-  })
 }
 
 function handlePasswordClosed() {
@@ -557,10 +465,9 @@ function handlePasswordClosed() {
 }
 
 async function submitPasswordReset() {
-  if (!passwordFormRef.value || !passwordTarget.value) {
+  if (!passwordTarget.value) {
     return
   }
-  await passwordFormRef.value.validate()
 
   passwordSubmitting.value = true
   try {
@@ -605,10 +512,6 @@ function openCreateRoleDialog() {
   editingRole.value = null
   resetRoleEditorForm()
   roleEditorVisible.value = true
-  void nextTick(() => {
-    roleEditorFormRef.value?.clearValidate()
-    syncRolePermissionTree()
-  })
 }
 
 function openEditRoleDialog(role: AdminRoleItem) {
@@ -626,63 +529,13 @@ function openEditRoleDialog(role: AdminRoleItem) {
     permission_codes: uniqueSortedStrings(role.permission_codes),
   }
   roleEditorVisible.value = true
-  void nextTick(() => {
-    roleEditorFormRef.value?.clearValidate()
-    syncRolePermissionTree()
-  })
 }
 
 function handleRoleEditorClosed() {
   resetRoleEditorForm()
 }
 
-const filterPermissionNode: FilterNodeMethodFunction = (value, rawData) => {
-  const data = rawData as PermissionTreeNode
-  if (!value) {
-    return true
-  }
-  const keyword = String(value).trim().toLowerCase()
-  if (!keyword) {
-    return true
-  }
-  return [data.label, data.code, data.description]
-    .filter(Boolean)
-    .some((item) => String(item).toLowerCase().includes(keyword))
-}
-
-function handlePermissionTreeCheck(_data: PermissionTreeNode, checked: { checkedKeys: unknown[] }) {
-  roleEditorForm.permission_codes = uniqueSortedStrings(
-    checked.checkedKeys.filter((key): key is string => typeof key === 'string' && !key.startsWith('group:')),
-  )
-}
-
-function handleCheckAllPermissions() {
-  if (isBuiltInRole.value) {
-    return
-  }
-  const tree = rolePermissionTreeRef.value
-  if (!tree) {
-    return
-  }
-  const keys = permissionGroups.value.flatMap((group) => group.permissions.map((permission) => permission.code))
-  tree.setCheckedKeys(keys, false)
-  roleEditorForm.permission_codes = uniqueSortedStrings(keys)
-}
-
-function handleClearPermissions() {
-  if (isBuiltInRole.value) {
-    return
-  }
-  rolePermissionTreeRef.value?.setCheckedKeys([], false)
-  roleEditorForm.permission_codes = []
-}
-
 async function submitRoleEditor() {
-  if (!roleEditorFormRef.value) {
-    return
-  }
-  await roleEditorFormRef.value.validate()
-
   roleSubmitting.value = true
   try {
     if (isRoleCreateMode.value) {
@@ -752,20 +605,11 @@ async function toggleRoleStatus(role: AdminRoleItem) {
 function resetUserEditorForm() {
   Object.assign(userEditorForm, createDefaultUserEditorForm())
   userEditorSnapshot.value = null
-  userEditorFormRef.value?.clearValidate()
 }
 
 function resetRoleEditorForm() {
   Object.assign(roleEditorForm, createDefaultRoleEditorForm())
   roleEditorSnapshot.value = null
-  permissionFilterText.value = ''
-  roleEditorFormRef.value?.clearValidate()
-  rolePermissionTreeRef.value?.setCheckedKeys([], false)
-}
-
-function syncRolePermissionTree() {
-  const keys = roleEditorForm.permission_codes.filter((code) => !code.startsWith('group:'))
-  rolePermissionTreeRef.value?.setCheckedKeys(keys, false)
 }
 
 function buildUserUpdatePayload(): AdminUserUpdateRequest {
@@ -899,40 +743,9 @@ function formatStatusLabel(status: string) {
   return status === 'active' ? '启用' : '停用'
 }
 
-function statusTagType(status: string) {
-  return status === 'active' ? 'success' : 'info'
-}
-
-function formatRoleOptionLabel(role: AdminRoleItem) {
-  return role.status === 'active' ? role.name : `${role.name}（已停用）`
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return '-'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
-}
-
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() ? error.message : fallback
 }
-
-onMounted(() => {
-  void initializePage()
-})
 </script>
 
 <template>
@@ -947,439 +760,92 @@ onMounted(() => {
     <QueryState :loading="initialLoading" :error-message="errorMessage" @retry="initializePage">
       <el-tabs v-model="activeTab">
         <el-tab-pane v-if="canViewUsersTab" label="管理员账号" name="users">
-          <el-card v-loading="userTableLoading || roleOptionsLoading" shadow="never" class="admin-settings-page__card">
-            <div class="admin-settings-page__toolbar">
-              <el-form inline class="admin-settings-page__filters" @submit.prevent>
-                <el-form-item label="关键字">
-                  <el-input
-                    v-model="userQueryForm.keyword"
-                    clearable
-                    placeholder="搜索账号、邮箱或显示名称"
-                    @keyup.enter="handleUserSearch"
-                  />
-                </el-form-item>
-                <el-form-item label="状态">
-                  <el-select v-model="userQueryForm.status" clearable placeholder="全部状态">
-                    <el-option label="启用" value="active" />
-                    <el-option label="停用" value="disabled" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item v-if="canViewRolesTab" label="角色">
-                  <el-select v-model="userQueryForm.role_id" clearable filterable placeholder="全部角色">
-                    <el-option
-                      v-for="role in roleOptions"
-                      :key="role.id"
-                      :label="formatRoleOptionLabel(role)"
-                      :value="role.id"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" :icon="Search" @click="handleUserSearch">查询</el-button>
-                  <el-button @click="handleUserResetFilters">重置</el-button>
-                </el-form-item>
-              </el-form>
-
-              <div class="admin-settings-page__toolbar-actions">
-                <el-button :icon="Refresh" :loading="userRefreshing" @click="handleUserRefresh">刷新</el-button>
-                <el-button v-if="canCreateUser" type="primary" :icon="Plus" @click="openCreateUserDialog">新建管理员</el-button>
-              </div>
-            </div>
-
-            <template v-if="!canViewUsersResource">
-              <EmptyState title="暂无权限" description="当前账号没有管理员账号查看权限。" />
-            </template>
-
-            <div v-else-if="hasUsers" class="admin-settings-page__table">
-              <el-table :data="users" stripe>
-                <el-table-column label="账号" min-width="140">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__identity">
-                      <span class="admin-settings-page__primary">{{ row.username }}</span>
-                      <span class="admin-settings-page__secondary">{{ row.display_name }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column label="邮箱" prop="email" min-width="220" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    {{ row.email || '-' }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="状态" width="100" align="center">
-                  <template #default="{ row }">
-                    <el-tag :type="statusTagType(row.status)" size="small">
-                      {{ formatStatusLabel(row.status) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="角色" min-width="220">
-                  <template #default="{ row }">
-                    <div v-if="row.roles.length > 0" class="admin-settings-page__tags">
-                      <el-tag v-for="role in row.roles" :key="role.id" size="small" effect="plain">
-                        {{ role.name }}
-                      </el-tag>
-                    </div>
-                    <span v-else class="admin-settings-page__secondary">未分配角色</span>
-                  </template>
-                </el-table-column>
-                <el-table-column label="最后登录" min-width="220">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__meta">
-                      <span>{{ formatDateTime(row.last_login_at) }}</span>
-                      <span>{{ row.last_login_ip || '-' }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column label="创建时间" min-width="180">
-                  <template #default="{ row }">
-                    {{ formatDateTime(row.created_at) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="操作" width="260" fixed="right">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__actions">
-                      <el-button v-if="canUpdateUser" link type="primary" :icon="EditPen" @click="openEditUserDialog(row)">编辑</el-button>
-                      <el-button
-                        v-if="canUpdateUser"
-                        link
-                        :type="row.status === 'active' ? 'warning' : 'success'"
-                        :icon="SwitchButton"
-                        :loading="userStatusUpdatingId === row.id"
-                        @click="toggleUserStatus(row)"
-                      >
-                        {{ row.status === 'active' ? '停用' : '启用' }}
-                      </el-button>
-                      <el-button v-if="canResetUserPassword" link type="danger" :icon="Key" @click="openPasswordDialog(row)">重置密码</el-button>
-                    </div>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div class="admin-settings-page__pagination">
-                <el-pagination
-                  background
-                  layout="total, sizes, prev, pager, next"
-                  :current-page="userPagination.page"
-                  :page-size="userPagination.per_page"
-                  :page-sizes="[15, 30, 50, 100]"
-                  :total="userPagination.total"
-                  @current-change="handleUserPageChange"
-                  @size-change="handleUserPageSizeChange"
-                />
-              </div>
-            </div>
-
-            <EmptyState
-              v-else
-              title="暂无管理员"
-              :description="userQueryForm.keyword || userQueryForm.status || userQueryForm.role_id ? '未找到符合条件的管理员账号。' : '当前还没有可展示的管理员账号。'"
-            />
-          </el-card>
+          <AdminUsersTab
+            :loading="userTableLoading || roleOptionsLoading"
+            :refreshing="userRefreshing"
+            :has-users="hasUsers"
+            :can-view-users-resource="canViewUsersResource"
+            :can-view-roles-tab="canViewRolesTab"
+            :can-create-user="canCreateUser"
+            :can-update-user="canUpdateUser"
+            :can-reset-user-password="canResetUserPassword"
+            :query-form="userQueryForm"
+            :role-options="roleOptions"
+            :users="users"
+            :pagination="userPagination"
+            :user-status-updating-id="userStatusUpdatingId"
+            @search="handleUserSearch"
+            @reset="handleUserResetFilters"
+            @refresh="handleUserRefresh"
+            @create="openCreateUserDialog"
+            @edit="openEditUserDialog"
+            @toggle-status="toggleUserStatus"
+            @reset-password="openPasswordDialog"
+            @page-change="handleUserPageChange"
+            @page-size-change="handleUserPageSizeChange"
+          />
         </el-tab-pane>
 
         <el-tab-pane v-if="canViewRolesTab" label="管理组权限" name="roles">
-          <el-card v-loading="roleTableLoading" shadow="never" class="admin-settings-page__card">
-            <div class="admin-settings-page__toolbar">
-              <el-form inline class="admin-settings-page__filters" @submit.prevent>
-                <el-form-item label="关键字">
-                  <el-input
-                    v-model="roleQueryForm.keyword"
-                    clearable
-                    placeholder="搜索编码、名称或说明"
-                    @keyup.enter="handleRoleSearch"
-                  />
-                </el-form-item>
-                <el-form-item label="状态">
-                  <el-select v-model="roleQueryForm.status" clearable placeholder="全部状态">
-                    <el-option label="启用" value="active" />
-                    <el-option label="停用" value="disabled" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" :icon="Search" @click="handleRoleSearch">查询</el-button>
-                  <el-button @click="handleRoleResetFilters">重置</el-button>
-                </el-form-item>
-              </el-form>
-
-              <div class="admin-settings-page__toolbar-actions">
-                <el-button :icon="Refresh" :loading="roleRefreshing" @click="handleRoleRefresh">刷新</el-button>
-                <el-button v-if="canCreateRole" type="primary" :icon="Plus" @click="openCreateRoleDialog">新建管理组</el-button>
-              </div>
-            </div>
-
-            <template v-if="!canViewRolesResource">
-              <EmptyState title="暂无权限" description="当前账号没有管理组权限查看权限。" />
-            </template>
-
-            <div v-else-if="hasRoles" class="admin-settings-page__table">
-              <el-table :data="roles" stripe>
-                <el-table-column label="管理组" min-width="220">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__identity">
-                      <span class="admin-settings-page__primary">{{ row.name }}</span>
-                      <span class="admin-settings-page__secondary">{{ row.code }}</span>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column label="说明" min-width="240" show-overflow-tooltip>
-                  <template #default="{ row }">
-                    {{ row.description || '-' }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="状态" width="100" align="center">
-                  <template #default="{ row }">
-                    <el-tag :type="statusTagType(row.status)" size="small">
-                      {{ formatStatusLabel(row.status) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="权限码" min-width="220">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__meta">
-                      <el-tag size="small" effect="plain">{{ row.permission_codes.length }} 项权限</el-tag>
-                      <span class="admin-settings-page__secondary">
-                        {{ row.permission_codes.slice(0, 3).join(' / ') || '未分配权限' }}
-                      </span>
-                    </div>
-                  </template>
-                </el-table-column>
-                <el-table-column label="更新时间" min-width="180">
-                  <template #default="{ row }">
-                    {{ formatDateTime(row.updated_at) }}
-                  </template>
-                </el-table-column>
-                <el-table-column label="操作" width="220" fixed="right">
-                  <template #default="{ row }">
-                    <div class="admin-settings-page__actions">
-                      <el-button v-if="canUpdateRole" link type="primary" :icon="EditPen" @click="openEditRoleDialog(row)">编辑</el-button>
-                      <el-button
-                        v-if="canUpdateRole"
-                        link
-                        :type="row.status === 'active' ? 'warning' : 'success'"
-                        :icon="SwitchButton"
-                        :loading="roleStatusUpdatingId === row.id"
-                        @click="toggleRoleStatus(row)"
-                      >
-                        {{ row.status === 'active' ? '停用' : '启用' }}
-                      </el-button>
-                    </div>
-                  </template>
-                </el-table-column>
-              </el-table>
-
-              <div class="admin-settings-page__pagination">
-                <el-pagination
-                  background
-                  layout="total, sizes, prev, pager, next"
-                  :current-page="rolePagination.page"
-                  :page-size="rolePagination.per_page"
-                  :page-sizes="[15, 30, 50, 100]"
-                  :total="rolePagination.total"
-                  @current-change="handleRolePageChange"
-                  @size-change="handleRolePageSizeChange"
-                />
-              </div>
-            </div>
-
-            <EmptyState
-              v-else
-              title="暂无管理组"
-              :description="roleQueryForm.keyword || roleQueryForm.status ? '未找到符合条件的管理组。' : '当前还没有可展示的管理组。'"
-            />
-          </el-card>
+          <AdminRolesTab
+            :loading="roleTableLoading"
+            :refreshing="roleRefreshing"
+            :has-roles="hasRoles"
+            :can-view-roles-resource="canViewRolesResource"
+            :can-create-role="canCreateRole"
+            :can-update-role="canUpdateRole"
+            :query-form="roleQueryForm"
+            :roles="roles"
+            :pagination="rolePagination"
+            :role-status-updating-id="roleStatusUpdatingId"
+            @search="handleRoleSearch"
+            @reset="handleRoleResetFilters"
+            @refresh="handleRoleRefresh"
+            @create="openCreateRoleDialog"
+            @edit="openEditRoleDialog"
+            @toggle-status="toggleRoleStatus"
+            @page-change="handleRolePageChange"
+            @page-size-change="handleRolePageSizeChange"
+          />
         </el-tab-pane>
       </el-tabs>
     </QueryState>
 
-    <el-dialog
-      v-model="userEditorVisible"
+    <UserEditorDialog
+      v-model:visible="userEditorVisible"
       :title="userEditorTitle"
-      width="640px"
-      destroy-on-close
+      :is-create-mode="isUserCreateMode"
+      :form="userEditorForm"
+      :rules="userEditorRules"
+      :role-options="roleOptions"
+      :can-read-role-options="canReadRoleOptions"
+      :submitting="userSubmitting"
+      @submit="submitUserEditor"
       @closed="handleUserEditorClosed"
-    >
-      <el-form ref="userEditorFormRef" :model="userEditorForm" :rules="userEditorRules" label-width="96px">
-        <el-form-item label="登录账号" prop="username">
-          <el-input
-            v-model="userEditorForm.username"
-            :disabled="!isUserCreateMode"
-            placeholder="请输入 3 到 64 位账号"
-          />
-        </el-form-item>
-        <el-form-item label="显示名称" prop="display_name">
-          <el-input v-model="userEditorForm.display_name" placeholder="请输入管理员显示名称" />
-        </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="userEditorForm.email" placeholder="请输入邮箱，可留空" />
-        </el-form-item>
-        <el-form-item v-if="isUserCreateMode" label="登录密码" prop="password">
-          <el-input
-            v-model="userEditorForm.password"
-            type="password"
-            show-password
-            placeholder="请输入 6 到 72 位密码"
-          />
-        </el-form-item>
-        <el-form-item label="账号状态" prop="status">
-          <el-radio-group v-model="userEditorForm.status">
-            <el-radio value="active">启用</el-radio>
-            <el-radio value="disabled">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item v-if="canReadRoleOptions" label="角色分配" prop="role_ids">
-          <el-select
-            v-model="userEditorForm.role_ids"
-            multiple
-            filterable
-            collapse-tags
-            collapse-tags-tooltip
-            placeholder="请选择要分配的角色"
-          >
-            <el-option
-              v-for="role in roleOptions"
-              :key="role.id"
-              :label="formatRoleOptionLabel(role)"
-              :value="role.id"
-              :disabled="role.status !== 'active'"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="canReadRoleOptions">
-          <el-alert
-            type="info"
-            :closable="false"
-            title="仅启用中的角色可分配给管理员。已停用角色会保留显示，但不能再次分配。"
-          />
-        </el-form-item>
-      </el-form>
+    />
 
-      <template #footer>
-        <el-button @click="userEditorVisible = false">取消</el-button>
-        <el-button type="primary" :loading="userSubmitting" @click="submitUserEditor">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="passwordVisible"
-      title="重置管理员密码"
-      width="480px"
-      destroy-on-close
+    <PasswordResetDialog
+      v-model:visible="passwordVisible"
+      :target-label="passwordTargetLabel"
+      :form="passwordForm"
+      :rules="passwordRules"
+      :submitting="passwordSubmitting"
+      @submit="submitPasswordReset"
       @closed="handlePasswordClosed"
-    >
-      <el-alert
-        type="warning"
-        :closable="false"
-        class="admin-settings-page__dialog-alert"
-        title="密码重置后会立即生效，请通过安全渠道告知管理员。"
-      />
-      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="84px">
-        <el-form-item label="管理员">
-          <el-input :model-value="passwordTarget?.display_name || passwordTarget?.username || '-'" disabled />
-        </el-form-item>
-        <el-form-item label="新密码" prop="password">
-          <el-input
-            v-model="passwordForm.password"
-            type="password"
-            show-password
-            placeholder="请输入 6 到 72 位新密码"
-          />
-        </el-form-item>
-      </el-form>
+    />
 
-      <template #footer>
-        <el-button @click="passwordVisible = false">取消</el-button>
-        <el-button type="danger" :loading="passwordSubmitting" @click="submitPasswordReset">确认重置</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="roleEditorVisible"
+    <RoleEditorDialog
+      v-model:visible="roleEditorVisible"
       :title="roleEditorTitle"
-      width="760px"
-      destroy-on-close
+      :is-create-mode="isRoleCreateMode"
+      :is-built-in-role="isBuiltInRole"
+      :form="roleEditorForm"
+      :rules="roleEditorRules"
+      :permission-groups="permissionGroups"
+      :submitting="roleSubmitting"
+      @submit="submitRoleEditor"
       @closed="handleRoleEditorClosed"
-    >
-      <el-form ref="roleEditorFormRef" :model="roleEditorForm" :rules="roleEditorRules" label-width="96px">
-        <el-form-item label="管理组编码" prop="code">
-          <el-input
-            v-model="roleEditorForm.code"
-            :disabled="!isRoleCreateMode"
-            placeholder="请输入唯一编码，例如 ops_manager"
-          />
-        </el-form-item>
-        <el-form-item label="管理组名称" prop="name">
-          <el-input v-model="roleEditorForm.name" placeholder="请输入管理组名称" />
-        </el-form-item>
-        <el-form-item label="说明" prop="description">
-          <el-input
-            v-model="roleEditorForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入管理组说明，可留空"
-          />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="roleEditorForm.status">
-            <el-radio value="active" :disabled="isBuiltInRole">启用</el-radio>
-            <el-radio value="disabled" :disabled="isBuiltInRole">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="权限分配">
-          <div class="admin-settings-page__permission-panel">
-            <div class="admin-settings-page__permission-head">
-              <span>已选 {{ rolePermissionCount }} 项权限</span>
-              <div class="admin-settings-page__permission-tools">
-                <el-button link type="primary" :disabled="isBuiltInRole" @click="handleCheckAllPermissions">全选</el-button>
-                <el-button link :disabled="isBuiltInRole || rolePermissionCount === 0" @click="handleClearPermissions">清空</el-button>
-                <el-tag v-if="isBuiltInRole" type="warning" size="small">内置超级管理员角色不可修改权限</el-tag>
-              </div>
-            </div>
-            <el-input
-              v-model="permissionFilterText"
-              clearable
-              placeholder="筛选权限组、权限名称或权限码"
-            />
-            <div class="admin-settings-page__permission-tree-wrap">
-              <el-tree
-                ref="rolePermissionTreeRef"
-                :data="permissionTreeData"
-                :props="permissionTreeProps"
-                node-key="id"
-                show-checkbox
-                default-expand-all
-                :expand-on-click-node="false"
-                :check-on-click-node="false"
-                :check-on-click-leaf="false"
-                :filter-node-method="filterPermissionNode"
-                class="admin-settings-page__permission-tree"
-                @check="handlePermissionTreeCheck"
-              >
-                <template #default="{ data }">
-                  <div
-                    class="admin-settings-page__permission-node"
-                    :class="{ 'admin-settings-page__permission-node--group': data.type === 'group' }"
-                    :title="data.type === 'permission' ? [data.label, data.code, data.description].filter(Boolean).join(' / ') : data.label"
-                  >
-                    <span class="admin-settings-page__permission-label">{{ data.label }}</span>
-                    <span v-if="data.type === 'permission' && data.code" class="admin-settings-page__permission-code">
-                      {{ data.code }}
-                    </span>
-                    <el-tag v-else-if="data.type === 'group'" size="small" effect="plain">
-                      {{ data.count }} 项
-                    </el-tag>
-                  </div>
-                </template>
-              </el-tree>
-            </div>
-          </div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="roleEditorVisible = false">取消</el-button>
-        <el-button type="primary" :loading="roleSubmitting" @click="submitRoleEditor">保存</el-button>
-      </template>
-    </el-dialog>
+    />
   </div>
 </template>
 
@@ -1401,165 +867,5 @@ onMounted(() => {
   margin: 6px 0 0;
   font-size: 13px;
   color: var(--el-text-color-secondary);
-}
-
-.admin-settings-page__card :deep(.el-card__body) {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.admin-settings-page__toolbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.admin-settings-page__filters {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 8px 0;
-}
-
-.admin-settings-page__toolbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.admin-settings-page__table {
-  min-height: 240px;
-}
-
-.admin-settings-page__identity,
-.admin-settings-page__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.admin-settings-page__primary {
-  color: var(--el-text-color-primary);
-  font-weight: 600;
-}
-
-.admin-settings-page__secondary {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-}
-
-.admin-settings-page__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.admin-settings-page__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-}
-
-.admin-settings-page__pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 8px;
-}
-
-.admin-settings-page__dialog-alert {
-  margin-bottom: 16px;
-}
-
-.admin-settings-page__permission-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.admin-settings-page__permission-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.admin-settings-page__permission-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-
-.admin-settings-page__permission-tree-wrap {
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 10px;
-  background: var(--el-fill-color-blank);
-  padding: 12px;
-  max-height: 420px;
-  overflow: auto;
-}
-
-.admin-settings-page__permission-tree {
-  background: transparent;
-}
-
-.admin-settings-page__permission-tree :deep(.el-tree-node__content) {
-  min-height: 40px;
-  border-radius: 8px;
-  padding-right: 8px;
-}
-
-.admin-settings-page__permission-tree :deep(.el-tree-node__content:hover) {
-  background: var(--el-fill-color-light);
-}
-
-.admin-settings-page__permission-node {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.admin-settings-page__permission-node--group {
-  font-weight: 600;
-}
-
-.admin-settings-page__permission-label {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-settings-page__permission-code {
-  flex-shrink: 0;
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  line-height: 1;
-}
-
-@media (max-width: 960px) {
-  .admin-settings-page__toolbar {
-    flex-direction: column;
-  }
-
-  .admin-settings-page__toolbar-actions {
-    width: 100%;
-  }
-
-  .admin-settings-page__pagination {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
 }
 </style>
