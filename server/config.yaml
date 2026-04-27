@@ -12,15 +12,15 @@ app:
 # MariaDB 连接和连接池配置。
 database:
   # MariaDB 主机地址；本地开发通常为 127.0.0.1。
-  host: 127.0.0.1
+  host: mysql6.sqlpub.com
   # MariaDB 监听端口。
-  port: 3306
+  port: 3311
   # 业务数据库名称。
   name: pvecloud
   # 业务数据库用户名；不要在示例配置中写入真实生产账号。
-  user: root
+  user: pvecloud
   # 业务数据库密码；真实配置写入 server/config.yaml，并保持不提交。
-  password: ServBay.dev
+  password: X1ptfazPANxQTRPL
   # 数据库连接字符集；需要支持完整 Unicode 时使用 utf8mb4。
   charset: utf8mb4
   # 是否把 MariaDB 时间字段解析为 Go time.Time。
@@ -33,6 +33,17 @@ database:
   max_idle_conns: 10
   # 单个数据库连接可复用的最长时间，单位为分钟。
   conn_max_lifetime_minutes: 60
+
+# Redis 连接配置，用于缓存、限流、短 TTL 状态、验证码、一次性 token 和幂等短锁；API 和 Worker 启动时必须可连接。
+redis:
+  # Redis 地址；本地开发通常为 127.0.0.1:6379。
+  addr: redis-17987.crce178.ap-east-1-1.ec2.cloud.redislabs.com:17987
+  # Redis 密码；无密码时留空，真实密码只写入 server/config.yaml。
+  password: "mIG5Z7y9mMBOHBhcTaJ1r1HXpE4CKByo"
+  # Redis 逻辑库编号。
+  db: 0
+  # 业务 key 前缀，所有 Redis key 必须带此前缀，避免同一 Redis 被多个应用共用时互相污染。
+  key_prefix: pvecloud
 
 # 用户端和管理端 JWT 配置。
 jwt:

@@ -3,7 +3,11 @@
     "allow": [
       "Bash(findstr /i \"zh\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(len\\(d\\)\\)\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(len\\(d\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(len\\(d\\)\\)\")",
+      "Bash(icacls \"C:\\\\Program Files\\\\WindowsApps\\\\Claude_1.4758.0.0_x64__pzs8sxrjxfjjc\\\\app\\\\resources\\\\en-US.json\")",
+      "Bash(takeown /f \"C:\\\\Program Files\\\\WindowsApps\\\\Claude_1.4758.0.0_x64__pzs8sxrjxfjjc\\\\app\\\\resources\" /r /d Y)",
+      "Bash(cmd.exe /c \"takeown /f \\\\\"C:\\\\Program Files\\\\WindowsApps\\\\Claude_1.4758.0.0_x64__pzs8sxrjxfjjc\\\\app\\\\resources\\\\\" /r /d Y\")",
+      "Bash(powershell -Command \"takeown /f 'C:\\\\Program Files\\\\WindowsApps\\\\Claude_1.4758.0.0_x64__pzs8sxrjxfjjc\\\\app\\\\resources\\\\en-US.json'\")"
     ]
   }
 }

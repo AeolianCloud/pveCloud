@@ -219,263 +219,349 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* ===== 页面容器 ===== */
 .login-page {
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
   overflow: hidden;
-  padding: 32px;
+  background: #0b1120;
+  padding: 24px;
 }
 
-.login-page__halo {
+/* ===== 装饰光晕 ===== */
+.login-page__glow {
   position: absolute;
-  width: 360px;
-  aspect-ratio: 1;
-  border-radius: 999px;
-  filter: blur(18px);
-  opacity: 0.52;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+}
+.login-page__glow--top {
+  width: 600px;
+  height: 600px;
+  top: -200px;
+  left: -100px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.25), transparent 70%);
+}
+.login-page__glow--bottom {
+  width: 500px;
+  height: 500px;
+  bottom: -150px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%);
+}
+.login-page__glow--side {
+  width: 400px;
+  height: 400px;
+  top: 50%;
+  right: -100px;
+  transform: translateY(-50%);
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.12), transparent 70%);
 }
 
-.login-page__halo--left {
-  top: -40px;
-  left: -60px;
-  background: rgba(14, 165, 233, 0.18);
+/* ===== 背景网格 ===== */
+.login-page__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6), transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6), transparent 75%);
 }
 
-.login-page__halo--right {
-  right: -20px;
-  bottom: 0;
-  background: rgba(245, 158, 11, 0.16);
-}
-
-.login-page__shell {
+/* ===== 主容器 ===== */
+.login-page__container {
   position: relative;
   z-index: 1;
-  width: min(1220px, 100%);
-  min-height: calc(100vh - 64px);
-  margin: 0 auto;
+  width: min(1100px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
-  gap: 26px;
-  align-items: stretch;
+  grid-template-columns: 1fr 420px;
+  gap: 40px;
+  align-items: center;
 }
 
-.login-page__hero,
-.login-page__card {
-  border-radius: 30px;
-  box-shadow: var(--pc-card-shadow);
-  backdrop-filter: blur(18px);
+/* ===== 左侧品牌区域 ===== */
+.login-page__brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 520px;
+  padding: 0 0 0 8px;
 }
 
-.login-page__hero {
-  display: grid;
-  align-content: space-between;
-  gap: 28px;
-  padding: 34px;
-  color: var(--pc-brand-text);
-  background:
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.24), transparent 24%),
-    linear-gradient(160deg, #07111d 0%, #0b2740 58%, #0e4f76 100%);
+.login-page__brand-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.login-page__eyebrow,
-.login-page__card-label {
-  width: fit-content;
-  padding: 7px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.login-page__eyebrow {
-  color: rgba(240, 249, 255, 0.92);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.login-page__hero h1 {
-  margin: 0;
-  font-family: var(--pc-display-font);
-  font-size: clamp(42px, 6vw, 72px);
-  line-height: 0.94;
-}
-
-.login-page__hero p {
-  max-width: 620px;
-  margin: 0;
-  color: rgba(226, 232, 240, 0.82);
-  line-height: 1.7;
-  font-size: 16px;
-}
-
-.login-page__highlight-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.login-page__highlight-card {
-  padding: 18px;
-  border-radius: 22px;
-  display: grid;
+.login-page__logo {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-.login-page__highlight-icon {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.12);
+.login-page__logo-icon {
+  width: 36px;
+  height: 36px;
+  color: #0ea5e9;
 }
 
-.login-page__highlight-card strong {
-  line-height: 1.5;
-}
-
-.login-page__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.login-page__meta div {
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.login-page__meta span {
-  display: block;
-  margin-bottom: 8px;
-  color: rgba(191, 219, 254, 0.72);
-  font-size: 11px;
+.login-page__logo-text {
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: #f1f5f9;
+  font-family: var(--pc-display-font, 'Inter', sans-serif);
 }
 
-.login-page__meta strong {
+.login-page__title {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #f8fafc;
+  font-family: var(--pc-display-font, 'Inter', sans-serif);
+}
+
+.login-page__desc {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(148, 163, 184, 0.85);
+  max-width: 480px;
+}
+
+.login-page__features {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.login-page__feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 15px;
+  color: rgba(226, 232, 240, 0.8);
 }
 
+.login-page__feature-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  box-shadow: 0 0 8px rgba(14, 165, 233, 0.5);
+  flex-shrink: 0;
+}
+
+.login-page__footer-text {
+  font-size: 13px;
+  color: rgba(100, 116, 139, 0.6);
+}
+
+/* ===== 右侧登录卡片 ===== */
 .login-page__card {
-  align-self: center;
-  border: none;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 80px rgba(0, 0, 0, 0.4);
 }
 
-.login-page__card :deep(.el-card__header) {
-  padding-bottom: 10px;
-  border-bottom-color: rgba(148, 163, 184, 0.16);
+.login-page__card-inner {
+  padding: 40px 32px;
 }
 
-.login-page__card :deep(.el-card__body) {
-  padding-top: 20px;
+.login-page__card-header {
+  text-align: center;
+  margin-bottom: 28px;
 }
 
-.login-page__card-header strong {
-  display: block;
-  margin-top: 10px;
-  color: var(--pc-title-text);
-  font-family: var(--pc-display-font);
-  font-size: 28px;
+.login-page__card-avatar {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.15);
 }
 
-.login-page__card-header p {
-  margin: 8px 0 0;
-  color: var(--pc-muted-text);
-  line-height: 1.65;
+.login-page__card-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-family: var(--pc-display-font, 'Inter', sans-serif);
 }
 
-.login-page__card-label {
-  color: var(--pc-accent-strong);
-  background: rgba(14, 165, 233, 0.12);
+.login-page__card-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(148, 163, 184, 0.8);
 }
 
-.login-page__alert,
-.login-page__form {
-  margin-top: 2px;
+/* ===== 表单错误提示 ===== */
+.login-page__alert {
+  margin-bottom: 20px;
+  border-radius: 12px;
+}
+
+/* ===== 表单 ===== */
+.login-page__form :deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
+.login-page__form :deep(.el-form-item__label) {
+  color: rgba(203, 213, 225, 0.9);
+  font-weight: 600;
+  font-size: 13px;
+  padding-bottom: 6px;
 }
 
 .login-page__form :deep(.el-input__wrapper) {
-  min-height: 50px;
-  border-radius: 16px;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 4px 12px;
+  transition: border-color 0.2s, background 0.2s;
 }
 
+.login-page__form :deep(.el-input__wrapper:hover) {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.login-page__form :deep(.el-input__wrapper.is-focus) {
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.06);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.login-page__form :deep(.el-input__inner) {
+  color: #f1f5f9;
+  height: 46px;
+}
+
+.login-page__form :deep(.el-input__inner::placeholder) {
+  color: rgba(100, 116, 139, 0.5);
+}
+
+.login-page__form :deep(.el-input__prefix) {
+  color: rgba(100, 116, 139, 0.6);
+  margin-right: 8px;
+}
+
+/* ===== 验证码区域 ===== */
 .login-page__captcha {
-  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 168px;
+  grid-template-columns: 1fr 140px;
   gap: 12px;
+  align-items: stretch;
 }
 
-.login-page__captcha-button {
-  justify-content: space-between;
-  border-radius: 16px;
+.login-page__captcha-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 46px;
 }
 
-.login-page__captcha-button img {
+.login-page__captcha-btn:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.login-page__captcha-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-page__captcha-img {
   width: 100%;
-  height: 36px;
+  height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-.login-page__captcha-icon {
-  margin-left: 6px;
+.login-page__captcha-placeholder {
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.6);
 }
 
+/* ===== 提交按钮 ===== */
 .login-page__submit {
   width: 100%;
-  min-height: 52px;
-  margin-top: 8px;
-  border-radius: 16px;
+  height: 48px;
+  margin-top: 4px;
+  border-radius: 12px;
   font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border: none;
+  color: #fff;
+  transition: opacity 0.2s, transform 0.15s;
 }
 
-@media (max-width: 1080px) {
-  .login-page__shell {
+.login-page__submit:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.login-page__submit:active {
+  transform: translateY(0);
+}
+
+.login-page__submit.is-disabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(100, 116, 139, 0.4);
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 1024px) {
+  .login-page__container {
     grid-template-columns: 1fr;
+    max-width: 460px;
   }
 
-  .login-page__card {
-    align-self: stretch;
+  .login-page__brand {
+    display: none;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 480px) {
   .login-page {
-    padding: 16px;
+    padding: 12px;
   }
 
-  .login-page__shell,
-  .login-page__hero {
-    min-height: auto;
+  .login-page__card-inner {
+    padding: 28px 20px;
   }
 
-  .login-page__hero,
-  .login-page__card {
-    padding-left: 0;
-    padding-right: 0;
-  }
-
-  .login-page__hero {
-    padding: 24px;
-  }
-
-  .login-page__highlight-grid,
-  .login-page__meta {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
   .login-page__captcha {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 120px;
   }
 }
 </style>
