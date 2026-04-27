@@ -6,9 +6,9 @@ export const ADMIN_ROUTE_PATH = {
 } as const
 
 export const ADMIN_ROUTE_NAME = {
-  login: 'Login',
-  dashboard: 'Dashboard',
-  forbidden: 'Forbidden',
+  login: 'login',
+  dashboard: 'dashboard',
+  forbidden: 'forbidden',
 } as const
 
 export function normalizeAdminRedirect(target: unknown, fallback = ADMIN_ROUTE_PATH.dashboard) {

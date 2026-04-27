@@ -9,9 +9,7 @@ import AppSidebar from './components/AppSidebar.vue'
 const appStore = useAppStore()
 const isMobile = computed(() => appStore.device === 'mobile')
 const sidebarWidth = computed(() => {
-  if (isMobile.value) {
-    return '220px'
-  }
+  if (isMobile.value) return '220px'
   return appStore.sidebarOpened ? '220px' : '64px'
 })
 
@@ -75,44 +73,41 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .layout-aside {
   position: relative;
   z-index: 100;
-  transition: width 0.18s ease;
+  transition: width 0.2s ease;
 }
 
 .layout-aside--mobile {
   position: fixed;
   inset: 0 auto 0 0;
   height: 100vh;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease;
+  transition: transform 0.2s ease;
 }
 
 .layout-aside--hidden {
   transform: translateX(-100%);
-  box-shadow: none;
 }
 
 .layout-header {
   height: 60px;
   padding: 0 20px;
-  border-bottom: 1px solid var(--pc-shell-border);
-  background: var(--pc-shell-bg);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: #fff;
 }
 
 .layout-main {
   padding: 20px;
-  background: var(--pc-page-bg);
+  background: var(--el-bg-color-page);
 }
 
 @media (max-width: 991px) {
   .layout-aside--mobile {
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
   }
 
   .layout-main {

@@ -24,15 +24,13 @@ defineProps<{
 }
 
 .empty-state strong {
-  color: var(--pc-title-text);
-  font-family: var(--pc-display-font);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .empty-state p {
   max-width: 360px;
   margin: 0 auto;
-  color: var(--pc-muted-text);
+  color: var(--el-text-color-secondary);
   line-height: 1.6;
 }
 </style>

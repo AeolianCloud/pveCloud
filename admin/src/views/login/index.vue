@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Key, Lock, User } from '@element-plus/icons-vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { ElNotification } from 'element-plus'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getAdminLoginCaptcha } from '../../api/auth'
@@ -19,11 +20,12 @@ const form = reactive({
 
 const loading = ref(false)
 const captchaLoading = ref(false)
-const errorMessage = ref('')
 const captcha = reactive({
   id: '',
   image: '',
 })
+
+const touched = reactive({ username: false, password: false, captchaCode: false })
 
 const canSubmit = computed(
   () =>
@@ -32,6 +34,26 @@ const canSubmit = computed(
     captcha.id.length > 0 &&
     form.captchaCode.trim().length >= 4,
 )
+
+const usernameError = computed(() => {
+  if (!touched.username) return ''
+  if (form.username.trim().length === 0) return '请输入用户名'
+  return ''
+})
+
+const passwordError = computed(() => {
+  if (!touched.password) return ''
+  if (form.password.length === 0) return '请输入密码'
+  if (form.password.length < 6) return `还需 ${6 - form.password.length} 位`
+  return ''
+})
+
+const captchaError = computed(() => {
+  if (!touched.captchaCode) return ''
+  if (form.captchaCode.trim().length === 0) return '请输入验证码'
+  if (form.captchaCode.trim().length < 4) return `还需 ${4 - form.captchaCode.trim().length} 位`
+  return ''
+})
 
 async function loadCaptcha() {
   captchaLoading.value = true
@@ -43,19 +65,23 @@ async function loadCaptcha() {
   } catch (error) {
     captcha.id = ''
     captcha.image = ''
-    errorMessage.value = error instanceof Error ? error.message : '验证码加载失败，请稍后重试'
+    ElNotification({
+      title: '验证码加载失败',
+      message: error instanceof Error ? error.message : '请稍后重试',
+      type: 'error',
+    })
   } finally {
     captchaLoading.value = false
   }
 }
 
 async function submit() {
-  if (!canSubmit.value || loading.value) {
-    return
-  }
+  touched.username = true
+  touched.password = true
+  touched.captchaCode = true
+  if (!canSubmit.value || loading.value) return
 
   loading.value = true
-  errorMessage.value = ''
 
   try {
     await authStore.login({
@@ -67,7 +93,11 @@ async function submit() {
     const redirect = normalizeAdminRedirect(route.query.redirect, ADMIN_ROUTE_PATH.dashboard)
     await router.replace(redirect)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '登录失败，请检查账号、密码或验证码'
+    ElNotification({
+      title: '登录失败',
+      message: error instanceof Error ? error.message : '请检查账号、密码或验证码',
+      type: 'error',
+    })
     await loadCaptcha()
   } finally {
     loading.value = false
@@ -75,7 +105,12 @@ async function submit() {
 }
 
 onMounted(() => {
+  document.body.classList.add('login-active')
   void loadCaptcha()
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('login-active')
 })
 </script>
 
@@ -140,30 +175,22 @@ onMounted(() => {
             <p class="login-page__card-subtitle">请登录您的管理账号</p>
           </div>
 
-          <el-alert
-            v-if="errorMessage"
-            :title="errorMessage"
-            type="error"
-            :closable="false"
-            show-icon
-            class="login-page__alert"
-          />
-
           <el-form
             class="login-page__form"
             label-position="top"
             @submit.prevent="submit"
           >
-            <el-form-item label="账号">
+            <el-form-item label="账号" :error="usernameError">
               <el-input
                 v-model="form.username"
                 placeholder="用户名 / 邮箱"
                 :prefix-icon="User"
                 size="large"
+                @blur="touched.username = true"
               />
             </el-form-item>
 
-            <el-form-item label="密码">
+            <el-form-item label="密码" :error="passwordError">
               <el-input
                 v-model="form.password"
                 placeholder="请输入密码"
@@ -171,13 +198,15 @@ onMounted(() => {
                 type="password"
                 :prefix-icon="Lock"
                 size="large"
+                @blur="touched.password = true"
               />
             </el-form-item>
 
-            <el-form-item label="验证码">
+            <el-form-item label="验证码" :error="captchaError">
               <div class="login-page__captcha">
                 <el-input
                   v-model="form.captchaCode"
+                  @blur="touched.captchaCode = true"
                   maxlength="8"
                   placeholder="输入验证码"
                   :prefix-icon="Key"
@@ -217,6 +246,17 @@ onMounted(() => {
     </div>
   </main>
 </template>
+
+<style>
+/* 登录页激活时，覆盖全局浅色背景和网格 */
+body.login-active {
+  background: #0b1120 !important;
+}
+
+body.login-active #app::before {
+  display: none !important;
+}
+</style>
 
 <style scoped>
 /* ===== 页面容器 ===== */
@@ -317,7 +357,7 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #f1f5f9;
-  font-family: var(--pc-display-font, 'Inter', sans-serif);
+  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__title {
@@ -327,7 +367,7 @@ onMounted(() => {
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: #f8fafc;
-  font-family: var(--pc-display-font, 'Inter', sans-serif);
+  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__desc {
@@ -406,19 +446,13 @@ onMounted(() => {
   font-size: 22px;
   font-weight: 700;
   color: #f1f5f9;
-  font-family: var(--pc-display-font, 'Inter', sans-serif);
+  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__card-subtitle {
   margin: 0;
   font-size: 14px;
   color: rgba(148, 163, 184, 0.8);
-}
-
-/* ===== 表单错误提示 ===== */
-.login-page__alert {
-  margin-bottom: 20px;
-  border-radius: 12px;
 }
 
 /* ===== 表单 ===== */
