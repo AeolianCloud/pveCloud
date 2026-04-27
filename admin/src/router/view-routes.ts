@@ -16,7 +16,41 @@ export const viewRoutes: RouteRecordRaw[] = [
       icon: 'Odometer',
       affix: true,
       requiresAuth: true,
-      permission: ['dashboard:view'],
+      permission: ['page.dashboard'],
     },
+  },
+  {
+    path: ADMIN_ROUTE_PATH.systemSettings,
+    name: ADMIN_ROUTE_NAME.systemSettings,
+    redirect: ADMIN_ROUTE_PATH.systemSettingsConfig,
+    meta: {
+      title: '系统设置',
+      icon: 'Setting',
+      requiresAuth: true,
+      alwaysShow: true,
+    },
+    children: [
+      {
+        path: ADMIN_ROUTE_PATH.systemSettingsConfig.replace(ADMIN_ROUTE_PATH.systemSettings + '/', ''),
+        name: ADMIN_ROUTE_NAME.systemSettingsConfig,
+        component: () => import('../views/system-settings/index.vue'),
+        meta: {
+          title: '系统配置',
+          requiresAuth: true,
+          permission: ['page.system-settings.config'],
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.adminUsers.replace(ADMIN_ROUTE_PATH.systemSettings + '/', ''),
+        name: ADMIN_ROUTE_NAME.adminUsers,
+        component: () => import('../views/admin-users/index.vue'),
+        meta: {
+          title: '管理员设置',
+          requiresAuth: true,
+          permission: ['page.system-settings.admin-users', 'page.system-settings.admin-roles'],
+          permissionMode: 'any',
+        },
+      },
+    ],
   },
 ]

@@ -65,18 +65,73 @@
 
 ### 管理端权限码
 
-权限码格式统一为：
+管理端权限采用双层模型：
+
+1. 页面入口权限：控制菜单、路由、tab 是否显示
+2. 资源操作权限：控制进入页面后能执行哪些读写操作
+
+#### 页面入口权限
+
+页面入口权限格式统一为：
 
 ```text
-domain:action
+page.<menu>.<feature>
+```
+
+例如：
+
+- `page.dashboard`
+- `page.system-settings.config`
+- `page.system-settings.admin-users`
+- `page.system-settings.admin-roles`
+
+约定：
+
+- 页面入口权限只负责“能不能看到这个入口”
+- 页面入口权限不负责接口写操作授权
+- 页面入口权限不引入 `*` 通配
+
+#### 资源操作权限
+
+资源操作权限格式统一为：
+
+```text
+resource:action
 ```
 
 例如：
 
 - `dashboard:view`
-- `admin:manage`
-- `audit:view`
-- `system:update`
+- `system-config:view`
+- `system-config:update`
+- `admin-user:*`
+- `admin-user:password-reset`
+
+约定：
+
+- `resource:view`：查看列表、详情、页面主数据
+- `resource:create`：创建
+- `resource:update`：编辑、状态切换、权限分配等更新类操作
+- `resource:delete`：删除
+- 特殊动作单独拆分，例如 `password-reset`、`revoke`、`operate`
+- `resource:*`：该资源全权限，语义上覆盖同资源下所有子权限
+
+实现要求：
+
+- 前端菜单、路由和 tab 显示判断使用页面入口权限
+- 前端按钮、区块、提交动作和后端接口鉴权使用资源操作权限
+- 如果持有 `resource:*`，则应视为同时拥有该资源全部细粒度权限
+- 同一资源权限可被多个页面复用，不因页面增多而新增重复资源权限
+- 当前仓库若仍存在旧权限码（如 `admin:manage`、`system:update`），在迁移完成前可兼容保留，但新设计和新增页面不再继续扩展旧命名
+
+新增功能权限 checklist：
+
+1. 新后台页面或新 tab：至少补一个 `page.*` 页面入口权限
+2. 新页面若读取独立资源数据：至少补一个对应的 `resource:view`
+3. 新按钮或新写操作：补对应的 `create`、`update`、`delete`、`revoke`、`password-reset`、`operate` 等资源权限
+4. 新资源若需要“资源管理员”快捷授权：再补一个 `resource:*`
+5. 以上权限码必须写入文档，并同步进入数据库 `admin_permissions`
+6. 前端菜单/路由/tab 与后端接口不要共用同一个权限码层次，避免页面入口和资源操作混在一起
 
 ## 管理端登录与会话约定
 

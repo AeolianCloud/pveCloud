@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Compass, DataAnalysis, Odometer } from '@element-plus/icons-vue'
+import { Compass, DataAnalysis, Odometer, Setting } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -10,7 +10,7 @@ const appStore = useAppStore()
 const permissionStore = usePermissionStore()
 const route = useRoute()
 
-const iconMap = { Compass, DataAnalysis, Odometer }
+const iconMap = { Compass, DataAnalysis, Odometer, Setting }
 
 const activeMenu = computed(() => route.path)
 const menus = computed(() => permissionStore.sidebarMenus)
@@ -49,12 +49,25 @@ function handleSelect() {
       router
       @select="handleSelect"
     >
-      <el-menu-item v-for="item in menus" :key="item.key" :index="item.path">
-        <el-icon>
-          <component :is="resolveIcon(item.icon)" />
-        </el-icon>
-        <template #title>{{ item.title }}</template>
-      </el-menu-item>
+      <template v-for="item in menus" :key="item.key">
+        <el-sub-menu v-if="item.children?.length" :index="item.path">
+          <template #title>
+            <el-icon>
+              <component :is="resolveIcon(item.icon)" />
+            </el-icon>
+            <span>{{ item.title }}</span>
+          </template>
+          <el-menu-item v-for="child in item.children" :key="child.key" :index="child.path">
+            <template #title>{{ child.title }}</template>
+          </el-menu-item>
+        </el-sub-menu>
+        <el-menu-item v-else :index="item.path">
+          <el-icon>
+            <component :is="resolveIcon(item.icon)" />
+          </el-icon>
+          <template #title>{{ item.title }}</template>
+        </el-menu-item>
+      </template>
     </el-menu>
 
     <div v-else class="app-sidebar__empty">

@@ -13,11 +13,12 @@
 ## 当前实现状态
 
 - `admin/` 是当前已存在的管理端前端实现。
-- 当前前端范围收缩为三个页面：
+- 当前前端范围包括以下页面：
   - `Login`
   - `Dashboard`
+  - `System Settings`（系统设置，含系统配置、管理员设置子页面）
   - `403`
-- 管理员、角色权限、登录会话、系统设置、审计日志和高危操作日志的后端接口仍然存在，但当前前端不再提供这些独立页面、菜单入口和受保护路由。
+- 登录会话、审计日志和高危操作日志的后端接口仍然存在，但当前前端不再提供这些独立页面、菜单入口和受保护路由。
 
 这条边界是当前管理端前端的有效契约。
 
@@ -88,10 +89,43 @@ admin/src/
 
 ### Dashboard
 
-- 是当前唯一受保护业务页
+- 是受保护业务页
 - 需要 `dashboard:view`
 - 只展示当前已开放的基础后台指标
 - 不展示订单、支付、实例、工单或其它未开放业务模块指标
+
+### System Settings
+
+- 系统设置父级菜单，包含以下子页面：
+
+#### 系统配置
+
+- 按分组展示和编辑 `system_configs` 表中的配置项
+- 页面入口权限建议为 `page.system-settings.config`
+- 页面可见资源权限建议为 `system-config:view` 或 `system-config:*`
+- 更新权限建议为 `system-config:update` 或 `system-config:*`
+- 接口：`GET /admin-api/system-configs`（按分组查询）、`PATCH /admin-api/system-configs/{id}`（更新）
+- `is_secret=1` 的配置值不得展示明文
+
+#### 管理员设置
+
+- 在同一页面内承载两块能力：
+  - 管理员账号列表、创建、编辑、状态切换、密码重置
+  - 管理组列表、创建、编辑、状态切换、权限码分配
+- 页面内可使用标签页、分区或其它明确的信息架构，但不单独新增系统设置侧栏子菜单
+- 权限建议拆分如下：
+  - 管理员账号 tab 入口：`page.system-settings.admin-users`
+  - 页面与管理员列表资源：`admin-user:view` 或 `admin-user:*`
+  - 新建管理员：`admin-user:create` 或 `admin-user:*`
+  - 编辑管理员与状态切换：`admin-user:update` 或 `admin-user:*`
+  - 重置管理员密码：`admin-user:password-reset` 或 `admin-user:*`
+  - 管理组权限 tab 入口：`page.system-settings.admin-roles`
+  - 管理组列表资源：`admin-role:view` 或 `admin-role:*`
+  - 新建管理组：`admin-role:create` 或 `admin-role:*`
+  - 编辑管理组、状态切换、权限分配：`admin-role:update` 或 `admin-role:*`
+- 接口：
+  - 管理员：`GET/POST /admin-api/admin-users`、`GET/PATCH /admin-api/admin-users/{id}`、`POST /admin-api/admin-users/{id}/password`
+  - 管理组与权限：`GET/POST /admin-api/admin-roles`、`GET/PATCH /admin-api/admin-roles/{id}`、`GET /admin-api/admin-permissions`
 
 ### 403
 
@@ -112,6 +146,11 @@ admin/src/
 - 服务端 `menus` 当前仅作为兼容快照和未来扩展信息
 - 按钮权限通过统一权限指令或工具函数判断
 - 页面模板中不散写 `permissionCodes.includes(...)`
+- 页面入口权限建议统一采用 `page.xxx`
+- 资源权限建议统一采用 `resource:action`，例如 `admin-user:view`
+- 建议支持 `resource:*` 作为资源全权限，并在前后端权限判断中覆盖同资源细权限
+- 新页面若需要独立控制，必须先补数据库权限码，否则页面无法进入角色权限分配列表，也无法做独立授权
+- 新按钮、标签页或页面内功能块若需要独立显隐，必须先补对应权限码，再挂接 `meta.permission` 或 `v-permission`
 
 ## 样式原则
 

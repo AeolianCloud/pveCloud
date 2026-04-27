@@ -31,8 +31,14 @@ router.beforeEach(async (to) => {
     }
   }
 
-  const requiredPermissions = collectRoutePermissions(to)
-  if (requiresAuth && requiredPermissions.length > 0 && !permissionStore.hasAllPermissions(requiredPermissions)) {
+  const { permissions: requiredPermissions, mode } = collectRoutePermissions(to)
+  if (
+    requiresAuth &&
+    requiredPermissions.length > 0 &&
+    !(mode === 'any'
+      ? permissionStore.hasPermission(requiredPermissions)
+      : permissionStore.hasAllPermissions(requiredPermissions))
+  ) {
     return { name: ADMIN_ROUTE_NAME.forbidden }
   }
 
@@ -43,10 +49,16 @@ function collectRoutePermissions(route: RouteLocationNormalized) {
   for (let index = route.matched.length - 1; index >= 0; index -= 1) {
     const permissions = normalizePermissions(route.matched[index].meta.permission)
     if (permissions.length > 0) {
-      return permissions
+      return {
+        permissions,
+        mode: route.matched[index].meta.permissionMode === 'any' ? 'any' : 'all',
+      }
     }
   }
-  return []
+  return {
+    permissions: [],
+    mode: 'all' as const,
+  }
 }
 
 function resolveRedirect(path: string) {

@@ -10,6 +10,7 @@ import (
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/dto/admin"
 	"github.com/AeolianCloud/pveCloud/server/internal/models"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/pkg/errors"
+	"github.com/AeolianCloud/pveCloud/server/internal/pkg/rbac"
 )
 
 /**
@@ -114,11 +115,6 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 }
 
 func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
-	permissionSet := make(map[string]struct{}, len(permissionCodes))
-	for _, code := range permissionCodes {
-		permissionSet[code] = struct{}{}
-	}
-
 	menus := adminMenuCatalog()
 	visible := make([]admindto.MenuItem, 0, len(menus))
 	for _, menu := range menus {
@@ -126,7 +122,7 @@ func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
 			visible = append(visible, menu)
 			continue
 		}
-		if _, ok := permissionSet[*menu.PermissionCode]; ok {
+		if rbac.HasPermissionCode(permissionCodes, *menu.PermissionCode) {
 			visible = append(visible, menu)
 		}
 	}
@@ -135,13 +131,9 @@ func VisibleAdminMenus(permissionCodes []string) []admindto.MenuItem {
 
 func adminMenuCatalog() []admindto.MenuItem {
 	return []admindto.MenuItem{
-		menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "dashboard:view"),
-		menuItem("admin_users", "管理员账号", "/admin-users", "users", "admin:manage"),
-		menuItem("admin_roles", "角色权限", "/admin-roles", "shield-check", "admin:manage"),
-		menuItem("admin_sessions", "登录会话", "/admin-sessions", "monitor-check", "admin:manage"),
-		menuItem("system_configs", "系统设置", "/system-configs", "settings", "system:update"),
-		menuItem("audit_logs", "审计日志", "/audit-logs", "clipboard-list", "audit:view"),
-		menuItem("risk_logs", "高危操作日志", "/risk-logs", "shield-alert", "audit:view"),
+		menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "page.dashboard"),
+		menuItem("system_configs", "系统配置", "/system/settings", "settings", "page.system-settings.config"),
+		menuItem("admin_settings", "管理员设置", "/system/admin-users", "users", "page.system-settings.admin-users"),
 	}
 }
 

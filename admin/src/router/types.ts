@@ -9,5 +9,7 @@ declare module 'vue-router' {
     guestOnly?: boolean
     requiresAuth?: boolean
     permission?: RoutePermission
+    permissionMode?: 'all' | 'any'
+    alwaysShow?: boolean
   }
 }

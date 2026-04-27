@@ -6,13 +6,16 @@ import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
 import { getAdminDashboard, type DashboardMetric } from '../../api/dashboard'
 import { useAuthStore } from '../../store/modules/auth'
+import { usePermissionStore } from '../../store/modules/permission'
 import MetricCard from './components/MetricCard.vue'
 
 const authStore = useAuthStore()
+const permissionStore = usePermissionStore()
 
 const loading = ref(false)
 const errorMessage = ref('')
 const metrics = ref<DashboardMetric[]>([])
+const canViewDashboard = computed(() => permissionStore.hasPermission('dashboard:view'))
 
 const metricMeta: Record<string, { icon: Component }> = {
   active_admins: { icon: UserFilled },
@@ -31,6 +34,12 @@ const metricCards = computed(() =>
 )
 
 async function loadDashboard() {
+  if (!canViewDashboard.value) {
+    metrics.value = []
+    errorMessage.value = ''
+    return
+  }
+
   loading.value = true
   errorMessage.value = ''
 
@@ -58,7 +67,13 @@ onMounted(() => {
     </div>
 
     <QueryState :loading="loading" :error-message="errorMessage" @retry="loadDashboard">
-      <template v-if="metricCards.length === 0">
+      <template v-if="!canViewDashboard">
+        <el-card>
+          <EmptyState title="暂无权限" description="当前账号没有控制台数据查看权限。" />
+        </el-card>
+      </template>
+
+      <template v-else-if="metricCards.length === 0">
         <el-card>
           <EmptyState title="暂无数据" description="当前没有可展示的指标。" />
         </el-card>
