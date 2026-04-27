@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -19,12 +20,12 @@ import (
 func ConnectDatabase(ctx context.Context, cfg DatabaseConfig) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(cfg.DSN()), &gorm.Config{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open MariaDB %s:%d/%s: %w", cfg.Host, cfg.Port, cfg.Name, err)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get sql.DB for MariaDB %s:%d/%s: %w", cfg.Host, cfg.Port, cfg.Name, err)
 	}
 
 	// 连接池参数会影响 API 和 Worker 的并发数据库访问能力，必须在首次 Ping 前设置完成。
@@ -33,7 +34,7 @@ func ConnectDatabase(ctx context.Context, cfg DatabaseConfig) (*gorm.DB, error) 
 	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetimeMinutes) * time.Minute)
 
 	if err := sqlDB.PingContext(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ping MariaDB %s:%d/%s: %w", cfg.Host, cfg.Port, cfg.Name, err)
 	}
 
 	return db, nil

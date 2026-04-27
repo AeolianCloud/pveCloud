@@ -1,32 +1,78 @@
-# pveCloud 文档索引
+# pveCloud 文档总览
 
-`docs/` 是项目事实、设计说明和接口文档的维护位置。AI 协作流程和开发技能只放在 `.codex/skills/pvecloud-document-first/`，不要把这两类内容混在一起。
+`docs/` 是 `pveCloud` 的项目事实层。
+这里存放给人和代码共同使用的契约、架构、流程、计划和进度说明。
 
-## 文档边界
+它不承担 AI 提示词职责。
+AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/skills/`。
 
-| 内容 | 维护位置 |
-| --- | --- |
-| API 最终契约 | `docs/server/api/` 和对应业务文档 |
-| API 响应、错误码、鉴权约定 | `docs/server/api/conventions.md` |
-| 后端架构和业务规则 | `docs/server/architecture.md` |
-| 后端技术栈、目录、配置和命令 | `docs/server/go-technical.md` |
-| 数据库设计说明 | `docs/server/database/design.md` |
-| 数据库可执行结构 | `server/migrations/` |
-| 异步任务和 Worker | `docs/server/jobs.md` |
-| 外部系统集成 | `docs/server/integrations/README.md` |
-| 管理端前端设计 | `docs/admin/architecture.md` |
-| 用户端前端设计 | `docs/web/architecture.md` |
-| 基础后台缺口分析 | `docs/analysis/basic-admin-gap.md` |
-| 基础后台实施计划 | `docs/plan/basic-admin-foundation.md` |
-| 基础后台进度跟踪 | `docs/progress/MASTER.md` |
-| 本地开发 | `docs/development/local-setup.md` |
-| 部署和运维 | `docs/operations/deployment.md` |
-| AI 文档先行工作流 | `.codex/skills/pvecloud-document-first/` |
+## 文档分层
 
-## 维护规则
+### 1. 契约层
 
-- 新增或修改接口：先更新 `docs/server/api/` 下的接口文档，再按需更新对应业务文档和 `docs/server/api/conventions.md`。
-- 新增或修改表结构：先更新 `server/migrations/`，设计口径同步写入 `docs/server/database/design.md`。
-- 新增或修改页面、状态、菜单、路由、权限展示：更新对应前端文档。
-- 新增或修改开发流程、AI 门禁、工程实现守则：更新 `.codex/skills/pvecloud-document-first/`。
-- 如果 skill 和 `docs/` 冲突，以 `docs/` 和机器契约为准，然后修正 skill。
+用于描述系统必须遵守的对外和对内约束：
+
+- API 契约：`docs/server/api/`
+- 数据库设计口径：`docs/server/database/`
+- 可执行数据库契约：`server/migrations/`
+- 配置示例契约：`server/config.example.yaml`
+
+### 2. 架构层
+
+用于描述系统当前结构、职责边界和实现口径：
+
+- 后端：`docs/server/`
+- 管理端：`docs/admin/`
+- 用户端：`docs/web/`
+
+### 3. 流程层
+
+用于描述项目协作和交付流程，而不是 AI 提示：
+
+- 文档先行说明：`docs/process/document-first.md`
+- 本地开发：`docs/development/local-setup.md`
+- 部署与运维：`docs/operations/deployment.md`
+
+### 4. 计划层
+
+用于记录阶段目标、缺口和实施路线：
+
+- 缺口分析：`docs/analysis/`
+- 实施计划：`docs/plan/`
+
+### 5. 进度层
+
+用于记录已完成内容、当前状态和下一步：
+
+- 进度总览：`docs/progress/MASTER.md`
+- 分阶段进度：`docs/progress/phase-*.md`
+
+## 协作分工
+
+### 技能和 AGENTS 的职责
+
+- 告诉 AI 先读什么
+- 告诉 AI 什么时候必须停下来确认
+- 告诉 AI 不要把什么写错地方
+- 约束 AI 的实现习惯、目录边界和验证方式
+
+### 文档的职责
+
+- 说明系统当前是什么
+- 说明接口、页面、流程和状态应该怎样工作
+- 说明阶段范围、设计约束、计划和进度
+- 给维护者、开发者、AI 和未来代码变更提供统一参考
+
+## 当前项目状态
+
+- 后端 `server/` 是当前主实现。
+- 管理端 `admin/` 已存在，是当前实际前端实现。
+- `docs/web/` 当前主要承担用户端规划与契约准备；如果仓库里尚无 `web/` 目录，不应把它误读成已有实现说明。
+
+## 维护原则
+
+- 改接口，先改 `docs/server/api/`。
+- 改数据库结构，先改迁移和数据库设计文档。
+- 改页面行为、路由、权限、状态、菜单，先改对应前端架构文档。
+- 改配置和部署，先改 `server/config.example.yaml` 与运维文档。
+- 改 AI 工作流，改 `AGENTS.md` 或 `.codex/skills/`，不要改业务文档来表达提示词。

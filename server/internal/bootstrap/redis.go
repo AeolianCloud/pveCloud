@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -28,7 +29,7 @@ func ConnectRedis(ctx context.Context, cfg RedisConfig) (*cache.Redis, error) {
 	defer cancel()
 	if err := client.Ping(pingCtx).Err(); err != nil {
 		_ = client.Close()
-		return nil, err
+		return nil, fmt.Errorf("ping Redis %s (db=%d): %w", cfg.Addr, cfg.DB, err)
 	}
 
 	return cache.NewRedis(client, cfg.KeyPrefix), nil

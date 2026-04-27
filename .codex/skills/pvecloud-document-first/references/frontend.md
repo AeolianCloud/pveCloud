@@ -1,70 +1,62 @@
-# Frontend Implementation Guardrails
+# Frontend Guardrails
 
-This file is for AI implementation rules. Admin and web product/page design lives in `docs/admin/architecture.md` and `docs/web/architecture.md`; endpoint contracts live in `docs/server/api/` and matching business docs.
+本文件定义前端实现守则，不承载页面契约、接口字段或产品说明。
 
-## Required Docs
+## 先读什么
 
-Read these before frontend work:
+- 管理端：`docs/admin/architecture.md`
+- 用户端：`docs/web/architecture.md`
+- 涉及后端请求时：`docs/server/api/`、`docs/server/api/conventions.md`
 
-- `docs/admin/architecture.md` for `admin/`
-- `docs/web/architecture.md` for `web/`
-- `docs/server/api/` when backend calls are involved
-- `docs/server/api/conventions.md` for envelope, auth, and error semantics
+## 双前端边界
 
-## Shared Rules
+- `admin/` 和 `web/` 完全独立。
+- 不跨应用导入页面、组件、请求、状态、类型、常量或工具。
+- 不创建跨前端共享运行时代码包。
 
-- `admin/` and `web/` are fully independent.
-- Do not create a shared frontend package.
-- Do not import pages, components, requests, stores, types, constants, or utilities across `admin/` and `web/`.
-- Each frontend owns its own `src/api/`, `src/stores/`, `src/types/`, `src/constants/`, `src/utils/`, and `src/router/`.
-- Use the existing stack documented in the owning frontend architecture doc.
+## 当前仓库状态
 
-## Style Organization
+- `admin/` 已存在，是当前实际前端实现。
+- 如果仓库里还没有 `web/` 目录，`docs/web/` 仅代表规划和契约，不代表已有用户端代码。
+- 在没有文档更新和维护者确认前，不要擅自把已移除的后台页面重新加回菜单、路由或占位页。
 
-- Keep global styles small: design tokens, CSS variables, reset/base elements, shell layout, and utilities reused by multiple pages.
-- Put page-specific and component-specific styles in the owning Vue SFC with `<style scoped>`.
-- Do not add page-only class blocks to `src/style.css`.
-- If a style must be shared by multiple pages in the same frontend, extract it inside that frontend only; do not create a cross-app `shared/` style package.
-- Use semantic CSS variables for theme-sensitive values. Scoped styles may define page-local variables on their root class.
+## 结构原则
 
-## Third-Party UI Foundation
+- 请求包装按业务域拆分。
+- 路由元信息承担标题、图标、权限、菜单可见性等页面契约。
+- 全局状态只承载跨页面 concern，不为单页过度建模。
+- 页面私有样式留在页面或组件内部，全局样式只做 tokens、reset、shell 和少量复用能力。
 
-- Prefer mature third-party libraries for established frontend behavior that is easy to get subtly wrong: dialog focus trapping, select/listbox keyboard interaction, checkbox groups, popovers, tabs, date inputs, virtual scrolling, tables, charts, and accessibility primitives.
-- For `admin/`, use PrimeVue as the preferred base component layer when introducing a UI library. Use PrimeVue components directly by default; wrap them under `admin/src/components/` only when pveCloud needs a stable business-facing API, a repeated component composition, or project-specific defaults.
-- Use PrimeVue Styled Mode with an official preset theme as the primary visual base for frontend controls. Project CSS should provide pveCloud-specific layout, branding, page composition, and small overrides rather than rebuilding the same component visuals from scratch.
-- PrimeFlex may be used as an optional admin layout utility layer for flex, grid, spacing, alignment, and responsive helpers. It must not replace PrimeVue Styled Mode or recreate PrimeVue component states.
-- For protected `admin` pages, migrate UI to the PrimeVue suite progressively, excluding `LoginPage` unless the maintainer explicitly scopes login redesign. Dashboard, admin users, roles, sessions, system settings, audit logs, risk logs, and 403 should use PrimeVue components and admin-owned wrappers instead of spreading hand-written control styles.
-- A third-party CSS utility or theme library may be introduced inside the owning frontend only. Do not create a cross-app shared package.
-- Do not hand-roll complex component internals when a proven library already provides the behavior, unless the maintainer explicitly asks for a custom implementation.
+## 组件与样式
 
-## Admin Rules
+- 现阶段管理端优先用 Element Plus。
+- 优先复用成熟 UI 能力，不手写复杂底层交互。
+- 不建设替代 UI 框架的本地工具类体系。
+- 只有需要统一业务语义或固定组合时才做项目内封装。
 
-- `admin` calls only `/admin-api/*`.
-- Backend RBAC remains authoritative; frontend permission checks are only usability and navigation control.
-- Route guards, request wrappers, auth stores, permission stores, menu constants, and layout behavior must match `docs/admin/architecture.md` and backend API docs.
-- 前端页面、请求、类型和 store 文件必须按业务领域命名，避免用 `logs`、`common`、`utils`、`helper` 这类泛名承载具体业务；审计域统一使用 `audit` 命名，高危操作日志属于审计域。
+## 文档门禁
 
-## Web Rules
+以下前端变更属于契约或行为变更，必须先更新文档并等待确认：
 
-- `web` calls only `/api/*`.
-- User auth, order, payment, instance, and ticket flows must match `docs/web/architecture.md` and backend API docs.
+- 页面范围变化
+- 路由语义变化
+- 权限判断方式变化
+- 请求包装语义变化
+- 状态模型变化
+- 菜单来源变化
+- 登录恢复、刷新、退出等流程变化
 
-## Change Gate
+以下变更可直接实现：
 
-Before implementing frontend pages, routes, API wrappers, types, constants, stores, or utility functions:
+- 视觉样式优化
+- 页面编排优化
+- 不改变流程的空态、加载态、排版和文案微调
 
-1. If the change is pure UI/UX polish, skip the document-first confirmation gate and implement directly in the owning frontend after reading this guardrail.
-2. Update the owning frontend doc when page behavior, workflow, state semantics, routes, permissions, request wrappers, or durable product structure changes.
-3. Do not write style-only layout, color, typography, spacing, icon, or density decisions into `docs/` unless the maintainer explicitly asks for a design spec.
-4. Update `docs/server/api/` when backend calls change.
-5. Stop for maintainer confirmation only after docs/contracts are changed.
-6. Implement only in the owning frontend directory.
-
-## Verification Baseline
+## 验证
 
 ```powershell
 cd admin
 bun run build
 ```
 
-Use the equivalent command under `web/` once that frontend exists.
+如果未来 `web/` 存在，则对该应用执行等价构建验证。

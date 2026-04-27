@@ -1,21 +1,28 @@
-# API 约定
+# API 通用约定
 
-接口最终契约维护在 `docs/server/api/` 和对应业务文档中。本文件记录跨接口通用约定：响应包裹、错误码、鉴权和幂等。
+本文件只描述跨接口共用的约定。
+具体接口字段、请求参数和响应数据请看 `docs/server/api/endpoints.md` 及对应业务文档。
 
-## 接口文档
+## 文档职责
 
-- 当前已确认接口清单维护在 `docs/server/api/endpoints.md`。
-- 新增或修改接口时，先更新 `docs/server/api/` 下的接口说明，再同步更新涉及的后端、管理端或用户端业务文档。
-- 接口文档应说明方法、路径、鉴权要求、请求参数、响应数据、主要错误状态和权限码。
-- 初始化检查接口：
-  - `GET /healthz`
-  - `GET /api/ping`
-  - `GET /admin-api/ping`
-- `/healthz` 是轻量健康检查；数据库或 Redis ping 失败时返回非 2xx。
+这里描述：
 
-## 响应格式
+- 统一响应包裹
+- 错误码分段
+- 鉴权与权限约定
+- 幂等与限流原则
 
-所有业务响应使用统一包裹：
+不在这里重复每个接口的业务细节。
+
+## 路由边界
+
+- 用户端：`/api/*`
+- 管理端：`/admin-api/*`
+- 健康检查：`/healthz`
+
+## 统一响应格式
+
+成功响应：
 
 ```json
 {"code":0,"message":"成功","data":{}}
@@ -27,40 +34,76 @@
 {"code":40001,"message":"参数错误","data":null}
 ```
 
-## 错误码范围
+## 错误码分段
 
 - `0`：成功
 - `400xx`：参数或校验错误
-- `401xx`：未登录、token 无效、token 过期
+- `401xx`：未登录、token 无效、token 过期、会话失效
 - `403xx`：无权限
 - `404xx`：资源不存在
-- `429xx`：请求过于频繁、登录失败限流
 - `409xx`：状态冲突、重复提交
+- `429xx`：请求过于频繁、登录失败限流
 - `500xx`：服务端内部错误
 - `600xx`：支付错误
 - `700xx`：PVE 或实例错误
-- `800xx`：管理端操作错误
+- `800xx`：管理端业务操作错误
 
-## 鉴权
+## 鉴权约定
 
-- 用户端 JWT 使用用户端 secret 和 issuer。
-- 管理端 JWT 使用管理端 secret 和 issuer。
-- 管理端接口必须在接口文档、路由中间件和处理器注释中保持鉴权要求一致。
-- 管理端权限码采用 `domain:action` 格式，例如 `dashboard:view`、`payment:manual_credit`。
-- 缺少、错误或过期 token 返回 `40101 未登录或登录已过期`。
-- 权限不足返回 `40301 无权限`。
-- 管理端 JWT 必须包含 `jti`，`jti` 对应 `admin_sessions.session_id`；受保护管理端接口除校验签名、issuer、token type 和过期时间外，还必须校验会话状态。
-- 管理端退出登录使用 `POST /admin-api/auth/logout` 吊销当前会话；刷新 token 使用 `POST /admin-api/auth/refresh` 轮换新会话并吊销旧会话。
-- 管理端会话自检使用 `GET /admin-api/auth/me`，返回当前管理员、角色 ID、权限码、可见菜单和会话摘要，前端启动和刷新页面时应优先用它确认 localStorage 中 token 是否仍有效。
-- 管理端权限以数据库 RBAC 为准；JWT 中的权限快照不能替代服务端对当前角色和权限关系的校验。
-- 管理端登录密码长度允许 6 到 72 个字符；本地开发可使用短密码，生产环境仍应使用高强度随机密码。
-- 管理端登录必须先调用 `GET /admin-api/auth/captcha` 获取验证码图片和 `captcha_id`；`POST /admin-api/auth/login` 必须提交 `captcha_id` 和 `captcha_code`，后端校验通过后立即删除验证码，校验失败或过期返回 `400xx` 参数/校验错误。
-- 管理端登录验证码使用 Redis 保存短 TTL 临时状态，推荐有效期 120 秒；验证码 Redis key 使用 `redis.key_prefix` 前缀并按 `admin:login_captcha:<captcha_id>` 组织，不能把验证码答案返回给前端。
-- 管理端登录失败次数使用 Redis 按 `IP + 账号标识哈希` 做 15 分钟短窗口计数，计数达到 5 次时返回 HTTP `429` 和业务错误码 `42901`，错误响应仍使用统一 `code/message/data` 包裹。
-- 管理端登录失败、成功、退出和刷新仍写入 `admin_audit_logs`，Redis 只承担短窗口限流计数，不替代审计日志。
+### 用户端
 
-## 幂等
+- 使用用户端 JWT secret 和 issuer
+- 作用范围为 `/api/*`
 
-- 支付回调、人工入账、退款、实例开通、实例删除和异步任务执行必须具备幂等保护。
-- 幂等保护优先使用业务唯一键、任务幂等键、外部交易号或本地状态机重入检查。
-- 涉及外部系统的接口不得仅依赖前端防重复提交。
+### 管理端
+
+- 使用管理端 JWT secret 和 issuer
+- 作用范围为 `/admin-api/*`
+- JWT 必须带 `jti`
+- `jti` 对应 `admin_sessions.session_id`
+- 受保护管理端接口不仅校验 token，还要校验当前会话状态和当前数据库 RBAC
+
+### 管理端权限码
+
+权限码格式统一为：
+
+```text
+domain:action
+```
+
+例如：
+
+- `dashboard:view`
+- `admin:manage`
+- `audit:view`
+- `system:update`
+
+## 管理端登录与会话约定
+
+- 登录前先调用 `GET /admin-api/auth/captcha`
+- 登录请求必须带 `captcha_id` 和 `captcha_code`
+- 验证码使用 Redis 存储短 TTL 临时状态
+- 登录失败限流按 `IP + 账号标识哈希` 计数
+- `GET /admin-api/auth/me` 是前端恢复登录态的首选接口
+- `POST /admin-api/auth/logout` 吊销当前会话
+- `POST /admin-api/auth/refresh` 轮换新会话并吊销旧会话
+
+## 幂等原则
+
+以下能力必须具备幂等保护：
+
+- 支付回调
+- 人工入账
+- 退款
+- 实例开通
+- 实例删除
+- 异步任务执行
+
+幂等优先依赖：
+
+- 业务唯一键
+- 外部交易号
+- 任务幂等键
+- 本地状态机重入检查
+
+不能只依赖前端防重复点击。

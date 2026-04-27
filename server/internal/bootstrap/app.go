@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"gorm.io/gorm"
@@ -31,19 +32,19 @@ type App struct {
 func NewApp(ctx context.Context, configPath string) (*App, error) {
 	cfg, err := LoadConfig(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load config %q: %w", configPath, err)
 	}
 
 	log := logger.New(cfg.Log.Level)
 
 	db, err := ConnectDatabase(ctx, cfg.Database)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 
 	redisClient, err := ConnectRedis(ctx, cfg.Redis)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initialize redis: %w", err)
 	}
 
 	return &App{

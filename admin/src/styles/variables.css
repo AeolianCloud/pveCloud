@@ -1,0 +1,26 @@
+:root {
+  --pc-page-bg:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 28%),
+    radial-gradient(circle at 85% 15%, rgba(251, 191, 36, 0.14), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4f8 46%, #e9eef3 100%);
+  --pc-shell-bg: rgba(255, 255, 255, 0.82);
+  --pc-shell-bg-strong: rgba(255, 255, 255, 0.94);
+  --pc-shell-border: rgba(148, 163, 184, 0.22);
+  --pc-shell-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+  --pc-brand-bg: linear-gradient(160deg, #0f172a 0%, #0f3d5e 58%, #0ea5e9 100%);
+  --pc-brand-bg-soft: linear-gradient(145deg, rgba(14, 165, 233, 0.16), rgba(15, 23, 42, 0.02));
+  --pc-brand-text: #f8fafc;
+  --pc-title-text: #0f172a;
+  --pc-muted-text: #5b6b7f;
+  --pc-subtle-text: #7c8aa0;
+  --pc-accent: #0ea5e9;
+  --pc-accent-strong: #0369a1;
+  --pc-accent-warm: #f59e0b;
+  --pc-card-gap: 18px;
+  --pc-card-radius: 24px;
+  --pc-card-radius-sm: 18px;
+  --pc-card-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --pc-grid-line: rgba(148, 163, 184, 0.12);
+  --pc-display-font: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --pc-body-font: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+}

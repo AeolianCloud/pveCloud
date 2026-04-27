@@ -1,28 +1,35 @@
-# Database Implementation Guardrails
+# Database Guardrails
 
-This file is for AI implementation rules. Database design facts live in `docs/server/database/design.md`; executable schema lives in `server/migrations/`.
+本文件定义数据库实现守则，不替代表结构契约。
 
-## Required Docs
-
-Read these before database or transaction work:
+## 先读什么
 
 - `docs/server/database/design.md`
 - `server/migrations/`
-- `docs/server/architecture.md` when persistence affects business flow
-- `docs/server/jobs.md` when async task persistence changes
+- 涉及的 `docs/server/api/` 和业务设计文档
 
-## Implementation Rules
+## 契约边界
 
-- Update `docs/server/database/design.md` when table groups, business constraints, transaction boundaries, or data ownership rules change.
-- Update `server/migrations/` when table, column, index, seed, or constraint SQL changes.
-- Do not treat skill references as schema contracts.
-- Money fields, status fields, indexes, constraints, and transaction boundaries must follow the database design doc and migration SQL.
-- 后台日志分为普通审计日志和高危操作日志；涉及高危日志字段、索引、外键或风险等级时，必须同步更新 `docs/server/database/design.md`、`docs/server/api/` 和迁移 SQL。
-- Do not call external systems inside a long database transaction.
-- For idempotent business flows, document the unique key or locking strategy before implementation.
+- 最终表结构以 `server/migrations/` 为准。
+- 设计口径、表分组、事务边界和约束说明写在 `docs/server/database/design.md`。
+- 不要只改 model 或 service 而不改迁移和设计文档。
 
-## Verification Baseline
+## 迁移原则
 
-- Review generated SQL manually.
-- Run focused backend tests.
-- When migrations are changed, apply them to a disposable local database before reporting completion when feasible.
+- 新增表、字段、索引、约束时，迁移和设计文档一起更新。
+- 迁移必须可重复执行，并考虑已有数据。
+- 不把高频查询条件塞进 JSON 字段。
+- 状态值由应用层常量维护，不用数据库 enum 绑死。
+
+## 事务与一致性
+
+- 事务只包本地必须原子完成的步骤。
+- 外部系统调用放到事务外，通过锚点、补偿或重试恢复。
+- 会话、审计、任务、订单、支付等关键事实以 MariaDB 为准。
+- Redis 只能做短 TTL 状态、限流、缓存、短锁和辅助幂等，不能替代最终业务事实。
+
+## 验证
+
+- 迁移文件命名和顺序清晰。
+- 设计文档与迁移一致。
+- 相关测试通过。

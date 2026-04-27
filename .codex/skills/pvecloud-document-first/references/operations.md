@@ -1,27 +1,28 @@
-# Operations Implementation Guardrails
+# Operations Guardrails
 
-This file is for AI implementation rules. Local setup and deployment facts live in `docs/development/local-setup.md`, `docs/operations/deployment.md`, and `server/config.example.yaml`.
+本文件定义配置、部署和运维相关实现守则。
 
-## Required Docs
-
-Read these before setup, config, deployment, or operations work:
+## 先读什么
 
 - `docs/development/local-setup.md`
 - `docs/operations/deployment.md`
 - `server/config.example.yaml`
-- `docs/server/go-technical.md` when backend startup/config behavior changes
 
-## Implementation Rules
+## 契约边界
 
-- Config is YAML based; do not introduce `.env` as the main source.
-- Keep real secrets out of git.
-- Update `server/config.example.yaml` for supported config keys.
-- Update operations docs when startup order, deployment components, proxy routes, backup expectations, or recovery procedures change.
-- Worker exposes no public business HTTP endpoint unless explicitly documented and approved.
-- PVE/payment/notify operational behavior must be recoverable and auditable where documented.
+- 配置项说明和默认语义以 `server/config.example.yaml` 为准。
+- 本地开发流程写在 `docs/development/`。
+- 部署拓扑、代理边界、依赖要求写在 `docs/operations/`。
 
-## Verification Baseline
+## 守则
 
-- Validate example config still loads when config behavior changes.
-- Run focused backend tests for config/bootstrap changes.
-- For deployment docs, include concrete commands or paths that an operator can follow.
+- 不提交真实配置和密钥。
+- 新增配置项时，先更新 `server/config.example.yaml`，再改代码和文档。
+- 不把生产依赖写成“可有可无”的降级选项，除非文档明确允许。
+- Redis、MariaDB、API、Worker、前端开发服务的启动顺序和依赖关系要写清楚。
+
+## 验证
+
+- 新配置项可被示例配置表达。
+- 本地开发说明与实际命令一致。
+- 部署说明与代理边界、运行依赖一致。
