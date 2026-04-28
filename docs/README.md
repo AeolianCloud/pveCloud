@@ -22,7 +22,10 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 用于描述系统当前结构、职责边界和实现口径：
 
 - 后端：`docs/server/`
-- 管理端：`docs/admin/`
+- 管理端入口：`docs/admin/README.md`
+- 管理端总体架构：`docs/admin/architecture.md`
+- 管理端页面契约：`docs/admin/pages/`
+- 管理端路由权限：`docs/admin/routing-permissions.md`
 - 用户端：`docs/web/`
 
 ### 3. 流程层
@@ -44,8 +47,12 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 
 用于记录已完成内容、当前状态和下一步：
 
+- 进度说明：`docs/progress/README.md`
 - 进度总览：`docs/progress/MASTER.md`
 - 分阶段进度：`docs/progress/phase-*.md`
+
+进度文档是阶段账本和历史记录，不是最终契约。
+如果它和 API、前端架构、数据库迁移或配置示例冲突，应先以权威契约为准，再同步修正或归档进度文档。
 
 ## 协作分工
 
@@ -76,3 +83,4 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 - 改页面行为、路由、权限、状态、菜单，先改对应前端架构文档。
 - 改配置和部署，先改 `server/config.example.yaml` 与运维文档。
 - 改 AI 工作流，改 `AGENTS.md` 或 `.codex/skills/`，不要改业务文档来表达提示词。
+- 阶段完成后，把长期有效事实沉淀到权威文档；进度文档只保留状态、背景和验收记录。
