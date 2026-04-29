@@ -98,6 +98,10 @@ func createAdmin(ctx context.Context, db *gorm.DB, username string, email string
 			return err
 		}
 
+		if err := ensureSuperAdminPermissions(ctx, tx, role.ID); err != nil {
+			return err
+		}
+
 		// 首个管理员默认绑定超级管理员角色，权限明细仍以数据库 RBAC 关系为准。
 		return tx.Exec(
 			"INSERT INTO admin_user_roles (admin_id, role_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE admin_id = VALUES(admin_id)",
@@ -105,4 +109,13 @@ func createAdmin(ctx context.Context, db *gorm.DB, username string, email string
 			role.ID,
 		).Error
 	})
+}
+
+func ensureSuperAdminPermissions(ctx context.Context, tx *gorm.DB, roleID uint64) error {
+	return tx.WithContext(ctx).Exec(`
+		INSERT INTO admin_role_permissions (role_id, permission_id)
+		SELECT ?, admin_permissions.id
+		FROM admin_permissions
+		ON DUPLICATE KEY UPDATE role_id = VALUES(role_id)
+	`, roleID).Error
 }

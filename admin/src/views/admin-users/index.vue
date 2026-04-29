@@ -4,6 +4,11 @@ import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
 
 import QueryState from '../../components/QueryState.vue'
 import {
+  getAdminSessions,
+  revokeAdminSession,
+  type AdminSessionItem,
+} from '../../api/admin-session'
+import {
   createAdminRole,
   getAdminPermissions,
   getAdminRoles,
@@ -22,13 +27,16 @@ import {
   type AdminUserItem,
   type AdminUserUpdateRequest,
 } from '../../api/admin-user'
+import { useAuthStore } from '../../store/modules/auth'
 import { usePermissionStore } from '../../store/modules/permission'
 import AdminRolesTab from './components/AdminRolesTab.vue'
+import AdminSessionsTab from './components/AdminSessionsTab.vue'
 import AdminUsersTab from './components/AdminUsersTab.vue'
 import PasswordResetDialog from './components/PasswordResetDialog.vue'
 import RoleEditorDialog from './components/RoleEditorDialog.vue'
 import UserEditorDialog from './components/UserEditorDialog.vue'
 import type {
+  AdminSessionQueryFormState,
   AdminStatus,
   EditorMode,
   PasswordFormState,
@@ -42,7 +50,10 @@ import type {
   UserQueryFormState,
 } from './types'
 
-const activeTab = ref<'users' | 'roles'>('users')
+type AdminSettingsTabKey = 'users' | 'roles' | 'sessions'
+
+const activeTab = ref<AdminSettingsTabKey>('users')
+const authStore = useAuthStore()
 const permissionStore = usePermissionStore()
 
 const initialLoading = ref(false)
@@ -61,9 +72,14 @@ const roleTableLoading = ref(false)
 const roleSubmitting = ref(false)
 const roleStatusUpdatingId = ref<number | null>(null)
 
+const sessionRefreshing = ref(false)
+const sessionTableLoading = ref(false)
+const sessionRevokingId = ref<string | null>(null)
+
 const users = ref<AdminUserItem[]>([])
 const roleOptions = ref<AdminRoleItem[]>([])
 const roles = ref<AdminRoleItem[]>([])
+const sessions = ref<AdminSessionItem[]>([])
 const permissionGroups = ref<AdminPermissionGroup[]>([])
 
 const userPagination = reactive<PaginationState>({
@@ -80,6 +96,13 @@ const rolePagination = reactive<PaginationState>({
   last_page: 0,
 })
 
+const sessionPagination = reactive<PaginationState>({
+  page: 1,
+  per_page: 15,
+  total: 0,
+  last_page: 0,
+})
+
 const userQueryForm = reactive<UserQueryFormState>({
   keyword: '',
   status: '',
@@ -87,6 +110,11 @@ const userQueryForm = reactive<UserQueryFormState>({
 })
 
 const roleQueryForm = reactive<RoleQueryFormState>({
+  keyword: '',
+  status: '',
+})
+
+const sessionQueryForm = reactive<AdminSessionQueryFormState>({
   keyword: '',
   status: '',
 })
@@ -111,17 +139,25 @@ const roleEditorSnapshot = ref<RoleEditorSnapshot | null>(null)
 
 const hasUsers = computed(() => users.value.length > 0)
 const hasRoles = computed(() => roles.value.length > 0)
+const hasSessions = computed(() => sessions.value.length > 0)
 const activeRoleOptions = computed(() => roleOptions.value.filter((role) => role.status === 'active'))
+const currentSessionId = computed(() => authStore.session?.session_id || '')
+
 const canViewUsersTab = computed(() => permissionStore.hasPermission('page.system-settings.admin-users'))
 const canViewRolesTab = computed(() => permissionStore.hasPermission('page.system-settings.admin-roles'))
+const canViewSessionsTab = computed(() => permissionStore.hasPermission('page.system-settings.admin-sessions'))
+
 const canViewUsersResource = computed(() => permissionStore.hasPermission('admin-user:view'))
 const canViewRolesResource = computed(() => permissionStore.hasPermission('admin-role:view'))
+const canViewSessionsResource = computed(() => permissionStore.hasPermission('admin-session:view'))
 const canReadRoleOptions = computed(() => permissionStore.hasPermission('admin-role:view'))
+
 const canCreateUser = computed(() => permissionStore.hasPermission('admin-user:create'))
 const canUpdateUser = computed(() => permissionStore.hasPermission('admin-user:update'))
 const canResetUserPassword = computed(() => permissionStore.hasPermission('admin-user:password-reset'))
 const canCreateRole = computed(() => permissionStore.hasPermission('admin-role:create'))
 const canUpdateRole = computed(() => permissionStore.hasPermission('admin-role:update'))
+const canRevokeSession = computed(() => permissionStore.hasPermission('admin-session:revoke'))
 
 const isUserCreateMode = computed(() => userEditorMode.value === 'create')
 const userEditorTitle = computed(() => (isUserCreateMode.value ? '新建管理员' : '编辑管理员'))
@@ -184,7 +220,7 @@ const roleEditorRules: FormRules<RoleEditorState> = {
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
-watch([canViewUsersTab, canViewRolesTab], () => {
+watch([canViewUsersTab, canViewRolesTab, canViewSessionsTab], () => {
   syncVisibleTab()
 }, { immediate: true })
 
@@ -203,6 +239,9 @@ async function initializePage() {
     }
     if (canViewRolesTab.value && canViewRolesResource.value) {
       tasks.push(loadPermissionGroups(), loadRolesData())
+    }
+    if (canViewSessionsTab.value && canViewSessionsResource.value) {
+      tasks.push(loadSessionsData())
     }
     await Promise.all(tasks)
     syncVisibleTab()
@@ -256,6 +295,20 @@ async function loadRolesData() {
   rolePagination.last_page = result.last_page
 }
 
+async function loadSessionsData() {
+  const result = await getAdminSessions({
+    page: sessionPagination.page,
+    per_page: sessionPagination.per_page,
+    keyword: normalizeKeyword(sessionQueryForm.keyword),
+    status: sessionQueryForm.status || undefined,
+  })
+  sessions.value = result.list
+  sessionPagination.total = result.total
+  sessionPagination.page = result.page
+  sessionPagination.per_page = result.per_page
+  sessionPagination.last_page = result.last_page
+}
+
 async function reloadRoleDataForAllViews() {
   const tasks: Promise<unknown>[] = [loadRolesData()]
   if (canReadRoleOptions.value) {
@@ -295,6 +348,20 @@ async function handleRoleRefresh() {
   }
 }
 
+async function handleSessionRefresh() {
+  sessionRefreshing.value = true
+  try {
+    if (canViewSessionsResource.value) {
+      await loadSessionsData()
+    }
+    ElMessage.success('管理员会话已刷新')
+  } catch (error) {
+    ElMessage.error(toErrorMessage(error, '刷新失败'))
+  } finally {
+    sessionRefreshing.value = false
+  }
+}
+
 async function searchUsers() {
   userTableLoading.value = true
   try {
@@ -314,6 +381,17 @@ async function searchRoles() {
     ElMessage.error(toErrorMessage(error, '管理组列表加载失败'))
   } finally {
     roleTableLoading.value = false
+  }
+}
+
+async function searchSessions() {
+  sessionTableLoading.value = true
+  try {
+    await loadSessionsData()
+  } catch (error) {
+    ElMessage.error(toErrorMessage(error, '管理员会话加载失败'))
+  } finally {
+    sessionTableLoading.value = false
   }
 }
 
@@ -364,6 +442,29 @@ function handleRolePageSizeChange(size: number) {
   void searchRoles()
 }
 
+function handleSessionSearch() {
+  sessionPagination.page = 1
+  void searchSessions()
+}
+
+function handleSessionResetFilters() {
+  sessionQueryForm.keyword = ''
+  sessionQueryForm.status = ''
+  sessionPagination.page = 1
+  void searchSessions()
+}
+
+function handleSessionPageChange(page: number) {
+  sessionPagination.page = page
+  void searchSessions()
+}
+
+function handleSessionPageSizeChange(size: number) {
+  sessionPagination.per_page = size
+  sessionPagination.page = 1
+  void searchSessions()
+}
+
 function openCreateUserDialog() {
   userEditorMode.value = 'create'
   editingUser.value = null
@@ -393,13 +494,32 @@ function handleUserEditorClosed() {
   resetUserEditorForm()
 }
 
-function syncVisibleTab() {
-  if (activeTab.value === 'users' && !canViewUsersTab.value && canViewRolesTab.value) {
-    activeTab.value = 'roles'
-    return
+function resolveFirstVisibleTab(): AdminSettingsTabKey {
+  if (canViewUsersTab.value) {
+    return 'users'
   }
-  if (activeTab.value === 'roles' && !canViewRolesTab.value && canViewUsersTab.value) {
-    activeTab.value = 'users'
+  if (canViewRolesTab.value) {
+    return 'roles'
+  }
+  if (canViewSessionsTab.value) {
+    return 'sessions'
+  }
+  return 'users'
+}
+
+function isTabVisible(tab: AdminSettingsTabKey) {
+  if (tab === 'users') {
+    return canViewUsersTab.value
+  }
+  if (tab === 'roles') {
+    return canViewRolesTab.value
+  }
+  return canViewSessionsTab.value
+}
+
+function syncVisibleTab() {
+  if (!isTabVisible(activeTab.value)) {
+    activeTab.value = resolveFirstVisibleTab()
   }
 }
 
@@ -602,6 +722,35 @@ async function toggleRoleStatus(role: AdminRoleItem) {
   }
 }
 
+async function revokeSession(session: AdminSessionItem) {
+  if (session.is_current || session.session_id === currentSessionId.value) {
+    ElMessage.warning('不能吊销当前会话')
+    return
+  }
+
+  const targetLabel = session.admin_display_name || session.admin_username
+  try {
+    await ElMessageBox.confirm(`确认吊销管理员“${targetLabel}”的会话吗？`, '确认吊销会话', {
+      type: 'warning',
+      confirmButtonText: '确认吊销',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  sessionRevokingId.value = session.session_id
+  try {
+    await revokeAdminSession(session.session_id)
+    ElMessage.success('管理员会话已吊销')
+    await searchSessions()
+  } catch (error) {
+    ElMessage.error(toErrorMessage(error, '吊销会话失败'))
+  } finally {
+    sessionRevokingId.value = null
+  }
+}
+
 function resetUserEditorForm() {
   Object.assign(userEditorForm, createDefaultUserEditorForm())
   userEditorSnapshot.value = null
@@ -753,7 +902,7 @@ function toErrorMessage(error: unknown, fallback: string) {
     <div class="admin-settings-page__header">
       <div>
         <h2>管理员设置</h2>
-        <p>在同一页面管理管理员账号、管理组和权限分配规则。</p>
+        <p>在同一页面管理管理员账号、管理组权限和管理员会话。</p>
       </div>
     </div>
 
@@ -806,6 +955,26 @@ function toErrorMessage(error: unknown, fallback: string) {
             @toggle-status="toggleRoleStatus"
             @page-change="handleRolePageChange"
             @page-size-change="handleRolePageSizeChange"
+          />
+        </el-tab-pane>
+
+        <el-tab-pane v-if="canViewSessionsTab" label="管理员会话" name="sessions">
+          <AdminSessionsTab
+            :loading="sessionTableLoading"
+            :refreshing="sessionRefreshing"
+            :has-sessions="hasSessions"
+            :can-view-sessions-resource="canViewSessionsResource"
+            :can-revoke-session="canRevokeSession"
+            :query-form="sessionQueryForm"
+            :sessions="sessions"
+            :pagination="sessionPagination"
+            :session-revoking-id="sessionRevokingId"
+            @search="handleSessionSearch"
+            @reset="handleSessionResetFilters"
+            @refresh="handleSessionRefresh"
+            @revoke="revokeSession"
+            @page-change="handleSessionPageChange"
+            @page-size-change="handleSessionPageSizeChange"
           />
         </el-tab-pane>
       </el-tabs>

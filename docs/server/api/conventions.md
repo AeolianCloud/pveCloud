@@ -84,6 +84,7 @@ page.<menu>.<feature>
 - `page.system-settings.config`
 - `page.system-settings.admin-users`
 - `page.system-settings.admin-roles`
+- `page.system-settings.admin-sessions`
 
 约定：
 
@@ -106,6 +107,8 @@ resource:action
 - `system-config:update`
 - `admin-user:*`
 - `admin-user:password-reset`
+- `admin-session:view`
+- `admin-session:revoke`
 
 约定：
 

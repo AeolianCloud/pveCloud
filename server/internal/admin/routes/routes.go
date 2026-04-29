@@ -5,6 +5,7 @@ import (
 
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/middleware"
 	adminrole "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/admin_role"
+	adminsession "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/admin_session"
 	adminuser "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/admin_user"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/auth"
@@ -31,6 +32,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	adminUserHandler := adminuser.NewAdminUserHandler(adminUserService)
 	adminRoleService := adminrole.NewAdminRoleService(app.DB, auditService)
 	adminRoleHandler := adminrole.NewAdminRoleHandler(adminRoleService)
+	adminSessionService := adminsession.NewAdminSessionService(app.DB, auditService)
+	adminSessionHandler := adminsession.NewAdminSessionHandler(adminSessionService)
 	systemConfigService := systemconfig.NewSystemConfigService(app.DB, auditService)
 	systemConfigHandler := systemconfig.NewSystemConfigHandler(systemConfigService)
 
@@ -54,6 +57,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.GET("/admin-roles/:id", middleware.AdminPermission("admin-role:view"), adminRoleHandler.RoleDetail)
 	protected.PATCH("/admin-roles/:id", middleware.AdminPermission("admin-role:update"), adminRoleHandler.UpdateRole)
 	protected.GET("/admin-permissions", middleware.AdminPermission("admin-role:view"), adminRoleHandler.Permissions)
+	protected.GET("/admin-sessions", middleware.AdminPermission("admin-session:view"), adminSessionHandler.List)
+	protected.PATCH("/admin-sessions/:session_id", middleware.AdminPermission("admin-session:revoke"), adminSessionHandler.Update)
 	protected.GET("/system-configs", middleware.AdminPermission("system-config:view"), systemConfigHandler.Configs)
 	protected.PATCH("/system-configs/:id", middleware.AdminPermission("system-config:update"), systemConfigHandler.Update)
 }

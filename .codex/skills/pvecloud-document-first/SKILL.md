@@ -90,6 +90,8 @@ If multiple docs disagree, do not silently pick the one that matches the code. U
 
 When the maintainer asks AI to commit, the commit message must be useful for review from another machine.
 
+- Do not run `git add`, `git commit`, `git push`, or any other Git history/staging mutation unless the maintainer explicitly asks for that Git action in the current conversation.
+
 - Use a concise subject, but do not rely on the subject alone.
 - Include a detailed body for non-trivial changes.
 - Explain why the change was needed, not only what files changed.
@@ -117,6 +119,7 @@ When the maintainer asks AI to commit, the commit message must be useful for rev
 - Skills may point to docs, but they must not become a second API spec or schema document.
 - Do not hide durable product behavior inside skills.
 - Do not overwrite user changes.
+- Do not mutate the Git staging area, local commits, or remote branches unless the maintainer explicitly asks for that Git action.
 - Do not assume docs are current just because they exist; validate them against the current code path before continuing an unfinished feature.
 - Do not treat progress/plan docs as the only source of truth when they conflict with owning contract docs or implementation.
 - Do not let completed phase notes keep driving new code after the durable contract docs have moved on.

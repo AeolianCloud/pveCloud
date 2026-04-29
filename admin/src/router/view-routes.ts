@@ -47,7 +47,7 @@ export const viewRoutes: RouteRecordRaw[] = [
         meta: {
           title: '管理员设置',
           requiresAuth: true,
-          permission: ['page.system-settings.admin-users', 'page.system-settings.admin-roles'],
+          permission: ['page.system-settings.admin-users', 'page.system-settings.admin-roles', 'page.system-settings.admin-sessions'],
           permissionMode: 'any',
         },
       },

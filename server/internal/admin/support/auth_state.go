@@ -57,16 +57,15 @@ func SessionSummary(session models.AdminSession) dto.SessionSummary {
 }
 
 func VisibleAdminMenus(permissionCodes []string) []dto.MenuItem {
-	menus := []dto.MenuItem{
-		menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "page.dashboard"),
-		menuItem("system_configs", "系统配置", "/system/settings", "settings", "page.system-settings.config"),
-		menuItem("admin_settings", "管理员设置", "/system/admin-users", "users", "page.system-settings.admin-users"),
+	visible := make([]dto.MenuItem, 0, 3)
+	if rbac.HasPermissionCode(permissionCodes, "page.dashboard") {
+		visible = append(visible, menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "page.dashboard"))
 	}
-	visible := make([]dto.MenuItem, 0, len(menus))
-	for _, menu := range menus {
-		if menu.PermissionCode == nil || rbac.HasPermissionCode(permissionCodes, *menu.PermissionCode) {
-			visible = append(visible, menu)
-		}
+	if rbac.HasPermissionCode(permissionCodes, "page.system-settings.config") {
+		visible = append(visible, menuItem("system_configs", "系统配置", "/system/settings", "settings", "page.system-settings.config"))
+	}
+	if permissionCode := firstAdminSettingsPermission(permissionCodes); permissionCode != "" {
+		visible = append(visible, menuItem("admin_settings", "管理员设置", "/system/admin-users", "users", permissionCode))
 	}
 	return visible
 }
@@ -79,4 +78,18 @@ func menuItem(key string, title string, path string, icon string, permissionCode
 		Icon:           &icon,
 		PermissionCode: &permissionCode,
 	}
+}
+
+func firstAdminSettingsPermission(permissionCodes []string) string {
+	candidates := []string{
+		"page.system-settings.admin-users",
+		"page.system-settings.admin-roles",
+		"page.system-settings.admin-sessions",
+	}
+	for _, code := range candidates {
+		if rbac.HasPermissionCode(permissionCodes, code) {
+			return code
+		}
+	}
+	return ""
 }

@@ -82,6 +82,7 @@ admin_risk_logs
   - 页面入口权限使用 `page.<menu>.<feature>`
   - 资源操作权限使用 `resource:action`
 - 管理端会话最终状态以 `admin_sessions` 为准
+- `super_admin` 角色应始终拥有当前 `admin_permissions` 中定义的全部权限
 - JWT 中的角色和权限快照只用于登录响应与前端体验，不替代服务端当前 RBAC 校验
 - `system_configs.is_secret=1` 的配置不得通过接口返回明文
 - 高危操作同时写入 `admin_audit_logs` 和 `admin_risk_logs`
@@ -92,8 +93,9 @@ admin_risk_logs
 当前基础后台阶段，后端仍保留认证、RBAC、会话、系统配置、审计和高危日志等管理域数据结构。
 这不意味着当前管理端前端必须保留这些独立页面。
 
-当前开放的管理端权限码以 `server/migrations/004_admin_permission_refactor.sql`、`005_admin_permission_cleanup.sql` 和 `006_admin_page_permissions.sql` 的最终结果为准。
-会话列表、审计日志查询和高危日志查询相关权限码当前不开放；重新开放时必须新增迁移并同步 API 文档和路由。
+当前开放的管理端权限码以 `server/migrations/004_admin_permission_refactor.sql`、`005_admin_permission_cleanup.sql`、`006_admin_page_permissions.sql`、`007_admin_session_permissions.sql` 和 `008_super_admin_full_permissions.sql` 的最终结果为准。
+`admin-session:*`、`admin-session:view`、`admin-session:revoke` 与 `page.system-settings.admin-sessions` 当前已通过 `007_admin_session_permissions.sql` 重新纳入开放范围；`008_super_admin_full_permissions.sql` 负责把 `super_admin` 回填并同步到全部现存权限。
+审计日志查询和高危日志查询相关权限码当前仍不开放；重新开放时必须新增迁移并同步 API 文档和路由。
 
 ## 关键唯一约束示例
 

@@ -1,6 +1,7 @@
 export type EditorMode = 'create' | 'edit'
 export type AdminStatus = 'active' | 'disabled'
 export type RoleStatus = 'active' | 'disabled'
+export type SessionStatus = 'active' | 'revoked' | 'expired'
 
 export interface UserQueryFormState {
   keyword: string
@@ -11,6 +12,11 @@ export interface UserQueryFormState {
 export interface RoleQueryFormState {
   keyword: string
   status: '' | RoleStatus
+}
+
+export interface AdminSessionQueryFormState {
+  keyword: string
+  status: '' | SessionStatus
 }
 
 export interface UserEditorState {
@@ -51,12 +57,16 @@ export interface RoleEditorSnapshot {
 export interface PermissionTreeNode {
   id: string
   label: string
-  type: 'group' | 'permission'
+  type: 'root' | 'segment' | 'permission'
   code?: string
   count?: number
   description?: string | null
   children?: PermissionTreeNode[]
   disabled?: boolean
+  meta_label?: string
+  path_hint?: string
+  keywords?: string[]
+  sort_order?: number
 }
 
 export interface PaginationState {

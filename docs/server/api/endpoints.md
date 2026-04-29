@@ -165,6 +165,28 @@
 - 资源权限：`admin-role:view` 或 `admin-role:*`
 - 作用：只读查询权限码分组
 
+## 管理员会话域
+
+### `GET /admin-api/admin-sessions`
+
+- 鉴权：管理端 Bearer Token
+- 页面入口权限建议：`page.system-settings.admin-sessions`
+- 资源权限：`admin-session:view` 或 `admin-session:*`
+- 作用：分页查询管理员会话列表，供管理员设置第三个 tab 展示
+- 查询参数支持：`page`、`per_page`、`keyword`、`status`
+- `keyword` 可匹配会话 ID、管理员账号、显示名称或最近访问 IP
+- `status` 当前支持：`active`、`revoked`、`expired`
+
+### `PATCH /admin-api/admin-sessions/{session_id}`
+
+- 鉴权：管理端 Bearer Token
+- 页面入口权限建议：`page.system-settings.admin-sessions`
+- 资源权限：`admin-session:revoke` 或 `admin-session:*`
+- 作用：吊销指定管理员会话
+- 请求字段：`status`，当前固定为 `revoked`
+- 约束：不得通过该接口吊销当前会话自身
+- 成功后会话状态更新为已吊销
+
 ## 系统配置域
 
 ### `GET /admin-api/system-configs`
@@ -185,7 +207,6 @@
 
 以下数据结构和服务能力当前仍保留，但不属于当前已开放 API 契约：
 
-- 管理端会话列表与吊销他人会话
 - 审计日志查询
 - 高危操作日志查询
 
@@ -201,6 +222,7 @@
 - `page.system-settings.config`
 - `page.system-settings.admin-users`
 - `page.system-settings.admin-roles`
+- `page.system-settings.admin-sessions`
 
 - `dashboard:*`
 - `dashboard:view`
@@ -220,6 +242,10 @@
 - `admin-role:create`
 - `admin-role:update`
 
+- `admin-session:*`
+- `admin-session:view`
+- `admin-session:revoke`
+
 扩展原则：
 
 - 新页面或新 tab 若未来可能独立授权，至少预留一个 `page.*`
@@ -233,6 +259,6 @@
 - 登录、会话恢复、退出、刷新
 - Dashboard
 - 系统设置下的系统配置
-- 系统设置下的管理员设置
+- 系统设置下的管理员设置（管理员账号、管理组权限、管理员会话）
 
-会话管理、审计日志和高危日志当前只保留数据结构、写入能力或内部服务能力，不开放管理端查询/管理接口。
+审计日志和高危日志当前只保留数据结构、写入能力或内部服务能力，不开放管理端查询/管理接口。
