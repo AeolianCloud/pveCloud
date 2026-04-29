@@ -1,7 +1,16 @@
 # API 接口总览
 
-本文件维护当前已确认的接口清单与主要契约口径。
+本文档维护当前已确认的接口清单与主要契约口径。
 跨接口通用约定见 `docs/server/api/conventions.md`。
+
+## 实现边界提示
+
+接口契约按访问边界区分：
+
+- `/admin-api/*`：对应管理端后端实现边界 `server/internal/admin/*`
+- `/api/*`：对应用户端后端实现边界 `server/internal/web/*`
+
+这里描述的是 API 契约，不直接替代具体代码结构；但当接口重新开放、迁移或新增时，路由注册、权限校验和实现目录应与上述边界保持一致。
 
 ## 系统检查
 
@@ -56,7 +65,7 @@
 ### `POST /admin-api/auth/logout`
 
 - 鉴权：管理端 Bearer Token
-- 作用：吊销当前会话
+- 作用：注销当前会话
 
 ### `POST /admin-api/auth/refresh`
 
@@ -156,21 +165,7 @@
 - 资源权限：`admin-role:view` 或 `admin-role:*`
 - 作用：只读查询权限码分组
 
-## 会话与系统配置域
-
-### `GET /admin-api/admin-sessions`
-
-- 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.admin-sessions`
-- 资源权限：`admin-session:view` 或 `admin-session:*`
-- 作用：查询管理端会话列表
-
-### `POST /admin-api/admin-sessions/{id}/revoke`
-
-- 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.admin-sessions`
-- 资源权限：`admin-session:revoke` 或 `admin-session:*`
-- 作用：吊销他人会话
+## 系统配置域
 
 ### `GET /admin-api/system-configs`
 
@@ -186,28 +181,17 @@
 - 资源权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
 
-## 审计域
+## 暂未开放的管理域
 
-### `GET /admin-api/audit-logs`
+以下数据结构和服务能力当前仍保留，但不属于当前已开放 API 契约：
 
-- 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.audit-logs`
-- 资源权限：`audit-log:view` 或 `audit-log:*`
-- 作用：查询后台审计日志
+- 管理端会话列表与吊销他人会话
+- 审计日志查询
+- 高危操作日志查询
 
-### `GET /admin-api/risk-logs`
+这些能力重新开放时，必须先补齐本文件的接口契约、`docs/server/api/conventions.md` 中的权限说明、数据库迁移里的 `admin_permissions` 权限码，以及对应边界下的路由注册：`server/internal/admin/routes/` 或 `server/internal/web/routes/`。
 
-- 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.risk-logs`
-- 资源权限：`risk-log:view` 或 `risk-log:*`
-- 作用：查询高危操作日志
-
-### 敏感字段查看
-
-- `audit-log:view`：仅查看日志主信息
-- `audit-log:sensitive-view` 或 `audit-log:*`：查看已脱敏的 `before_data`、`after_data` 和 `user_agent`
-
-密码、token、secret、验证码和敏感配置明文不得出现在接口响应中。
+密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。
 
 ## 建议权限清单
 
@@ -217,9 +201,6 @@
 - `page.system-settings.config`
 - `page.system-settings.admin-users`
 - `page.system-settings.admin-roles`
-- `page.admin-sessions`
-- `page.audit-logs`
-- `page.risk-logs`
 
 - `dashboard:*`
 - `dashboard:view`
@@ -239,21 +220,10 @@
 - `admin-role:create`
 - `admin-role:update`
 
-- `admin-session:*`
-- `admin-session:view`
-- `admin-session:revoke`
-
-- `audit-log:*`
-- `audit-log:view`
-- `audit-log:sensitive-view`
-
-- `risk-log:*`
-- `risk-log:view`
-
 扩展原则：
 
 - 新页面或新 tab 若未来可能独立授权，至少预留一个 `page.*`
-- 新页面存在独立资源读写时，再补对应 `resource:view`、`create`、`update`、`delete` 或其它特殊动作
+- 新页面存在独立资源读写时，再补对应 `resource:view`、`create`、`update`、`delete` 或其他特殊动作
 - `resource:*` 只作为资源快捷授权入口，不替代页面入口权限
 
 ## 前端范围说明
@@ -265,4 +235,4 @@
 - 系统设置下的系统配置
 - 系统设置下的管理员设置
 
-会话管理、审计日志和高危日志接口虽然仍然存在，但当前前端仍未提供对应独立页面。
+会话管理、审计日志和高危日志当前只保留数据结构、写入能力或内部服务能力，不开放管理端查询/管理接口。

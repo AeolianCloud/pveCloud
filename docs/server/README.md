@@ -1,12 +1,11 @@
 # Server 文档总览
 
-本目录维护 `server/` 的项目事实、契约和架构说明。
-它不承担 AI 提示词职责。
+本目录维护 `server/` 的项目事实、契约和架构说明。它不承担 AI 提示词职责。
 
 ## 文档职责
 
 - `architecture.md`
-  后端总体架构、边界、鉴权、状态机、核心业务规则
+  后端整体架构、边界、鉴权、状态机、核心业务规则
 - `go-technical.md`
   技术栈、目录结构、命令、运行依赖、验收基线
 - `api/`
@@ -16,7 +15,21 @@
 - `jobs.md`
   异步任务与 Worker 规则
 - `integrations/`
-  外部系统集成边界
+  外部系统集成边界，以及 `server/internal/platform/integrations/` 的职责约束
+
+## 建议阅读顺序
+
+按后端任务定位时，建议先按下面顺序建立上下文：
+
+1. `architecture.md`
+2. `go-technical.md`
+3. 再按任务进入对应子域：
+   - API：`api/`
+   - 数据库：`database/design.md`
+   - Worker：`jobs.md`
+   - 外部集成：`integrations/`
+
+如果只是查看某一个接口、某一个表或某一个任务类型，不要把整个 `docs/server/` 全部读完后再开始。
 
 ## 与 skill 的关系
 

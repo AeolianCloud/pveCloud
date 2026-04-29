@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 )
 
 func main() {

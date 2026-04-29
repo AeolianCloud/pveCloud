@@ -8,21 +8,31 @@
 - 业务服务与 Worker 负责业务规则、幂等、状态机和补偿
 - 外部系统成功不等于本地业务成功
 
+## 代码位置
+
+外部系统适配代码统一放在：
+
+```text
+server/internal/platform/integrations/
+```
+
+不要再把新的外部适配代码落到扁平共享目录。
+
 ## PVE
 
-- 位置：`server/internal/integrations/pve/`
+- 位置：`server/internal/platform/integrations/pve/`
 - 负责：登录、节点、模板、VM、任务查询等协议适配
 - 不负责：订单资格判断、实例归属裁决、交付完成判定
 
 ## 支付
 
-- 位置：`server/internal/integrations/payment/`
+- 位置：`server/internal/platform/integrations/payment/`
 - 负责：创建、查询、关闭支付单，校验回调，查询或执行退款
 - 不负责：业务订单状态裁决
 
 ## 通知
 
-- 位置：`server/internal/integrations/notify/`
+- 位置：`server/internal/platform/integrations/notify/`
 - 第一阶段允许保留能力入口，不要求真实供应商全部接通
 
 ## 恢复原则
