@@ -1,6 +1,6 @@
 ---
 name: pvecloud-document-first
-description: Enforce the pveCloud document-first workflow. Use whenever work may change API, schema, frontend behavior, permissions, config, deployment, or business process.
+description: Enforce the pveCloud document-first workflow. Use whenever work may change API, schema, frontend behavior, permissions, config, deployment, or business process. This skill defines AI workflow only and never replaces project contracts in docs/, migrations, or config.example.yaml.
 ---
 
 # pveCloud Document First
@@ -67,7 +67,7 @@ Before continuing an unfinished task, after `git pull`, or when the working tree
 - Treat stale, conflicting, or old-location docs as a contract/behavior problem, not as harmless cleanup.
 - Do not continue feature implementation until the owning docs/contracts are brought back in line and the maintainer confirms the corrected scope.
 
-If multiple docs disagree, do not silently pick the one that matches the code. Use the authority order: API docs, domain docs, frontend docs, migrations, and config examples are the contract sources; plan/progress docs must then be synchronized to that contract.
+If multiple docs disagree, do not silently pick the one that matches the code. Use the authority order from `CLAUDE.md`: API docs, domain docs, frontend docs, migrations, and config examples are the contract sources; plan/progress docs must then be synchronized to that contract.
 
 ## Progress Docs Rule
 
@@ -77,6 +77,22 @@ If multiple docs disagree, do not silently pick the one that matches the code. U
 - Do not use progress docs as the deciding source when they conflict with API, domain, frontend, migration, or config contracts.
 - When a feature or stage is completed, make sure the durable facts are reflected in the owning contract docs first.
 - If old progress docs no longer describe the current contract, update, archive, or mark them as historical before continuing implementation.
+- When reading archived or historical progress docs, extract context only; re-check current contracts before coding.
+
+## Commit Message Rule
+
+When the maintainer asks AI to commit, the commit message must be useful for review from another machine.
+
+- Do not run `git add`, `git commit`, `git push`, or any other Git history/staging mutation unless the maintainer explicitly asks for that Git action in the current conversation.
+
+- Use a concise subject, but do not rely on the subject alone.
+- Include a detailed body for non-trivial changes.
+- Explain why the change was needed, not only what files changed.
+- Group the body by meaningful areas such as docs, workflow, frontend, backend, database, verification, and risk.
+- Mention verification commands that were run, or explicitly say when no runtime verification was needed.
+- Mention notable residual risks or follow-up constraints.
+- Do not amend a commit that already matches `origin/*` unless the maintainer explicitly asks to rewrite published history.
+- If the previous published commit message was too terse, create a new corrective commit that adds the missing workflow rule instead of rewriting remote history.
 
 ## Mandatory Workflow
 
@@ -96,6 +112,8 @@ If multiple docs disagree, do not silently pick the one that matches the code. U
 - Skills may point to docs, but they must not become a second API spec or schema document.
 - Do not hide durable product behavior inside skills.
 - Do not overwrite user changes.
+- Do not mutate the Git staging area, local commits, or remote branches unless the maintainer explicitly asks for that Git action.
+- Do not let completed phase notes keep driving new code after the durable contract docs have moved on.
 - Do not assume docs are current just because they exist; validate them against the current code path before continuing an unfinished feature.
 - Do not treat progress/plan docs as the only source of truth when they conflict with owning contract docs or implementation.
 - Do not let completed phase notes keep driving new code after the durable contract docs have moved on.

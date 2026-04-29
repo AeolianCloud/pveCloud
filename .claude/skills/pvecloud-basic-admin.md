@@ -1,6 +1,6 @@
 ---
 name: pvecloud-basic-admin
-description: Use when working on the basic admin foundation. This skill helps AI stay inside the current backend/admin scope.
+description: Use when working on the basic admin foundation. This skill helps AI stay inside the current backend/admin scope: auth, dashboard, RBAC, sessions, system configs, audit, and risk logs, while respecting that the current admin frontend surface is narrowed to Login, Dashboard, and 403.
 ---
 
 # pveCloud Basic Admin
@@ -19,6 +19,15 @@ Project truth still lives in:
 - `docs/analysis/basic-admin-gap.md`
 - `docs/plan/basic-admin-foundation.md`
 - `docs/progress/`
+
+## Start Every Session
+
+1. Read `CLAUDE.md`.
+2. Read `.claude/skills/pvecloud-document-first.md`.
+3. Read `docs/progress/MASTER.md`.
+4. Read `docs/analysis/basic-admin-gap.md`.
+5. Read `docs/plan/basic-admin-foundation.md`.
+6. Read the relevant server or admin frontend architecture docs.
 
 ## Current Scope
 

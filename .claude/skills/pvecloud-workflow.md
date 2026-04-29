@@ -5,6 +5,15 @@ description: Workflow guardrails for AI working in pveCloud. Defines standard fl
 
 # pveCloud Workflow Guardrails
 
+本文档只定义 AI 在仓库中的工作方法，不定义项目契约。
+
+## 核心职责
+
+- `CLAUDE.md`：仓库级读取顺序、边界和总规则
+- `.claude/skills/pvecloud-document-first.md`：文档先行门禁与执行流程
+- `.claude/skills/pvecloud-*.md`：分领域实现守则
+- `docs/`：项目事实、契约、架构、计划、进度
+
 ## 标准流程
 
 1. 先看 `git status --short`，确认工作区是否有用户未提交改动。
@@ -56,6 +65,32 @@ description: Workflow guardrails for AI working in pveCloud. Defines standard fl
 - skill 只要求"实现前先写文档"，没有要求"接手已有代码时先审计文档是否漂移"。
 - 进度文档被当作静态记录，实际功能范围变化后没有被纳入验收同步。
 
+## 文档同步回扫
+
+当任务属于仓库级契约调整，尤其是目录结构、架构分层、路由边界、权限层次、配置位置、部署入口或跨模块规则变化时，更新 owner docs 之后不能立刻结束。
+
+必须追加执行一次文档同步回扫：
+
+1. 先更新 owner docs 或机器契约。
+2. 再全仓检索 `docs/` 和 `.claude/skills/` 中对旧口径、旧路径、旧命名、旧边界的引用。
+3. 把索引文档、引用文档、skill guardrail、workflow 指引一起同步完。
+4. 确认不存在会继续误导实现的旧位置说明后，才可以停下来等待维护者确认。
+
+回扫目标至少包括：
+
+- 目录索引文档，例如各级 `README.md`
+- API、数据库、架构、部署、进度相关引用文档
+- `.claude/skills/` 中引用这些结构的 guardrail 和 workflow
+
+不要只改主文档就结束，也不要把"后续再补外围引用"当成默认流程。
+
+## 进度文档使用规则
+
+- AI 只读了任务附近的文档，没有横向检查计划、进度和架构文档。
+- 上游或用户已经推进了新功能，但没有在同一次变更中同步所有文档。
+- skill 只要求"实现前先写文档"，没有要求"接手已有代码时先审计文档是否漂移"。
+- 进度文档被当作静态记录，实际功能范围变化后没有被纳入验收同步。
+
 ## 进度文档使用规则
 
 `docs/progress/` 是阶段账本，用来恢复背景、验收状态和范围变化历史。
@@ -78,3 +113,19 @@ description: Workflow guardrails for AI working in pveCloud. Defines standard fl
 - 文档用来给人和代码共同消费，不用来写提示词。
 - 如果某条规则只对 AI 有意义，写进 skill。
 - 如果某条规则会影响实现、验收、协作或系统行为，写进文档或机器契约。
+
+## Git 提交信息规则
+
+维护者要求提交时，AI 不能只写一句很短的 subject 就结束。
+
+- 未经维护者在当前对话中明确要求，不执行 `git add`、`git commit`、`git push`，也不主动改变暂存区或历史。
+
+提交信息需要满足：
+
+- subject 简短说明主题。
+- body 详细说明为什么需要改、改了哪些方面、如何验证、还有什么风险。
+- 非平凡变更必须有 body；文档结构、skill、API、权限、路由、迁移、配置和业务行为变更都属于非平凡变更。
+- body 按主题组织，例如背景、主要变更、验证、风险。
+- 如果没有运行测试或构建，要明确说明原因。
+- 如果提交已经与 `origin/*` 对齐，不擅自 amend 改写远端历史。
+- 如果已发布提交信息太短，新增规则提交修正流程，后续提交按新规则执行。
