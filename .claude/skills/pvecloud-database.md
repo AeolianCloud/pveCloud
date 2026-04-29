@@ -1,0 +1,38 @@
+---
+name: pvecloud-database
+description: Database implementation guardrails for pveCloud. Use when working on migrations, schema changes, transactions, or data consistency.
+---
+
+# Database Guardrails
+
+## 先读什么
+
+- `docs/server/database/design.md`
+- `server/migrations/`
+- 涉及的 `docs/server/api/` 和业务设计文档
+
+## 契约边界
+
+- 最终表结构以 `server/migrations/` 为准。
+- 设计口径、表分组、事务边界和约束说明写在 `docs/server/database/design.md`。
+- 不要只改 model 或 service 而不改迁移和设计文档。
+
+## 迁移原则
+
+- 新增表、字段、索引、约束时，迁移和设计文档一起更新。
+- 迁移必须可重复执行，并考虑已有数据。
+- 不把高频查询条件塞进 JSON 字段。
+- 状态值由应用层常量维护，不用数据库 enum 绑死。
+
+## 事务与一致性
+
+- 事务只包本地必须原子完成的步骤。
+- 外部系统调用放到事务外，通过锚点、补偿或重试恢复。
+- 会话、审计、任务、订单、支付等关键事实以 MariaDB 为准。
+- Redis 只能做短 TTL 状态、限流、缓存、短锁和辅助幂等，不能替代最终业务事实。
+
+## 验证
+
+- 迁移文件命名和顺序清晰。
+- 设计文档与迁移一致。
+- 相关测试通过。

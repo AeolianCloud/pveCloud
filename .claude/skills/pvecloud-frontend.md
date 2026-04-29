@@ -1,0 +1,65 @@
+---
+name: pvecloud-frontend
+description: Frontend implementation guardrails for pveCloud. Use when working on admin/ or web/ UI code, components, routes, or styles.
+---
+
+# Frontend Guardrails
+
+## 先读什么
+
+- 管理端：`docs/admin/architecture.md`
+- 用户端：`docs/web/architecture.md`
+- 涉及后端请求时：`docs/server/api/`、`docs/server/api/conventions.md`
+
+## 双前端边界
+
+- `admin/` 和 `web/` 完全独立。
+- 不跨应用导入页面、组件、请求、状态、类型、常量或工具。
+- 不创建跨前端共享运行时代码包。
+
+## 当前仓库状态
+
+- `admin/` 已存在，是当前实际前端实现。
+- 如果仓库里还没有 `web/` 目录，`docs/web/` 仅代表规划和契约，不代表已有用户端代码。
+- 在没有文档更新和维护者确认前，不要擅自把已移除的后台页面重新加回菜单、路由或占位页。
+
+## 结构原则
+
+- 请求包装按业务域拆分。
+- 路由元信息承担标题、图标、权限、菜单可见性等页面契约。
+- 全局状态只承载跨页面 concern，不为单页过度建模。
+- 页面私有样式留在页面或组件内部，全局样式只做 tokens、reset、shell 和少量复用能力。
+
+## 组件与样式
+
+- 现阶段管理端优先用 Element Plus。
+- 优先复用成熟 UI 能力，不手写复杂底层交互。
+- 不建设替代 UI 框架的本地工具类体系。
+- 只有需要统一业务语义或固定组合时才做项目内封装。
+
+## 文档门禁
+
+以下前端变更属于契约或行为变更，必须先更新文档并等待确认：
+
+- 页面范围变化
+- 路由语义变化
+- 权限判断方式变化
+- 请求包装语义变化
+- 状态模型变化
+- 菜单来源变化
+- 登录恢复、刷新、退出等流程变化
+
+以下变更可直接实现：
+
+- 视觉样式优化
+- 页面编排优化
+- 不改变流程的空态、加载态、排版和文案微调
+
+## 验证
+
+```powershell
+cd admin
+bun run build
+```
+
+如果未来 `web/` 存在，则对该应用执行等价构建验证。
