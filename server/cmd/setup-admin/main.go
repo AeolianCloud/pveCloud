@@ -9,9 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap"
-	"github.com/AeolianCloud/pveCloud/server/internal/models"
-	"github.com/AeolianCloud/pveCloud/server/internal/pkg/password"
+	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
 )
 
 func main() {

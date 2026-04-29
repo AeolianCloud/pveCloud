@@ -86,6 +86,19 @@ If multiple docs disagree, do not silently pick the one that matches the code. U
 - If old progress docs no longer describe the current contract, update, archive, or mark them as historical before continuing implementation.
 - When reading archived or historical progress docs, extract context only; re-check current contracts before coding.
 
+## Commit Message Rule
+
+When the maintainer asks AI to commit, the commit message must be useful for review from another machine.
+
+- Use a concise subject, but do not rely on the subject alone.
+- Include a detailed body for non-trivial changes.
+- Explain why the change was needed, not only what files changed.
+- Group the body by meaningful areas such as docs, workflow, frontend, backend, database, verification, and risk.
+- Mention verification commands that were run, or explicitly say when no runtime verification was needed.
+- Mention notable residual risks or follow-up constraints.
+- Do not amend a commit that already matches `origin/*` unless the maintainer explicitly asks to rewrite published history.
+- If the previous published commit message was too terse, create a new corrective commit that adds the missing workflow rule instead of rewriting remote history.
+
 ## Mandatory Workflow
 
 1. Run `git status --short`.

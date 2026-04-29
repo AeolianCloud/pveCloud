@@ -1,7 +1,6 @@
 # Admin 前端架构
 
-本文件描述当前管理端前端的总体契约、职责边界和结构原则。
-
+本文档描述当前管理端前端的整体契约、职责边界和结构原则。
 页面级行为、路由权限和具体功能范围拆分到 `docs/admin/pages/` 与 `docs/admin/routing-permissions.md`。
 
 ## 文档入口
@@ -14,9 +13,7 @@
 ## 定位
 
 管理端面向平台运营、客服和管理员。
-
 接口边界固定为 `/admin-api/*`。
-
 最终接口契约以 `docs/server/api/` 为准。
 
 ## 当前实现状态
@@ -45,6 +42,21 @@
 - 不调用 `/api/*`
 - 不导入 `web/` 的运行时代码
 - 不创建跨前端共享运行时代码包
+
+## 前后端边界配套
+
+管理端前端的 API 消费边界，对应后端的管理端实现边界：
+
+- 前端调用边界：`/admin-api/*`
+- 后端实现边界：`server/internal/admin/*`
+
+因此新增管理端页面、菜单、权限码、请求封装或页面行为时，应同步检查：
+
+- `docs/admin/*`
+- `docs/server/api/*`
+- `docs/server/architecture.md`
+
+不要把管理端页面契约建立在 `server/internal/web/*` 或用户端 `/api/*` 之上。
 
 ## 架构原则
 
@@ -88,7 +100,7 @@ admin/src/
 - 管理端基础控件优先使用 Element Plus
 - 全局样式只承载 tokens、reset、shell 和少量共享样式
 - 页面私有样式放在页面或组件内
-- 不建设替代 Element Plus 的本地工具类体系
+- 不建议替代 Element Plus 的本地工具类体系
 
 ## 本地开发
 

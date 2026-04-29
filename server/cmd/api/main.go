@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/bootstrap"
-	"github.com/AeolianCloud/pveCloud/server/internal/routes"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
+	platformhttp "github.com/AeolianCloud/pveCloud/server/internal/platform/http"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              app.Config.App.Addr,
-		Handler:           routes.NewRouter(app),
+		Handler:           platformhttp.NewRouter(app),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
