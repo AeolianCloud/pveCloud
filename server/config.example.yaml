@@ -4,14 +4,14 @@ app:
   name: pveCloud
   # 当前运行环境；本地开发使用 local，部署环境可按实际环境命名。
   env: local
-  # API HTTP 监听地址；":8080" 表示监听本机所有网卡的 8080 端口。
+  # API HTTP 监听地址，":8080" 表示监听本机所有网卡的 8080 端口。
   addr: ":8080"
   # API 收到退出信号后的优雅关闭等待时间，单位为秒。
   shutdown_timeout_seconds: 10
 
 # MariaDB 连接和连接池配置。
 database:
-  # MariaDB 主机地址；本地开发通常为 127.0.0.1。
+  # MariaDB 主机地址；本地开发通常用 127.0.0.1。
   host: 127.0.0.1
   # MariaDB 监听端口。
   port: 3306
@@ -25,7 +25,7 @@ database:
   charset: utf8mb4
   # 是否把 MariaDB 时间字段解析为 Go time.Time。
   parse_time: true
-  # 数据库时间解析使用的时区；Local 表示使用进程本地时区。
+  # 数据库时间解析使用的时区，Local 表示使用进程本地时区。
   loc: Local
   # 数据库连接池最大打开连接数。
   max_open_conns: 25
@@ -34,9 +34,9 @@ database:
   # 单个数据库连接可复用的最长时间，单位为分钟。
   conn_max_lifetime_minutes: 60
 
-# Redis 连接配置，用于缓存、限流、短 TTL 状态、验证码、一次性 token 和幂等短锁；API 和 Worker 启动时必须可连接。
+# Redis 连接配置，用于缓存、限流、短 TTL 状态、验证码、一次性 token 和幂等等短锁；API 启动时必须可连接。
 redis:
-  # Redis 地址；本地开发通常为 127.0.0.1:6379。
+  # Redis 地址；本地开发通常用 127.0.0.1:6379。
   addr: 127.0.0.1:6379
   # Redis 密码；无密码时留空，真实密码只写入 server/config.yaml。
   password: ""
@@ -45,31 +45,14 @@ redis:
   # 业务 key 前缀，所有 Redis key 必须带此前缀，避免同一 Redis 被多个应用共用时互相污染。
   key_prefix: pvecloud:
 
-# 用户端和管理端 JWT 配置。
+# 管理端 JWT 配置。
 jwt:
-  # 用户端 JWT 签名密钥；生产环境必须替换为高强度随机值。
-  user_secret: change_me_user_secret
-  # 管理端 JWT 签名密钥；应与用户端密钥分离。
+  # 管理端 JWT 签名密钥；生产环境必须替换为高强度随机值。
   admin_secret: change_me_admin_secret
-  # 用户端 JWT issuer，用于区分 token 来源。
-  user_issuer: pvecloud-user
   # 管理端 JWT issuer，用于区分 token 来源。
   admin_issuer: pvecloud-admin
-  # 用户端 access token 有效期，单位为分钟。
-  user_expire_minutes: 1440
   # 管理端 access token 有效期，单位为分钟。
   admin_expire_minutes: 480
-
-# Worker 异步任务进程配置。
-worker:
-  # Worker 实例标识；多实例部署时应保持唯一，便于日志和锁归属排查。
-  id: local-worker-1
-  # Worker 轮询待处理任务的间隔，单位为秒。
-  poll_interval_seconds: 5
-  # Worker 抢占任务后的锁定有效期，单位为秒。
-  lock_ttl_seconds: 60
-  # Worker 单轮最多拉取的任务数量。
-  batch_size: 10
 
 # 日志配置。
 log:

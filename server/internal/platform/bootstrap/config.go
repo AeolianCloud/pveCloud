@@ -61,7 +61,8 @@ type RedisConfig struct {
 }
 
 /**
- * JWTConfig 表示用户端和管理端 JWT 配置。
+ * JWTConfig 表示管理端 JWT 配置。
+ * User* 字段仅为兼容历史本地配置保留，当前运行时不再使用。
  */
 type JWTConfig struct {
 	UserSecret         string `yaml:"user_secret"`
@@ -73,7 +74,7 @@ type JWTConfig struct {
 }
 
 /**
- * WorkerConfig 表示异步任务进程运行配置。
+ * WorkerConfig 仅为兼容历史本地配置保留，当前运行时不再使用。
  */
 type WorkerConfig struct {
 	ID                  string `yaml:"id"`
@@ -84,7 +85,6 @@ type WorkerConfig struct {
 
 /**
  * OpenAPIConfig 兼容历史配置项。
- *
  * 项目不再维护 OpenAPI 生成文件，运行时不会读取该配置。
  */
 type OpenAPIConfig struct {
@@ -157,16 +157,8 @@ func defaultConfig() *Config {
 			KeyPrefix: "pvecloud:",
 		},
 		JWT: JWTConfig{
-			UserIssuer:         "pvecloud-user",
 			AdminIssuer:        "pvecloud-admin",
-			UserExpireMinutes:  1440,
 			AdminExpireMinutes: 480,
-		},
-		Worker: WorkerConfig{
-			ID:                  "local-worker-1",
-			PollIntervalSeconds: 5,
-			LockTTLSeconds:      60,
-			BatchSize:           10,
 		},
 		Log: LogConfig{
 			Level: "info",
@@ -195,8 +187,8 @@ func (cfg *Config) Validate() error {
 	if cfg.Redis.KeyPrefix == "" {
 		return fmt.Errorf("redis.key_prefix 不能为空")
 	}
-	if cfg.JWT.UserSecret == "" || cfg.JWT.AdminSecret == "" {
-		return fmt.Errorf("jwt.user_secret 和 jwt.admin_secret 不能为空")
+	if cfg.JWT.AdminSecret == "" {
+		return fmt.Errorf("jwt.admin_secret 不能为空")
 	}
 	return nil
 }
@@ -228,22 +220,4 @@ func (cfg DatabaseConfig) DSN() string {
  */
 func (cfg AppConfig) ShutdownTimeout() time.Duration {
 	return time.Duration(cfg.ShutdownTimeoutSeconds) * time.Second
-}
-
-/**
- * PollInterval 返回 Worker 轮询数据库任务的间隔时间。
- *
- * @return time.Duration 任务轮询间隔
- */
-func (cfg WorkerConfig) PollInterval() time.Duration {
-	return time.Duration(cfg.PollIntervalSeconds) * time.Second
-}
-
-/**
- * LockTTL 返回 Worker 抢占任务后的锁定有效时间。
- *
- * @return time.Duration 任务锁定有效时间
- */
-func (cfg WorkerConfig) LockTTL() time.Duration {
-	return time.Duration(cfg.LockTTLSeconds) * time.Second
 }

@@ -1,7 +1,6 @@
 // Package domain contains cross-boundary core business domains.
 //
-// The current repository stage does not yet contain enough stable shared
-// business implementations to move here. This package exists so new shared
-// order, billing, instance, ticket, and catalog rules land in the domain
-// layer instead of falling back to boundary-specific packages.
+// The current repository stage is focused on basic admin capabilities, so
+// this package is intentionally kept minimal until new shared rules are
+// explicitly reopened in the project contract.
 package domain

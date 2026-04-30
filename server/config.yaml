@@ -71,6 +71,7 @@ worker:
   # Worker 单轮最多拉取的任务数量。
   batch_size: 10
 
+
 # OpenAPI 文档加载和公开配置。
 openapi:
   # 是否通过 API 进程公开 OpenAPI YAML。

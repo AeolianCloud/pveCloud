@@ -1,14 +1,12 @@
 # API 接口总览
 
-本文档维护当前已确认的接口清单与主要契约口径。
-跨接口通用约定见 `docs/server/api/conventions.md`。
+本文档维护当前已确认的接口清单与主要契约口径。跨接口通用约定见 `docs/server/api/conventions.md`。
 
 ## 实现边界提示
 
 接口契约按访问边界区分：
 
 - `/admin-api/*`：对应管理端后端实现边界 `server/internal/admin/*`
-- `/api/*`：对应用户端后端实现边界 `server/internal/web/*`
 
 这里描述的是 API 契约，不直接替代具体代码结构；但当接口重新开放、迁移或新增时，路由注册、权限校验和实现目录应与上述边界保持一致。
 
@@ -17,12 +15,7 @@
 ### `GET /healthz`
 
 - 鉴权：无
-- 作用：检查 API 进程、MariaDB 与 Redis 是否可用
-
-### `GET /api/ping`
-
-- 鉴权：无
-- 作用：用户端 API 入口连通性检查
+- 作用：检查 API 进程、MariaDB 和 Redis 是否可用
 
 ### `GET /admin-api/ping`
 
@@ -172,10 +165,8 @@
 - 鉴权：管理端 Bearer Token
 - 页面入口权限建议：`page.system-settings.admin-sessions`
 - 资源权限：`admin-session:view` 或 `admin-session:*`
-- 作用：分页查询管理员会话列表，供管理员设置第三个 tab 展示
+- 作用：分页查询管理员会话列表
 - 查询参数支持：`page`、`per_page`、`keyword`、`status`
-- `keyword` 可匹配会话 ID、管理员账号、显示名称或最近访问 IP
-- `status` 当前支持：`active`、`revoked`、`expired`
 
 ### `PATCH /admin-api/admin-sessions/{session_id}`
 
@@ -185,7 +176,6 @@
 - 作用：吊销指定管理员会话
 - 请求字段：`status`，当前固定为 `revoked`
 - 约束：不得通过该接口吊销当前会话自身
-- 成功后会话状态更新为已吊销
 
 ## 系统配置域
 
@@ -210,55 +200,19 @@
 - 审计日志查询
 - 高危操作日志查询
 
-这些能力重新开放时，必须先补齐本文件的接口契约、`docs/server/api/conventions.md` 中的权限说明、数据库迁移里的 `admin_permissions` 权限码，以及对应边界下的路由注册：`server/internal/admin/routes/` 或 `server/internal/web/routes/`。
+这些能力重新开放时，必须先补齐本文档的接口契约、`docs/server/api/conventions.md` 中的权限说明、数据库迁移里的 `admin_permissions` 权限码，以及对应边界下的路由注册。
 
 密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。
 
-## 建议权限清单
+## 当前不在契约内的业务域
 
-当前后台建议采用以下细粒度权限清单：
+以下业务域已经从当前 API 契约中移除：
 
-- `page.dashboard`
-- `page.system-settings.config`
-- `page.system-settings.admin-users`
-- `page.system-settings.admin-roles`
-- `page.system-settings.admin-sessions`
-
-- `dashboard:*`
-- `dashboard:view`
-
-- `system-config:*`
-- `system-config:view`
-- `system-config:update`
-
-- `admin-user:*`
-- `admin-user:view`
-- `admin-user:create`
-- `admin-user:update`
-- `admin-user:password-reset`
-
-- `admin-role:*`
-- `admin-role:view`
-- `admin-role:create`
-- `admin-role:update`
-
-- `admin-session:*`
-- `admin-session:view`
-- `admin-session:revoke`
-
-扩展原则：
-
-- 新页面或新 tab 若未来可能独立授权，至少预留一个 `page.*`
-- 新页面存在独立资源读写时，再补对应 `resource:view`、`create`、`update`、`delete` 或其他特殊动作
-- `resource:*` 只作为资源快捷授权入口，不替代页面入口权限
-
-## 前端范围说明
-
-当前这些接口里，管理端前端实际消费以下范围：
-
-- 登录、会话恢复、退出、刷新
-- Dashboard
-- 系统设置下的系统配置
-- 系统设置下的管理员设置（管理员账号、管理组权限、管理员会话）
-
-审计日志和高危日志当前只保留数据结构、写入能力或内部服务能力，不开放管理端查询/管理接口。
+- 用户端 API
+- 用户端账号
+- 产品
+- 订单
+- 支付
+- 实例
+- 工单
+- 异步任务

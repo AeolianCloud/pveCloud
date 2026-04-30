@@ -8,19 +8,17 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
-	"github.com/AeolianCloud/pveCloud/server/internal/platform/integrations"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/logger"
 )
 
 /**
- * App 表示 API 和 Worker 共享的运行时依赖容器。
+ * App 表示 API 共享的运行时依赖容器。
  */
 type App struct {
-	Config       *Config
-	DB           *gorm.DB
-	Redis        *cache.Redis
-	Integrations integrations.Services
-	Logger       *slog.Logger
+	Config *Config
+	DB     *gorm.DB
+	Redis  *cache.Redis
+	Logger *slog.Logger
 }
 
 /**
@@ -50,10 +48,9 @@ func NewApp(ctx context.Context, configPath string) (*App, error) {
 	}
 
 	return &App{
-		Config:       cfg,
-		DB:           db,
-		Redis:        redisClient,
-		Integrations: integrations.NewServices(),
-		Logger:       log,
+		Config: cfg,
+		DB:     db,
+		Redis:  redisClient,
+		Logger: log,
 	}, nil
 }

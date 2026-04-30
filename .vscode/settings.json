@@ -1,0 +1,31 @@
+{
+    "dbcode.connections": [
+        {
+            "connectionId": "EBLp-Jg5BRWaleiEUwYz2",
+            "name": "pvecloud开发",
+            "driver": "mariadb",
+            "connectionType": "host",
+            "host": "mysql6.sqlpub.com",
+            "port": 3311,
+            "ssl": false,
+            "authMethod": "password",
+            "username": "pvecloud",
+            "password": "",
+            "savePassword": "secretStorage",
+            "database": "pvecloud",
+            "readOnly": false,
+            "role": "development",
+            "postConnectionSqlType": "inline",
+            "connectionTimeout": 30,
+            "pinnedConnectionTimeout": "0",
+            "driverOptions": {
+                "retrievePublickey": true,
+                "disableMultiStatements": false,
+                "permitLocalInfile": false
+            },
+            "introspection": {
+                "progressive": false
+            }
+        }
+    ]
+}
