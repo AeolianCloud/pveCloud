@@ -14,7 +14,7 @@
 - Redis：缓存、限流、验证码、短 TTL 状态、短锁和辅助幂等
 - API：HTTP 接口
 - `admin`：管理端前端
-- `web`：未来用户端前端；当前仓库尚未落地实现
+- `web`：用户端前端；Web 基础前台阶段创建后只承载前端壳和静态页面，不代表用户端业务 API 已开放
 
 ## 配置
 
@@ -29,7 +29,7 @@
 2. Redis
 3. API
 4. `admin`
-5. 如果未来存在 `web/`，再启动 `web`
+5. 如果存在 `web/package.json`，再启动 `web`
 
 ## 检查接口
 
@@ -56,6 +56,23 @@ cd admin
 bun install
 bun dev
 ```
+
+用户端：
+
+```powershell
+cd web
+bun install
+bun dev
+```
+
+用户端构建验证：
+
+```powershell
+cd web
+bun run build
+```
+
+说明：只有仓库真实存在 `web/package.json` 时才执行用户端命令。Web 基础前台阶段不要求后端开放 `/api/*` 业务接口。
 
 ## 本地一键启动脚本约定
 

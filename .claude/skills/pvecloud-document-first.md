@@ -21,6 +21,22 @@ Use this skill whenever the task touches implementation, refactoring, migration,
 
 If a skill reference conflicts with a project document or machine contract, the project document or machine contract wins.
 
+For any non-admin-only feature, first classify the affected surfaces before coding:
+
+- `web`: user-facing routes, state, request wrappers, login flow, display behavior
+- `admin`: operational pages, menus, permissions, and management workflows
+- `server/api`: `/api/*` and/or `/admin-api/*` contracts, auth, validation, response shape
+- `database`: migrations, indexes, constraints, transaction boundaries, durable state
+- `operations`: config examples, local startup, deployment proxy boundaries, runtime dependencies
+
+Default rule: if a feature is not clearly a pure `admin` visual/UI change, treat it as a coupled change until the owning docs prove otherwise.
+
+Only these may proceed as single-surface work by default:
+
+- pure visual/UI polish with no contract impact
+- wording/layout adjustments that do not change flow or state
+- already-confirmed scope within one existing surface
+
 ## Required Reading Order
 
 1. `CLAUDE.md`
@@ -55,6 +71,19 @@ Before making changes, classify the task:
   API, schema, route meaning, permission logic, request wrapper semantics, page workflow, state semantics, config shape, deployment behavior, business process.
 - Pure UI/UX polish:
   layout, spacing, colors, typography, iconography, visual density, responsive presentation, or non-contract copy.
+
+For coupled business features, do not implement one surface in isolation:
+
+- user-visible feature: default `web + server/api + database`
+- operational feature: default `admin + server/api + database`
+- shared business fact: default `web + admin + server/api + database`
+- anything that changes config, startup, proxying, or dependency order: add `operations`
+
+Only these may proceed as single-surface work by default:
+
+- pure visual/UI polish with no contract impact
+- wording/layout adjustments that do not change flow or state
+- already-confirmed scope within one existing surface
 
 ## Drift-First Check
 
@@ -117,11 +146,12 @@ When the maintainer asks AI to commit, the commit message must be written in Chi
 - Do not let completed phase notes keep driving new code after the durable contract docs have moved on.
 - Do not assume docs are current just because they exist; validate them against the current code path before continuing an unfinished feature.
 - Do not treat progress/plan docs as the only source of truth when they conflict with owning contract docs or implementation.
-- Do not let completed phase notes keep driving new code after the durable contract docs have moved on.
 - Do not add more code on top of a known code/docs mismatch unless the maintainer explicitly asks for an emergency implementation path.
 - Do not recreate removed frontend pages, routes, or menus unless the docs are updated first and the maintainer confirms reopening them.
 - Keep `admin/` and `web/` independent. No shared frontend runtime package.
 - If the repository does not contain a `web/` app yet, treat `docs/web/` as planning and contract guidance, not proof of an existing implementation.
+- Do not start a new business feature by implementing only one surface and planning to backfill the rest later.
+- Do not treat `docs/web/` as evidence that the `web/` app already exists.
 
 ## Stop Message
 

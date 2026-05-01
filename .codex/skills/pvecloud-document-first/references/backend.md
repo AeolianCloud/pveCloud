@@ -17,6 +17,9 @@
 - 表结构契约最终来自 `server/migrations/`，不是口头约定。
 - 配置项契约最终来自 `server/config.example.yaml`。
 - 业务规则、状态机、事务边界和幂等规则写进 `docs/server/`。
+- 管理端接口落在 `server/internal/admin/*`，用户端接口落在 `server/internal/web/*`。
+- `admin-api` 和 `api` 不要混在同一组 handler 路径里。
+- 真正跨端复用的领域规则才进入 `server/internal/domain/*`。
 
 ## 代码守则
 
@@ -28,6 +31,7 @@
 - 不把 RBAC 最终授权逻辑下放到前端。
 - 不把长耗时外部调用放进长事务。
 - 幂等必须依赖业务唯一键、状态检查或任务键，不能只依赖前端防重复点击。
+- 不要为了赶进度先落一个端的接口再口头约定补另一个端。
 
 ## 命名
 

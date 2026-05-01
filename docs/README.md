@@ -42,6 +42,8 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 
 - 缺口分析：`docs/analysis/`
 - 实施计划：`docs/plan/`
+  - 基础后台计划：`docs/plan/basic-admin-foundation.md`
+  - Web 基础前台计划：`docs/plan/web-foundation.md`
 
 ### 5. 进度层
 
@@ -74,7 +76,8 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 
 - 后端 `server/` 是当前主实现。
 - 管理端 `admin/` 已存在，是当前实际前端实现。
-- `docs/web/` 当前主要承担用户端规划与契约准备；如果仓库里尚无 `web/` 目录，不应把它误读成已有实现说明。
+- `docs/web/` 当前描述 Web 基础前台阶段契约；如果仓库里尚无 `web/` 目录，不应把它误读成已有实现说明。
+- Web 基础前台阶段只代表用户端前端壳和静态页面准备，不代表用户端 `/api/*`、账号、产品、订单、支付、实例或工单已经开放。
 
 ## 维护原则
 

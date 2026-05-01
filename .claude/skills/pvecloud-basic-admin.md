@@ -1,6 +1,6 @@
 ---
 name: pvecloud-basic-admin
-description: Use when working on the basic admin foundation. This skill helps AI stay inside the current backend/admin scope: auth, dashboard, RBAC, sessions, system configs, audit, and risk logs, while respecting that the current admin frontend surface is narrowed to Login, Dashboard, and 403.
+description: Use when working on the historical basic admin foundation. This skill helps AI stay inside the basic-admin stage context: auth, dashboard, RBAC, sessions, system configs, audit, and risk logs, while respecting that the stage's frontend surface had been narrowed to Login, Dashboard, and 403.
 ---
 
 # pveCloud Basic Admin
@@ -8,7 +8,7 @@ description: Use when working on the basic admin foundation. This skill helps AI
 ## Purpose
 
 This skill is a stage helper.
-It keeps AI aligned with the current basic-admin scope without turning the skill into a second product spec.
+It keeps AI aligned with the historical basic-admin scope without turning the skill into a second product spec.
 
 Project truth still lives in:
 
@@ -20,6 +20,12 @@ Project truth still lives in:
 - `docs/plan/basic-admin-foundation.md`
 - `docs/progress/`
 
+## Historical Scope
+
+- Backend scope during that stage covered: admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, risk logs.
+- Admin frontend scope during that stage was narrower: only `Login`, `Dashboard`, and `403`.
+- Removed admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
+
 ## Start Every Session
 
 1. Read `CLAUDE.md`.
@@ -29,19 +35,13 @@ Project truth still lives in:
 5. Read `docs/plan/basic-admin-foundation.md`.
 6. Read the relevant server or admin frontend architecture docs.
 
-## Current Scope
-
-- Backend scope still covers: admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, risk logs.
-- Current admin frontend scope is narrower: only `Login`, `Dashboard`, and `403`.
-- Removed admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
-
 ## Working Rules
 
 - Keep backend and frontend scope separate in your head.
 - Do not confuse "backend capability still exists" with "frontend page should still exist".
 - Audit is a single domain. Risk logs are part of audit.
 - Backend RBAC is the final authority; frontend permission logic is usability-only.
-- Keep the admin frontend aligned with the current narrowed surface unless docs explicitly reopen it.
+- Keep the admin frontend aligned with the current documented surface unless docs explicitly reopen it.
 
 ## Verification Baseline
 
