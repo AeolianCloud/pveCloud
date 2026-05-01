@@ -24,7 +24,6 @@ if (existsSync(path.join(webDir, 'package.json'))) {
 }
 
 startService('api', serverDir, 'air', ['-c', '.air.toml']);
-startService('worker', serverDir, 'air', ['-c', '.air.worker.toml']);
 startService('admin', adminDir, 'bun', ['dev']);
 
 if (existsSync(path.join(webDir, 'package.json'))) {

@@ -111,6 +111,12 @@ CREATE TABLE IF NOT EXISTS `system_configs` (
 CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '审计日志ID',
   `admin_id` BIGINT UNSIGNED NULL COMMENT '管理员ID',
+  `admin_username` VARCHAR(64) NULL COMMENT '操作发生时的管理员用户名快照',
+  `admin_display_name` VARCHAR(64) NULL COMMENT '操作发生时的管理员显示名快照',
+  `session_id` VARCHAR(64) NULL COMMENT '触发操作的管理端会话标识',
+  `request_id` VARCHAR(64) NULL COMMENT '请求链路ID',
+  `request_method` VARCHAR(16) NULL COMMENT '后台请求方法',
+  `request_path` VARCHAR(255) NULL COMMENT '后台请求路径',
   `action` VARCHAR(96) NOT NULL COMMENT '操作动作',
   `object_type` VARCHAR(64) NOT NULL COMMENT '操作对象类型',
   `object_id` VARCHAR(64) NULL COMMENT '操作对象ID',
@@ -122,35 +128,12 @@ CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_admin_audit_logs_admin_created` (`admin_id`, `created_at`),
+  KEY `idx_admin_audit_logs_session_created` (`session_id`, `created_at`),
+  KEY `idx_admin_audit_logs_request_id` (`request_id`),
   KEY `idx_admin_audit_logs_object` (`object_type`, `object_id`),
   KEY `idx_admin_audit_logs_action_created` (`action`, `created_at`),
   CONSTRAINT `fk_admin_audit_logs_admin_user` FOREIGN KEY (`admin_id`) REFERENCES `admin_users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='后台操作审计日志';
-
-CREATE TABLE IF NOT EXISTS `admin_risk_logs` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '高危操作日志ID',
-  `audit_log_id` BIGINT UNSIGNED NULL COMMENT '关联普通审计日志ID',
-  `admin_id` BIGINT UNSIGNED NULL COMMENT '管理员ID',
-  `risk_level` VARCHAR(32) NOT NULL COMMENT '风险等级：medium/high/critical',
-  `action` VARCHAR(96) NOT NULL COMMENT '高危操作动作',
-  `object_type` VARCHAR(64) NOT NULL COMMENT '操作对象类型',
-  `object_id` VARCHAR(64) NULL COMMENT '操作对象ID',
-  `risk_reason` VARCHAR(255) NOT NULL COMMENT '判定为高危的原因',
-  `before_data` JSON NULL COMMENT '操作前数据，需脱敏',
-  `after_data` JSON NULL COMMENT '操作后数据，需脱敏',
-  `ip` VARCHAR(64) NULL COMMENT '操作IP',
-  `user_agent` VARCHAR(500) NULL COMMENT '浏览器 User-Agent',
-  `remark` VARCHAR(500) NULL COMMENT '操作备注',
-  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_admin_risk_logs_audit_log` (`audit_log_id`),
-  KEY `idx_admin_risk_logs_admin_created` (`admin_id`, `created_at`),
-  KEY `idx_admin_risk_logs_level_created` (`risk_level`, `created_at`),
-  KEY `idx_admin_risk_logs_object` (`object_type`, `object_id`),
-  KEY `idx_admin_risk_logs_action_created` (`action`, `created_at`),
-  CONSTRAINT `fk_admin_risk_logs_audit_log` FOREIGN KEY (`audit_log_id`) REFERENCES `admin_audit_logs` (`id`),
-  CONSTRAINT `fk_admin_risk_logs_admin_user` FOREIGN KEY (`admin_id`) REFERENCES `admin_users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='后台高危操作日志';
 
 INSERT INTO `admin_permissions` (`code`, `name`, `group_name`, `description`) VALUES
   ('dashboard:*', '控制台全权限', '控制台', '控制台模块全部能力'),
@@ -172,9 +155,13 @@ INSERT INTO `admin_permissions` (`code`, `name`, `group_name`, `description`) VA
   ('page.system-settings.admin-users', '进入管理员账号', '页面入口', '显示系统设置下的管理员账号入口'),
   ('page.system-settings.admin-roles', '进入管理组权限', '页面入口', '显示系统设置下的管理组权限入口'),
   ('page.system-settings.admin-sessions', '进入管理员会话', '页面入口', '显示系统设置下的管理员会话入口'),
+  ('page.system-settings.audit-logs', '进入操作日志', '页面入口', '显示系统设置下的操作日志入口'),
   ('admin-session:*', '管理员会话全权限', '管理员会话', '管理员会话模块全部能力'),
   ('admin-session:view', '查看管理员会话', '管理员会话', '查看管理员会话列表'),
-  ('admin-session:revoke', '吊销管理员会话', '管理员会话', '吊销指定管理员会话')
+  ('admin-session:revoke', '吊销管理员会话', '管理员会话', '吊销指定管理员会话'),
+  ('audit-log:*', '操作日志全权限', '操作日志', '操作日志模块全部能力'),
+  ('audit-log:view', '查看操作日志', '操作日志', '查看普通后台操作日志列表'),
+  ('audit-log:sensitive-view', '查看操作日志敏感详情', '操作日志', '查看操作日志中的前后快照和 User-Agent')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `group_name` = VALUES(`group_name`),

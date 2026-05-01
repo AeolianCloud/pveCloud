@@ -62,23 +62,32 @@ func TestAuditLogItemMasksLegacySensitiveDataWithPermission(t *testing.T) {
 	}
 }
 
-func TestBuildAdminRiskLogLinksAuditLog(t *testing.T) {
-	risk, err := buildAdminRiskLog(AdminRiskWriteInput{
-		AdminAuditWriteInput: AdminAuditWriteInput{
-			Action:     "admin.login.limited",
-			ObjectType: "admin_auth",
-			ObjectID:   "login_hash",
-		},
-		RiskLevel:  "high",
-		RiskReason: "登录失败次数达到限制",
-	}, 42)
+func TestBuildAdminAuditLogUsesRequestContext(t *testing.T) {
+	adminID := uint64(42)
+	ctx := WithRequestContext(t.Context(), RequestContext{
+		AdminID:          &adminID,
+		AdminUsername:    "root",
+		AdminDisplayName: "Root Admin",
+		SessionID:        "adm_session",
+		RequestID:        "req_123",
+		RequestMethod:    "PATCH",
+		RequestPath:      "/admin-api/system-configs/1",
+		IP:               "127.0.0.1",
+		UserAgent:        "test-agent",
+	})
+
+	audit, err := buildAdminAuditLog(ctx, AdminAuditWriteInput{
+		Action:     "system.config.update",
+		ObjectType: "system_config",
+		ObjectID:   "1",
+	})
 	if err != nil {
-		t.Fatalf("expected risk log model, got %v", err)
+		t.Fatalf("expected audit log model, got %v", err)
 	}
-	if risk.AuditLogID == nil || *risk.AuditLogID != 42 {
-		t.Fatalf("expected audit log id 42, got %#v", risk.AuditLogID)
+	if audit.AdminID == nil || *audit.AdminID != adminID {
+		t.Fatalf("expected admin id from context, got %#v", audit.AdminID)
 	}
-	if risk.RiskLevel != "high" || risk.RiskReason == "" {
-		t.Fatalf("expected risk metadata copied, got %#v", risk)
+	if audit.RequestID == nil || *audit.RequestID != "req_123" || audit.RequestPath == nil || *audit.RequestPath != "/admin-api/system-configs/1" {
+		t.Fatalf("expected request context copied, got %#v", audit)
 	}
 }

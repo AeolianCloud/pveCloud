@@ -126,7 +126,7 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 
 - 管理端认证、验证码、登录限流、会话刷新和吊销
 - RBAC 权限匹配、通配权限和路由鉴权
-- 审计写入、高危日志写入、敏感字段脱敏
+- 审计写入、敏感字段脱敏
 - 系统配置读取、敏感配置隐藏和更新审计
 - 订单、支付、钱包、实例等涉及金额、状态机或幂等的业务路径
 

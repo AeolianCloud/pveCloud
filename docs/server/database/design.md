@@ -39,7 +39,6 @@ admin_sessions
 ```text
 system_configs
 admin_audit_logs
-admin_risk_logs
 ```
 
 ## 管理端关键规则
@@ -52,8 +51,21 @@ admin_risk_logs
 - `super_admin` 角色应始终拥有当前 `admin_permissions` 中定义的全部权限
 - JWT 中的角色和权限快照只用于登录响应与前端体验，不替代服务端当前 RBAC 校验
 - `system_configs.is_secret=1` 的配置不得通过接口返回明文
-- 高危操作同时写入 `admin_audit_logs` 和 `admin_risk_logs`
-- 风险日志属于审计域
+- 普通操作日志用于查看后台操作历史，应保存操作者快照和请求上下文，避免只依赖当前管理员资料反查
+- 普通操作日志的请求上下文由管理端中间件统一采集，业务模块不得重复从每个模块内拼装 IP、会话、请求路径等通用信息
+
+## 普通操作日志上下文
+
+`admin_audit_logs` 除业务动作、对象和前后快照外，还记录以下后台请求上下文：
+
+- `admin_username`：操作发生时的管理员用户名快照
+- `admin_display_name`：操作发生时的管理员显示名快照
+- `session_id`：触发操作的管理端会话标识
+- `request_id`：请求链路 ID，用于串联访问日志、错误日志和审计日志
+- `request_method`：后台请求方法
+- `request_path`：后台请求路径
+
+这些字段只增强普通操作日志的可读性和排查能力。
 
 ## 当前阶段说明
 
@@ -65,7 +77,6 @@ admin_risk_logs
 - 会话
 - 系统配置
 - 审计日志
-- 高危日志
 
 以下业务域表不再属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 

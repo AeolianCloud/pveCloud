@@ -6,50 +6,50 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
 )
 
-func TestAdminUserUpdateRiskDetectsRoleChange(t *testing.T) {
-	action, level, reason := AdminUserUpdateRisk(
+func TestAdminUserUpdateAuditActionDetectsRoleChange(t *testing.T) {
+	action := AdminUserUpdateAuditAction(
 		models.AdminUser{Status: AdminStatusActive},
 		models.AdminUser{Status: AdminStatusActive},
 		[]uint64{1, 2},
 		[]uint64{2, 3},
 	)
-	if action != AdminUserRoleUpdateAction || level != "high" || reason == "" {
-		t.Fatalf("expected role update high risk, got %s %s %s", action, level, reason)
+	if action != AdminUserRoleUpdateAction {
+		t.Fatalf("expected role update action, got %s", action)
 	}
 }
 
-func TestAdminUserUpdateRiskDetectsDisable(t *testing.T) {
-	action, level, reason := AdminUserUpdateRisk(
+func TestAdminUserUpdateAuditActionDetectsDisable(t *testing.T) {
+	action := AdminUserUpdateAuditAction(
 		models.AdminUser{Status: AdminStatusActive},
 		models.AdminUser{Status: "disabled"},
 		[]uint64{1},
 		[]uint64{1},
 	)
-	if action != AdminUserDisableAction || level != "high" || reason == "" {
-		t.Fatalf("expected disable high risk, got %s %s %s", action, level, reason)
+	if action != AdminUserDisableAction {
+		t.Fatalf("expected disable action, got %s", action)
 	}
 }
 
-func TestAdminRoleUpdateRiskDetectsPermissionChange(t *testing.T) {
-	action, level, reason := AdminRoleUpdateRisk(
+func TestAdminRoleUpdateAuditActionDetectsPermissionChange(t *testing.T) {
+	action := AdminRoleUpdateAuditAction(
 		models.AdminRole{Status: AdminStatusActive},
 		models.AdminRole{Status: AdminStatusActive},
 		[]string{"dashboard:view"},
 		[]string{"dashboard:view", "audit:view"},
 	)
-	if action != AdminRolePermissionUpdateAction || level != "high" || reason == "" {
-		t.Fatalf("expected permission update high risk, got %s %s %s", action, level, reason)
+	if action != AdminRolePermissionUpdateAction {
+		t.Fatalf("expected permission update action, got %s", action)
 	}
 }
 
-func TestAdminRoleUpdateRiskDetectsDisable(t *testing.T) {
-	action, level, reason := AdminRoleUpdateRisk(
+func TestAdminRoleUpdateAuditActionDetectsDisable(t *testing.T) {
+	action := AdminRoleUpdateAuditAction(
 		models.AdminRole{Status: AdminStatusActive},
 		models.AdminRole{Status: "disabled"},
 		[]string{"dashboard:view"},
 		[]string{"dashboard:view"},
 	)
-	if action != AdminRoleDisableAction || level != "high" || reason == "" {
-		t.Fatalf("expected role disable high risk, got %s %s %s", action, level, reason)
+	if action != AdminRoleDisableAction {
+		t.Fatalf("expected role disable action, got %s", action)
 	}
 }

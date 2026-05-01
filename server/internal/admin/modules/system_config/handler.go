@@ -81,7 +81,7 @@ func (h *SystemConfigHandler) Update(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.systemConfigService.Update(c.Request.Context(), operatorID, id, req, c.ClientIP(), c.Request.UserAgent())
+	result, err := h.systemConfigService.Update(c.Request.Context(), operatorID, id, req)
 	if err != nil {
 		response.Error(c, err)
 		return

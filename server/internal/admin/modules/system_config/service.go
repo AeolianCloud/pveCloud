@@ -72,12 +72,10 @@ func (s *SystemConfigService) Configs(ctx context.Context, query admindto.System
  * @param operatorID 当前操作者管理员 ID
  * @param id 配置 ID
  * @param req 更新请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return admin.SystemConfigItem 更新后的配置
  * @return error 更新失败原因
  */
-func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id uint64, req admindto.SystemConfigUpdateRequest, clientIP string, userAgent string) (admindto.SystemConfigItem, error) {
+func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id uint64, req admindto.SystemConfigUpdateRequest) (admindto.SystemConfigItem, error) {
 	var updated models.SystemConfig
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current models.SystemConfig
@@ -103,17 +101,10 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 			ObjectID:   textutil.Uint64String(id),
 			BeforeData: systemConfigAuditSnapshot(current),
 			AfterData:  systemConfigAuditSnapshot(updated),
-			IP:         clientIP,
-			UserAgent:  userAgent,
 			Remark:     "更新系统配置",
 		}
 		if current.IsSecret {
 			input.Action = systemConfigSecretUpdateAction
-			return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-				AdminAuditWriteInput: input,
-				RiskLevel:            "high",
-				RiskReason:           "修改敏感系统配置",
-			})
 		}
 		return s.auditService.Record(ctx, tx, input)
 	}); err != nil {

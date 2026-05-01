@@ -80,7 +80,7 @@ func (h *AdminUserHandler) Create(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminUserService.Create(c.Request.Context(), operatorID, req, c.ClientIP(), c.Request.UserAgent())
+	result, err := h.adminUserService.Create(c.Request.Context(), operatorID, req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -136,7 +136,7 @@ func (h *AdminUserHandler) Update(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminUserService.Update(c.Request.Context(), operatorID, id, req, c.ClientIP(), c.Request.UserAgent())
+	result, err := h.adminUserService.Update(c.Request.Context(), operatorID, id, req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -172,7 +172,7 @@ func (h *AdminUserHandler) ResetPassword(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	if err := h.adminUserService.ResetPassword(c.Request.Context(), operatorID, id, req, c.ClientIP(), c.Request.UserAgent()); err != nil {
+	if err := h.adminUserService.ResetPassword(c.Request.Context(), operatorID, id, req); err != nil {
 		response.Error(c, err)
 		return
 	}

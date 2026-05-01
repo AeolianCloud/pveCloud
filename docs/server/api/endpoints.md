@@ -193,14 +193,27 @@
 - 资源权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
 
+## 操作日志域
+
+### `GET /admin-api/audit-logs`
+
+- 鉴权：管理端 Bearer Token
+- 页面入口权限建议：`page.system-settings.audit-logs`
+- 资源权限：`audit-log:view` 或 `audit-log:*`
+- 敏感详情权限：`audit-log:sensitive-view` 或 `audit-log:*`
+- 作用：分页查询普通后台操作日志
+- 查询参数支持：`page`、`per_page`、`admin_id`、`action`、`object_type`、`object_id`、`date_from`、`date_to`
+- 成功数据包含：
+  - `list`
+  - `total`
+  - `page`
+  - `per_page`
+  - `last_page`
+
+列表项包含操作者摘要、会话 ID、请求 ID、请求方法、请求路径、操作动作、对象类型、对象 ID、IP、备注和创建时间。
+未具备敏感详情权限时，`before_data`、`after_data` 和 `user_agent` 不返回。
+
 ## 暂未开放的管理域
-
-以下数据结构和服务能力当前仍保留，但不属于当前已开放 API 契约：
-
-- 审计日志查询
-- 高危操作日志查询
-
-这些能力重新开放时，必须先补齐本文档的接口契约、`docs/server/api/conventions.md` 中的权限说明、数据库迁移里的 `admin_permissions` 权限码，以及对应边界下的路由注册。
 
 密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。
 

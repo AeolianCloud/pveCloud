@@ -24,6 +24,7 @@ import (
 func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	systemHandler := system.NewSystemHandler()
 	auditService := audit.NewAdminAuditService(app.DB)
+	auditHandler := audit.NewAdminAuditHandler(auditService, middleware.CurrentAdminPermissionCodes)
 	authService := auth.NewAdminAuthService(app.DB, app.Redis, app.Config.JWT, auditService)
 	authHandler := auth.NewAuthHandler(authService)
 	dashboardService := dashboard.NewAdminDashboardService(app.DB)
@@ -37,11 +38,13 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	systemConfigService := systemconfig.NewSystemConfigService(app.DB, auditService)
 	systemConfigHandler := systemconfig.NewSystemConfigHandler(systemConfigService)
 
-	group.GET("/ping", systemHandler.Ping)
-	group.GET("/auth/captcha", authHandler.Captcha)
-	group.POST("/auth/login", authHandler.Login)
+	admin := group.Group("")
+	admin.Use(middleware.AdminAuditContext())
+	admin.GET("/ping", systemHandler.Ping)
+	admin.GET("/auth/captcha", authHandler.Captcha)
+	admin.POST("/auth/login", authHandler.Login)
 
-	protected := group.Group("")
+	protected := admin.Group("")
 	protected.Use(middleware.AdminAuth(app.Config.JWT, app.DB))
 	protected.GET("/auth/me", authHandler.Me)
 	protected.POST("/auth/logout", authHandler.Logout)
@@ -59,6 +62,7 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.GET("/admin-permissions", middleware.AdminPermission("admin-role:view"), adminRoleHandler.Permissions)
 	protected.GET("/admin-sessions", middleware.AdminPermission("admin-session:view"), adminSessionHandler.List)
 	protected.PATCH("/admin-sessions/:session_id", middleware.AdminPermission("admin-session:revoke"), adminSessionHandler.Update)
+	protected.GET("/audit-logs", middleware.AdminPermission("audit-log:view"), auditHandler.Logs)
 	protected.GET("/system-configs", middleware.AdminPermission("system-config:view"), systemConfigHandler.Configs)
 	protected.PATCH("/system-configs/:id", middleware.AdminPermission("system-config:update"), systemConfigHandler.Update)
 }

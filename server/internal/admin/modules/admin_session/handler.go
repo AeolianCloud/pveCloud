@@ -95,8 +95,6 @@ func (h *AdminSessionHandler) Update(c *gin.Context) {
 		operatorID,
 		currentSession.SessionID,
 		sessionID,
-		c.ClientIP(),
-		c.Request.UserAgent(),
 	); err != nil {
 		response.Error(c, err)
 		return

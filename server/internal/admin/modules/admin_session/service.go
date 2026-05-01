@@ -111,11 +111,9 @@ func (s *AdminSessionService) List(ctx context.Context, query admindto.AdminSess
  * @param operatorID 当前操作者管理员 ID
  * @param currentSessionID 当前登录会话 ID
  * @param targetSessionID 目标会话 ID
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return error 吊销失败原因
  */
-func (s *AdminSessionService) Revoke(ctx context.Context, operatorID uint64, currentSessionID string, targetSessionID string, clientIP string, userAgent string) error {
+func (s *AdminSessionService) Revoke(ctx context.Context, operatorID uint64, currentSessionID string, targetSessionID string) error {
 	targetSessionID = strings.TrimSpace(targetSessionID)
 	if targetSessionID == "" {
 		return apperrors.ErrValidation.WithMessage("会话 ID 不能为空")
@@ -176,20 +174,14 @@ func (s *AdminSessionService) Revoke(ctx context.Context, operatorID uint64, cur
 			return err
 		}
 
-		return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-			AdminAuditWriteInput: AdminAuditWriteInput{
-				AdminID:    &operatorID,
-				Action:     adminSessionRevokeAction,
-				ObjectType: adminSessionObjectType,
-				ObjectID:   session.SessionID,
-				BeforeData: before,
-				AfterData:  adminSessionAuditSnapshot(afterSession),
-				IP:         clientIP,
-				UserAgent:  userAgent,
-				Remark:     "吊销管理员会话",
-			},
-			RiskLevel:  "high",
-			RiskReason: "吊销管理员会话",
+		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
+			AdminID:    &operatorID,
+			Action:     adminSessionRevokeAction,
+			ObjectType: adminSessionObjectType,
+			ObjectID:   session.SessionID,
+			BeforeData: before,
+			AfterData:  adminSessionAuditSnapshot(afterSession),
+			Remark:     "吊销管理员会话",
 		})
 	})
 }

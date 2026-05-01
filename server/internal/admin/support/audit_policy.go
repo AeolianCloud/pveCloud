@@ -12,22 +12,22 @@ const (
 	AdminRoleDisableAction          = "admin.role.disable"
 )
 
-func AdminUserUpdateRisk(before models.AdminUser, after models.AdminUser, beforeRoleIDs []uint64, afterRoleIDs []uint64) (string, string, string) {
+func AdminUserUpdateAuditAction(before models.AdminUser, after models.AdminUser, beforeRoleIDs []uint64, afterRoleIDs []uint64) string {
 	if !sets.SameUint64Set(beforeRoleIDs, afterRoleIDs) {
-		return AdminUserRoleUpdateAction, "high", "修改管理员角色"
+		return AdminUserRoleUpdateAction
 	}
 	if before.Status == AdminStatusActive && after.Status != AdminStatusActive {
-		return AdminUserDisableAction, "high", "禁用管理员账号"
+		return AdminUserDisableAction
 	}
-	return "admin.user.update", "", ""
+	return "admin.user.update"
 }
 
-func AdminRoleUpdateRisk(before models.AdminRole, after models.AdminRole, beforeCodes []string, afterCodes []string) (string, string, string) {
+func AdminRoleUpdateAuditAction(before models.AdminRole, after models.AdminRole, beforeCodes []string, afterCodes []string) string {
 	if !sets.SameStringSet(beforeCodes, afterCodes) {
-		return AdminRolePermissionUpdateAction, "high", "修改角色权限"
+		return AdminRolePermissionUpdateAction
 	}
 	if before.Status == AdminStatusActive && after.Status != AdminStatusActive {
-		return AdminRoleDisableAction, "high", "禁用管理端角色"
+		return AdminRoleDisableAction
 	}
-	return "admin.role.update", "", ""
+	return "admin.role.update"
 }

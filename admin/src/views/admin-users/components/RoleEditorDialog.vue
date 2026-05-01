@@ -40,6 +40,18 @@ const permissionCatalog: PermissionCatalogNode[] = [
         permissionCodes: ['page.system-settings.config', 'system-config:*', 'system-config:view', 'system-config:update'],
       },
       {
+        id: 'page:audit-logs',
+        label: '操作日志',
+        metaLabel: '系统设置子页面',
+        pathHint: '/system/audit-logs',
+        permissionCodes: [
+          'page.system-settings.audit-logs',
+          'audit-log:*',
+          'audit-log:view',
+          'audit-log:sensitive-view',
+        ],
+      },
+      {
         id: 'page:admin-settings',
         label: '管理员设置',
         metaLabel: '系统设置子页面',

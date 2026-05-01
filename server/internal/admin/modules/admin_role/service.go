@@ -94,12 +94,10 @@ func (s *AdminRoleService) Roles(ctx context.Context, query admindto.AdminRoleLi
  * @param ctx 请求上下文
  * @param operatorID 当前操作者管理员 ID
  * @param req 创建请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return admin.AdminRoleItem 新建角色
  * @return error 创建失败原因
  */
-func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, req admindto.AdminRoleCreateRequest, clientIP string, userAgent string) (admindto.AdminRoleItem, error) {
+func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, req admindto.AdminRoleCreateRequest) (admindto.AdminRoleItem, error) {
 	code := strings.TrimSpace(req.Code)
 	if err := s.ensureRoleCodeUnique(ctx, 0, code); err != nil {
 		return admindto.AdminRoleItem{}, err
@@ -123,19 +121,13 @@ func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, re
 		if err := replaceAdminRolePermissions(ctx, tx, created.ID, permissionIDs); err != nil {
 			return err
 		}
-		return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-			AdminAuditWriteInput: AdminAuditWriteInput{
-				AdminID:    &operatorID,
-				Action:     adminRoleCreateAction,
-				ObjectType: adminRoleObjectType,
-				ObjectID:   textutil.Uint64String(created.ID),
-				AfterData:  adminRoleAuditSnapshot(created, req.PermissionCodes),
-				IP:         clientIP,
-				UserAgent:  userAgent,
-				Remark:     "创建管理端角色",
-			},
-			RiskLevel:  "high",
-			RiskReason: "创建管理端角色",
+		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
+			AdminID:    &operatorID,
+			Action:     adminRoleCreateAction,
+			ObjectType: adminRoleObjectType,
+			ObjectID:   textutil.Uint64String(created.ID),
+			AfterData:  adminRoleAuditSnapshot(created, req.PermissionCodes),
+			Remark:     "创建管理端角色",
 		})
 	}); err != nil {
 		return admindto.AdminRoleItem{}, err
@@ -170,12 +162,10 @@ func (s *AdminRoleService) RoleDetail(ctx context.Context, id uint64) (admindto.
  * @param operatorID 当前操作者管理员 ID
  * @param id 角色 ID
  * @param req 更新请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return admin.AdminRoleItem 更新后的角色
  * @return error 更新失败原因
  */
-func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminRoleUpdateRequest, clientIP string, userAgent string) (admindto.AdminRoleItem, error) {
+func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminRoleUpdateRequest) (admindto.AdminRoleItem, error) {
 	if err := s.ensureBuiltInRoleCanUpdate(ctx, id, req); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
@@ -228,7 +218,7 @@ func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id
 			return err
 		}
 
-		action, riskLevel, riskReason := support.AdminRoleUpdateRisk(current, updated, beforePermissionCodes, afterPermissionCodes)
+		action := support.AdminRoleUpdateAuditAction(current, updated, beforePermissionCodes, afterPermissionCodes)
 		input := AdminAuditWriteInput{
 			AdminID:    &operatorID,
 			Action:     action,
@@ -236,16 +226,7 @@ func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id
 			ObjectID:   textutil.Uint64String(id),
 			BeforeData: adminRoleAuditSnapshot(current, beforePermissionCodes),
 			AfterData:  adminRoleAuditSnapshot(updated, afterPermissionCodes),
-			IP:         clientIP,
-			UserAgent:  userAgent,
 			Remark:     "更新管理端角色",
-		}
-		if riskLevel != "" {
-			return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-				AdminAuditWriteInput: input,
-				RiskLevel:            riskLevel,
-				RiskReason:           riskReason,
-			})
 		}
 		return s.auditService.Record(ctx, tx, input)
 	}); err != nil {

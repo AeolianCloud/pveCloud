@@ -11,7 +11,6 @@ JOIN `admin_permissions` AS `ap` ON `ap`.`id` = `arp`.`permission_id`
 WHERE `ap`.`code` IN (
   'admin:manage',
   'audit:view',
-  'audit:sensitive_view',
   'system:update',
   'admin-session:*',
   'admin-session:view',
@@ -19,8 +18,6 @@ WHERE `ap`.`code` IN (
   'audit-log:*',
   'audit-log:view',
   'audit-log:sensitive-view',
-  'risk-log:*',
-  'risk-log:view',
   'user:view',
   'user:update',
   'product:create',
@@ -38,7 +35,6 @@ DELETE FROM `admin_permissions`
 WHERE `code` IN (
   'admin:manage',
   'audit:view',
-  'audit:sensitive_view',
   'system:update',
   'admin-session:*',
   'admin-session:view',
@@ -46,8 +42,6 @@ WHERE `code` IN (
   'audit-log:*',
   'audit-log:view',
   'audit-log:sensitive-view',
-  'risk-log:*',
-  'risk-log:view',
   'user:view',
   'user:update',
   'product:create',

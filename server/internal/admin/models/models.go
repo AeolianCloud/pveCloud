@@ -128,17 +128,23 @@ func (SystemConfig) TableName() string {
  * AdminAuditLog 映射 admin_audit_logs 后台操作审计表。
  */
 type AdminAuditLog struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	AdminID    *uint64   `gorm:"column:admin_id"`
-	Action     string    `gorm:"column:action"`
-	ObjectType string    `gorm:"column:object_type"`
-	ObjectID   *string   `gorm:"column:object_id"`
-	BeforeData *string   `gorm:"column:before_data"`
-	AfterData  *string   `gorm:"column:after_data"`
-	IP         *string   `gorm:"column:ip"`
-	UserAgent  *string   `gorm:"column:user_agent"`
-	Remark     *string   `gorm:"column:remark"`
-	CreatedAt  time.Time `gorm:"column:created_at"`
+	ID               uint64    `gorm:"column:id;primaryKey"`
+	AdminID          *uint64   `gorm:"column:admin_id"`
+	AdminUsername    *string   `gorm:"column:admin_username"`
+	AdminDisplayName *string   `gorm:"column:admin_display_name"`
+	SessionID        *string   `gorm:"column:session_id"`
+	RequestID        *string   `gorm:"column:request_id"`
+	RequestMethod    *string   `gorm:"column:request_method"`
+	RequestPath      *string   `gorm:"column:request_path"`
+	Action           string    `gorm:"column:action"`
+	ObjectType       string    `gorm:"column:object_type"`
+	ObjectID         *string   `gorm:"column:object_id"`
+	BeforeData       *string   `gorm:"column:before_data"`
+	AfterData        *string   `gorm:"column:after_data"`
+	IP               *string   `gorm:"column:ip"`
+	UserAgent        *string   `gorm:"column:user_agent"`
+	Remark           *string   `gorm:"column:remark"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
 }
 
 /**
@@ -148,33 +154,4 @@ type AdminAuditLog struct {
  */
 func (AdminAuditLog) TableName() string {
 	return "admin_audit_logs"
-}
-
-/**
- * AdminRiskLog 映射 admin_risk_logs 后台高危操作日志表。
- */
-type AdminRiskLog struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	AuditLogID *uint64   `gorm:"column:audit_log_id"`
-	AdminID    *uint64   `gorm:"column:admin_id"`
-	RiskLevel  string    `gorm:"column:risk_level"`
-	Action     string    `gorm:"column:action"`
-	ObjectType string    `gorm:"column:object_type"`
-	ObjectID   *string   `gorm:"column:object_id"`
-	RiskReason string    `gorm:"column:risk_reason"`
-	BeforeData *string   `gorm:"column:before_data"`
-	AfterData  *string   `gorm:"column:after_data"`
-	IP         *string   `gorm:"column:ip"`
-	UserAgent  *string   `gorm:"column:user_agent"`
-	Remark     *string   `gorm:"column:remark"`
-	CreatedAt  time.Time `gorm:"column:created_at"`
-}
-
-/**
- * TableName 返回后台高危操作日志表名。
- *
- * @return string 表名
- */
-func (AdminRiskLog) TableName() string {
-	return "admin_risk_logs"
 }

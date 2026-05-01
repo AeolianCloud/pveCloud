@@ -89,12 +89,10 @@ func (s *AdminUserService) List(ctx context.Context, query admindto.AdminUserLis
  * @param ctx 请求上下文
  * @param operatorID 当前操作者管理员 ID
  * @param req 创建请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return admin.AdminUserItem 创建后的管理员账号
  * @return error 创建失败原因
  */
-func (s *AdminUserService) Create(ctx context.Context, operatorID uint64, req admindto.AdminUserCreateRequest, clientIP string, userAgent string) (admindto.AdminUserItem, error) {
+func (s *AdminUserService) Create(ctx context.Context, operatorID uint64, req admindto.AdminUserCreateRequest) (admindto.AdminUserItem, error) {
 	email := textutil.NormalizeOptionalString(req.Email)
 	if err := s.ensureAdminUserUnique(ctx, 0, req.Username, email); err != nil {
 		return admindto.AdminUserItem{}, err
@@ -128,8 +126,6 @@ func (s *AdminUserService) Create(ctx context.Context, operatorID uint64, req ad
 			ObjectType: adminUserObjectType,
 			ObjectID:   textutil.Uint64String(created.ID),
 			AfterData:  adminUserAuditSnapshot(created, req.RoleIDs),
-			IP:         clientIP,
-			UserAgent:  userAgent,
 			Remark:     "创建管理员账号",
 		})
 	}); err != nil {
@@ -183,12 +179,10 @@ func (s *AdminUserService) Detail(ctx context.Context, id uint64) (admindto.Admi
  * @param operatorID 当前操作者管理员 ID
  * @param id 管理员 ID
  * @param req 更新请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return admin.AdminUserItem 更新后的管理员账号
  * @return error 更新失败原因
  */
-func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminUserUpdateRequest, clientIP string, userAgent string) (admindto.AdminUserItem, error) {
+func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminUserUpdateRequest) (admindto.AdminUserItem, error) {
 	email := textutil.NormalizeOptionalString(req.Email)
 	if err := s.ensureAdminUserUnique(ctx, id, "", email); err != nil {
 		return admindto.AdminUserItem{}, err
@@ -241,7 +235,7 @@ func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uin
 		if err != nil {
 			return err
 		}
-		action, riskLevel, riskReason := support.AdminUserUpdateRisk(current, updated, beforeRoleIDs, afterRoleIDs)
+		action := support.AdminUserUpdateAuditAction(current, updated, beforeRoleIDs, afterRoleIDs)
 		input := AdminAuditWriteInput{
 			AdminID:    &operatorID,
 			Action:     action,
@@ -249,16 +243,7 @@ func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uin
 			ObjectID:   textutil.Uint64String(id),
 			BeforeData: adminUserAuditSnapshot(current, beforeRoleIDs),
 			AfterData:  adminUserAuditSnapshot(updated, afterRoleIDs),
-			IP:         clientIP,
-			UserAgent:  userAgent,
 			Remark:     "更新管理员账号",
-		}
-		if riskLevel != "" {
-			return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-				AdminAuditWriteInput: input,
-				RiskLevel:            riskLevel,
-				RiskReason:           riskReason,
-			})
 		}
 		return s.auditService.Record(ctx, tx, input)
 	}); err != nil {
@@ -280,11 +265,9 @@ func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uin
  * @param operatorID 当前操作者管理员 ID
  * @param id 管理员 ID
  * @param req 密码请求
- * @param clientIP 客户端 IP
- * @param userAgent 浏览器 User-Agent
  * @return error 重置失败原因
  */
-func (s *AdminUserService) ResetPassword(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminUserPasswordRequest, clientIP string, userAgent string) error {
+func (s *AdminUserService) ResetPassword(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminUserPasswordRequest) error {
 	passwordHash, err := password.Hash(req.Password)
 	if err != nil {
 		return err
@@ -298,20 +281,14 @@ func (s *AdminUserService) ResetPassword(ctx context.Context, operatorID uint64,
 		if err := tx.Model(&models.AdminUser{}).Where("id = ?", id).Update("password_hash", passwordHash).Error; err != nil {
 			return err
 		}
-		return s.auditService.RecordRisk(ctx, tx, AdminRiskWriteInput{
-			AdminAuditWriteInput: AdminAuditWriteInput{
-				AdminID:    &operatorID,
-				Action:     adminUserPasswordResetAction,
-				ObjectType: adminUserObjectType,
-				ObjectID:   textutil.Uint64String(id),
-				BeforeData: map[string]any{"id": current.ID, "username": current.Username},
-				AfterData:  map[string]any{"id": current.ID, "username": current.Username, "password_reset": true},
-				IP:         clientIP,
-				UserAgent:  userAgent,
-				Remark:     "重置管理员密码",
-			},
-			RiskLevel:  "high",
-			RiskReason: "重置管理员密码",
+		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
+			AdminID:    &operatorID,
+			Action:     adminUserPasswordResetAction,
+			ObjectType: adminUserObjectType,
+			ObjectID:   textutil.Uint64String(id),
+			BeforeData: map[string]any{"id": current.ID, "username": current.Username},
+			AfterData:  map[string]any{"id": current.ID, "username": current.Username, "password_reset": true},
+			Remark:     "重置管理员密码",
 		})
 	})
 }

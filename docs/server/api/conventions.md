@@ -76,6 +76,7 @@ page.<menu>.<feature>
 - `page.system-settings.admin-users`
 - `page.system-settings.admin-roles`
 - `page.system-settings.admin-sessions`
+- `page.system-settings.audit-logs`
 
 ### 资源操作权限
 
@@ -94,6 +95,8 @@ resource:action
 - `admin-user:password-reset`
 - `admin-session:view`
 - `admin-session:revoke`
+- `audit-log:view`
+- `audit-log:sensitive-view`
 
 实现要求：
 
@@ -107,7 +110,6 @@ resource:action
 
 - 管理端会话刷新
 - 管理员密码重置
-- 高危操作审计写入
 
 幂等优先依赖：
 

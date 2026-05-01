@@ -36,7 +36,7 @@ func NewAuthHandler(authService *AdminAuthService) *AuthHandler {
  * @auth 无需登录
  */
 func (h *AuthHandler) Captcha(c *gin.Context) {
-	result, err := h.authService.Captcha(c.Request.Context(), c.ClientIP())
+	result, err := h.authService.Captcha(c.Request.Context())
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -64,7 +64,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Login(c.Request.Context(), req, c.ClientIP(), c.Request.UserAgent())
+	result, err := h.authService.Login(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -119,7 +119,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := h.authService.Logout(c.Request.Context(), adminID, session.SessionID, c.ClientIP(), c.Request.UserAgent()); err != nil {
+	if err := h.authService.Logout(c.Request.Context(), adminID, session.SessionID); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -146,7 +146,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.Refresh(c.Request.Context(), adminID, session.SessionID, c.ClientIP(), c.Request.UserAgent())
+	result, err := h.authService.Refresh(c.Request.Context(), adminID, session.SessionID)
 	if err != nil {
 		response.Error(c, err)
 		return

@@ -8,11 +8,11 @@
 
 - 系统配置
 - 管理员设置
+- 操作日志
 
 不承载：
 
-- 审计日志
-- 高危操作日志
+- 独立一级操作日志菜单
 
 ## 路由结构
 
@@ -26,6 +26,7 @@
 
 - 系统配置：`/system/settings`
 - 管理员设置：`/system/admin-users`
+- 操作日志：`/system/audit-logs`
 
 当前不为系统设置继续拆更多侧栏层级。
 
@@ -115,6 +116,27 @@
 
 具体字段、响应和错误码以 `docs/server/api/` 为准。
 
+## 操作日志
+
+页面职责：
+
+- 分页展示 `admin_audit_logs` 普通后台操作日志。
+- 支持按管理员、操作动作、对象类型、对象 ID 和时间范围筛选。
+- 展示操作者、操作动作、对象、请求方法、请求路径、请求 ID、IP、备注和创建时间。
+- `before_data`、`after_data`、`user_agent` 等敏感详情默认不展示，只有具备敏感详情权限时展示。
+
+权限建议：
+
+- 页面入口：`page.system-settings.audit-logs`
+- 日志列表资源：`audit-log:view` 或 `audit-log:*`
+- 敏感详情：`audit-log:sensitive-view` 或 `audit-log:*`
+
+关联接口：
+
+- `GET /admin-api/audit-logs`
+
+具体字段、响应和错误码以 `docs/server/api/` 为准。
+
 ## 验收重点
 
 - 系统设置只调用 `/admin-api/*`。
@@ -123,3 +145,5 @@
 - 敏感配置不展示明文。
 - 管理员、管理组和管理员会话能力都不恢复独立侧栏菜单。
 - 管理员会话 tab 需要对当前会话提供明确标识，并阻止自吊销误操作。
+- 操作日志作为系统设置子页面开放，不恢复独立一级菜单。
+- 操作日志敏感详情必须按 `audit-log:sensitive-view` 或 `audit-log:*` 控制。

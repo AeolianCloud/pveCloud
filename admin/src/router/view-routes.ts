@@ -51,6 +51,16 @@ export const viewRoutes: RouteRecordRaw[] = [
           permissionMode: 'any',
         },
       },
+      {
+        path: ADMIN_ROUTE_PATH.auditLogs.replace(ADMIN_ROUTE_PATH.systemSettings + '/', ''),
+        name: ADMIN_ROUTE_NAME.auditLogs,
+        component: () => import('../views/audit-logs/index.vue'),
+        meta: {
+          title: '操作日志',
+          requiresAuth: true,
+          permission: ['page.system-settings.audit-logs'],
+        },
+      },
     ],
   },
 ]

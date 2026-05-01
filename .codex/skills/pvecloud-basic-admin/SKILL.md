@@ -1,6 +1,6 @@
 ---
 name: pvecloud-basic-admin
-description: Use when working on the basic admin foundation. This skill helps AI stay inside the current backend/admin scope: auth, dashboard, RBAC, sessions, system configs, audit, and risk logs, while respecting that the current admin frontend surface is narrowed to Login, Dashboard, and 403.
+description: Use when working on the basic admin foundation. This skill helps AI stay inside the current backend/admin scope: auth, dashboard, RBAC, sessions, system configs, and audit logs, while respecting that the current admin frontend surface is narrowed to Login, Dashboard, and 403.
 ---
 
 # pveCloud Basic Admin
@@ -22,7 +22,7 @@ Project truth still lives in:
 
 ## Current Scope
 
-- Backend scope still covers: admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, risk logs.
+- Backend scope still covers: admin auth, dashboard, RBAC, admin sessions, system configs, and audit logs.
 - Current admin frontend scope is narrower: only `Login`, `Dashboard`, and `403`.
 - Removed admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
 
@@ -39,7 +39,7 @@ Project truth still lives in:
 
 - Keep backend and frontend scope separate in your head.
 - Do not confuse "backend capability still exists" with "frontend page should still exist".
-- Audit is a single domain. Risk logs are part of audit.
+- Audit remains a single admin-domain capability.
 - Backend RBAC is the final authority; frontend permission logic is usability-only.
 - Keep the admin frontend aligned with the current narrowed surface unless docs explicitly reopen it.
 

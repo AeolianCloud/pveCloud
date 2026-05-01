@@ -93,7 +93,7 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 		{key: "active_admins", title: "启用管理员", table: "admin_users", where: "status = 'active' AND deleted_at IS NULL", unit: "人"},
 		{key: "active_roles", title: "启用角色", table: "admin_roles", where: "status = 'active'", unit: "个"},
 		{key: "active_sessions", title: "活跃会话", table: "admin_sessions", where: "status = 'active' AND expires_at > NOW(3)", unit: "个"},
-		{key: "risk_logs_today", title: "今日高危操作", table: "admin_risk_logs", where: "created_at >= '" + today + "'", unit: "次"},
+		{key: "audit_logs_today", title: "今日操作日志", table: "admin_audit_logs", where: "created_at >= '" + today + "'", unit: "次"},
 	}
 
 	metrics := make([]admindto.DashboardMetric, 0, len(queries))

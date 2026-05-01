@@ -24,9 +24,7 @@ INSERT INTO `admin_permissions` (`code`, `name`, `group_name`, `description`) VA
   ('admin-session:revoke', '吊销管理端会话', 'admin-session', '吊销指定管理端会话'),
   ('audit-log:*', '审计日志全权限', 'audit-log', '管理审计日志模块全部能力'),
   ('audit-log:view', '查看审计日志', 'audit-log', '查看后台审计日志主信息'),
-  ('audit-log:sensitive-view', '查看审计敏感详情', 'audit-log', '查看脱敏后的审计敏感字段'),
-  ('risk-log:*', '高危操作日志全权限', 'risk-log', '管理高危操作日志模块全部能力'),
-  ('risk-log:view', '查看高危操作日志', 'risk-log', '查看高危操作日志')
+  ('audit-log:sensitive-view', '查看审计敏感详情', 'audit-log', '查看脱敏后的审计敏感字段')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `group_name` = VALUES(`group_name`),
@@ -57,9 +55,7 @@ WHERE `admin_roles`.`code` = 'super_admin'
     'admin-session:revoke',
     'audit-log:*',
     'audit-log:view',
-    'audit-log:sensitive-view',
-    'risk-log:*',
-    'risk-log:view'
+    'audit-log:sensitive-view'
   )
 ON DUPLICATE KEY UPDATE
   `role_id` = VALUES(`role_id`);
