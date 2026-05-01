@@ -4,8 +4,8 @@ app:
   name: pveCloud
   # 当前运行环境；本地开发使用 local，部署环境可按实际环境命名。
   env: local
-  # API HTTP 监听地址；":8080" 表示监听本机所有网卡的 8080 端口。
-  addr: ":8080"
+  # API HTTP 监听地址；"0.0.0.0:8080" 表示监听本机所有网卡的 8080 端口。
+  addr: "0.0.0.0:8080"
   # API 收到退出信号后的优雅关闭等待时间，单位为秒。
   shutdown_timeout_seconds: 10
 

@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +16,13 @@ const webDir = path.join(repoRoot, 'web');
 const children = new Set();
 let shuttingDown = false;
 
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));
+process.on('uncaughtException', (error) => {
+  console.error(`[dev] 启动脚本异常：${error.message}`);
+  shutdown(1);
+});
+
 validateArgs();
 validateWorkspace();
 
@@ -23,23 +31,16 @@ if (existsSync(path.join(webDir, 'package.json'))) {
   await installFrontendDeps('web', webDir);
 }
 
-startService('api', serverDir, 'air', ['-c', '.air.toml']);
-startService('admin', adminDir, 'bun', ['dev']);
+await startServiceAndWait('api', serverDir, 'air', ['-c', '.air.toml'], 'http://127.0.0.1:8080/healthz');
+await startServiceAndWait('admin', adminDir, 'bun', ['dev', '--host', '0.0.0.0'], 'http://127.0.0.1:5174/');
 
 if (existsSync(path.join(webDir, 'package.json'))) {
-  startService('web', webDir, 'bun', ['dev']);
+  startService('web', webDir, 'bun', ['dev', '--host', '0.0.0.0']);
 } else {
   console.log('[dev] 未检测到 web/package.json，跳过 web 前端。');
 }
 
 console.log('[dev] 本地开发服务已启动。按 Ctrl+C 退出全部进程。');
-
-process.on('SIGINT', () => shutdown(0));
-process.on('SIGTERM', () => shutdown(0));
-process.on('uncaughtException', (error) => {
-  console.error(`[dev] 启动脚本异常：${error.message}`);
-  shutdown(1);
-});
 
 function validateArgs() {
   const runtimeArgs = process.argv.slice(2);
@@ -126,6 +127,52 @@ function startService(name, cwd, command, commandArgs) {
     const reason = signal ? `信号 ${signal}` : `状态码 ${code}`;
     console.error(`[${name}] 进程已退出：${reason}`);
     shutdown(code === 0 ? 0 : 1);
+  });
+}
+
+async function startServiceAndWait(name, cwd, command, commandArgs, readyUrl) {
+  console.log(`[dev] 正在启动 ${name}...`);
+  startService(name, cwd, command, commandArgs);
+  // 等待服务启动完成 传参 readyUrl 作为检查点
+  // 超时时间 10 分钟
+  await waitForHttp(name, readyUrl, 600000);
+  console.log(`[dev] ${name} 已就绪。`);
+}
+
+function waitForHttp(name, url, timeoutMs) {
+  const startedAt = Date.now();
+
+  return new Promise((resolve) => {
+    const check = () => {
+      if (shuttingDown) {
+        return;
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        console.error(`[dev] 等待 ${name} 就绪超时：${url}`);
+        shutdown(1);
+        return;
+      }
+
+      const request = http.get(url, (response) => {
+        response.resume();
+        if (response.statusCode && response.statusCode >= 200 && response.statusCode < 500) {
+          resolve();
+          return;
+        }
+        setTimeout(check, 500);
+      });
+
+      request.on('error', () => {
+        setTimeout(check, 500);
+      });
+
+      request.setTimeout(1000, () => {
+        request.destroy();
+      });
+    };
+
+    check();
   });
 }
 

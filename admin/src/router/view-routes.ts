@@ -56,7 +56,7 @@ export const viewRoutes: RouteRecordRaw[] = [
         name: ADMIN_ROUTE_NAME.auditLogs,
         component: () => import('../views/audit-logs/index.vue'),
         meta: {
-          title: '操作日志',
+          title: '日志管理',
           requiresAuth: true,
           permission: ['page.system-settings.audit-logs'],
         },

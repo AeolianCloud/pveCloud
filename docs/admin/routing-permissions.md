@@ -15,7 +15,7 @@
 | Dashboard | `/dashboard` | `page.dashboard` |
 | 系统配置 | `/system/settings` | `page.system-settings.config` |
 | 管理员设置 | `/system/admin-users` | `page.system-settings.admin-users` 或 `page.system-settings.admin-roles` 或 `page.system-settings.admin-sessions` |
-| 操作日志 | `/system/audit-logs` | `page.system-settings.audit-logs` |
+| 日志管理 | `/system/audit-logs` | `page.system-settings.audit-logs` |
 
 管理员设置页面使用 `permissionMode: any` 时，只要具备管理员账号、管理组权限或管理员会话入口之一即可进入页面；页面内部能力继续按按钮或功能块权限控制。
 

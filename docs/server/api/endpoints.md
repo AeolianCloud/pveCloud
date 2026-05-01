@@ -181,14 +181,14 @@
 - 操作权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
 
-## 操作日志域
+## 日志管理域
 
 ### `GET /admin-api/audit-logs`
 
 - 鉴权：管理端 Bearer Token
 - 菜单权限：`page.system-settings.audit-logs`
 - 敏感详情权限：`audit-log:sensitive-view` 或 `audit-log:*`
-- 作用：分页查询普通后台操作日志
+- 作用：分页查询普通后台审计日志，可用于日志管理页面的操作日志 tab 和登录日志 tab
 - 查询参数支持：`page`、`per_page`、`admin_id`、`action`、`object_type`、`object_id`、`date_from`、`date_to`
 - 成功数据包含：
   - `list`
@@ -199,6 +199,8 @@
 
 列表项包含操作者摘要、会话 ID、请求 ID、请求方法、请求路径、操作动作、对象类型、对象 ID、IP、备注和创建时间。
 未具备敏感详情权限时，`before_data`、`after_data` 和 `user_agent` 不返回。
+
+登录日志 tab 不新增独立接口或表，使用本接口并固定 `object_type=admin_auth` 查询认证相关日志；如需按动作类型筛选，继续使用单个 `action` 查询参数。
 
 ## 暂未开放的管理域
 
