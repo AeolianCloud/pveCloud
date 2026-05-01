@@ -81,13 +81,14 @@ If multiple docs disagree, do not silently pick the one that matches the code. U
 
 ## Commit Message Rule
 
-When the maintainer asks AI to commit, the commit message must be useful for review from another machine.
+When the maintainer asks AI to commit, the commit message must be written in Chinese by default and remain useful for review from another machine.
 
 - Do not run `git add`, `git commit`, `git push`, or any other Git history/staging mutation unless the maintainer explicitly asks for that Git action in the current conversation.
 
-- Use a concise subject, but do not rely on the subject alone.
-- Include a detailed body for non-trivial changes.
-- Explain why the change was needed, not only what files changed.
+- Use Chinese for the subject and body by default, unless the maintainer explicitly requests another language.
+- Use a concise Chinese subject, but do not rely on the subject alone.
+- Include a detailed Chinese body for non-trivial changes.
+- Explain in Chinese why the change was needed, not only what files changed.
 - Group the body by meaningful areas such as docs, workflow, frontend, backend, database, verification, and risk.
 - Mention verification commands that were run, or explicitly say when no runtime verification was needed.
 - Mention notable residual risks or follow-up constraints.
