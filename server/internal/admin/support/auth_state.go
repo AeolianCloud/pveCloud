@@ -2,6 +2,7 @@ package support
 
 import (
 	"context"
+	"sort"
 
 	"gorm.io/gorm"
 
@@ -56,40 +57,58 @@ func SessionSummary(session models.AdminSession) dto.SessionSummary {
 	}
 }
 
-func VisibleAdminMenus(permissionCodes []string) []dto.MenuItem {
-	visible := make([]dto.MenuItem, 0, 3)
-	if rbac.HasPermissionCode(permissionCodes, "page.dashboard") {
-		visible = append(visible, menuItem("dashboard", "控制台", "/dashboard", "layout-dashboard", "page.dashboard"))
+func VisibleAdminMenus(ctx context.Context, db *gorm.DB, permissionCodes []string) ([]dto.MenuItem, error) {
+	var permissions []models.AdminPermission
+	if err := db.WithContext(ctx).
+		Where("type = ?", "menu").
+		Where("visible_in_menu = ?", true).
+		Order("sort_order ASC, id ASC").
+		Find(&permissions).Error; err != nil {
+		return nil, err
 	}
-	if rbac.HasPermissionCode(permissionCodes, "page.system-settings.config") {
-		visible = append(visible, menuItem("system_configs", "系统配置", "/system/settings", "settings", "page.system-settings.config"))
-	}
-	if permissionCode := firstAdminSettingsPermission(permissionCodes); permissionCode != "" {
-		visible = append(visible, menuItem("admin_settings", "管理员设置", "/system/admin-users", "users", permissionCode))
-	}
-	return visible
+	return BuildVisibleAdminMenus(permissions, permissionCodes), nil
 }
 
-func menuItem(key string, title string, path string, icon string, permissionCode string) dto.MenuItem {
-	return dto.MenuItem{
-		Key:            key,
-		Title:          title,
-		Path:           path,
-		Icon:           &icon,
-		PermissionCode: &permissionCode,
-	}
-}
-
-func firstAdminSettingsPermission(permissionCodes []string) string {
-	candidates := []string{
-		"page.system-settings.admin-users",
-		"page.system-settings.admin-roles",
-		"page.system-settings.admin-sessions",
-	}
-	for _, code := range candidates {
-		if rbac.HasPermissionCode(permissionCodes, code) {
-			return code
+func BuildVisibleAdminMenus(permissions []models.AdminPermission, permissionCodes []string) []dto.MenuItem {
+	menuByParent := make(map[string][]models.AdminPermission)
+	for _, permission := range permissions {
+		if !permission.VisibleInMenu || permission.Type != "menu" || permission.Path == nil {
+			continue
 		}
+		if !rbac.HasPermissionCode(permissionCodes, permission.Code) {
+			continue
+		}
+		parent := ""
+		if permission.ParentCode != nil && rbac.HasPermissionCode(permissionCodes, *permission.ParentCode) {
+			parent = *permission.ParentCode
+		}
+		menuByParent[parent] = append(menuByParent[parent], permission)
 	}
-	return ""
+
+	for parent := range menuByParent {
+		sort.SliceStable(menuByParent[parent], func(left, right int) bool {
+			if menuByParent[parent][left].SortOrder != menuByParent[parent][right].SortOrder {
+				return menuByParent[parent][left].SortOrder < menuByParent[parent][right].SortOrder
+			}
+			return menuByParent[parent][left].ID < menuByParent[parent][right].ID
+		})
+	}
+
+	return buildMenuItems("", menuByParent)
+}
+
+func buildMenuItems(parent string, menuByParent map[string][]models.AdminPermission) []dto.MenuItem {
+	items := make([]dto.MenuItem, 0, len(menuByParent[parent]))
+	for _, permission := range menuByParent[parent] {
+		item := dto.MenuItem{
+			Key:            permission.Code,
+			Title:          permission.Name,
+			Path:           *permission.Path,
+			Icon:           permission.Icon,
+			PermissionCode: &permission.Code,
+			Children:       buildMenuItems(permission.Code, menuByParent),
+		}
+		items = append(items, item)
+	}
+	return items
 }

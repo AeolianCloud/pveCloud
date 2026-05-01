@@ -54,6 +54,7 @@ export interface AdminLoginResponse {
   admin: AdminSummary
   role_ids: number[]
   permission_codes: string[]
+  menus: AdminMenuItem[]
   session: AdminSessionSummary
 }
 

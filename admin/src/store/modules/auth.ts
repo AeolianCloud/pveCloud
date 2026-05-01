@@ -98,7 +98,7 @@ export const useAuthStore = defineStore('admin-auth', {
       this.applyPermissionSnapshot({
         role_ids: payload.role_ids,
         permission_codes: payload.permission_codes,
-        menus: [],
+        menus: payload.menus,
       })
     },
     applyAuthStatePayload(payload: AdminAuthStateResponse) {

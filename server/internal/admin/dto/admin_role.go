@@ -55,20 +55,18 @@ type AdminPermissionListQuery struct {
 }
 
 /**
- * AdminPermissionItem 表示权限码列表项。
+ * AdminPermissionItem 表示权限目录节点。
  */
 type AdminPermissionItem struct {
-	ID          uint64  `json:"id"`
-	Code        string  `json:"code"`
-	Name        string  `json:"name"`
-	GroupName   string  `json:"group_name"`
-	Description *string `json:"description"`
-}
-
-/**
- * AdminPermissionGroup 表示按分组返回的权限码。
- */
-type AdminPermissionGroup struct {
+	ID          uint64                `json:"id"`
+	Code        string                `json:"code"`
+	Name        string                `json:"name"`
+	Type        string                `json:"type"`
+	ParentCode  *string               `json:"parent_code"`
+	Path        *string               `json:"path"`
+	Icon        *string               `json:"icon"`
+	SortOrder   int                   `json:"sort_order"`
 	GroupName   string                `json:"group_name"`
-	Permissions []AdminPermissionItem `json:"permissions"`
+	Description *string               `json:"description"`
+	Children    []AdminPermissionItem `json:"children,omitempty"`
 }

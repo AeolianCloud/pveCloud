@@ -25,7 +25,7 @@ const queryForm = reactive({
   date_range: [] as string[],
 })
 
-const canViewLogs = computed(() => permissionStore.hasPermission('audit-log:view'))
+const canViewLogs = computed(() => permissionStore.hasPermission('page.system-settings.audit-logs'))
 const canViewSensitive = computed(() => permissionStore.hasPermission('audit-log:sensitive-view'))
 const hasLogs = computed(() => logs.value.length > 0)
 

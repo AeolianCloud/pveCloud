@@ -6,101 +6,8 @@ import {
 } from 'element-plus'
 import { ArrowRight, CaretBottom } from '@element-plus/icons-vue'
 
-import type { AdminPermissionGroup } from '../../../api/admin-role'
+import type { AdminPermissionItem } from '../../../api/admin-role'
 import type { PermissionTreeNode, RoleEditorState } from '../types'
-
-interface PermissionCatalogNode {
-  id: string
-  label: string
-  metaLabel: string
-  pathHint?: string
-  permissionCodes?: string[]
-  children?: PermissionCatalogNode[]
-}
-
-const permissionCatalog: PermissionCatalogNode[] = [
-  {
-    id: 'menu:dashboard',
-    label: '控制台',
-    metaLabel: '一级菜单',
-    pathHint: '/dashboard',
-    permissionCodes: ['page.dashboard', 'dashboard:*', 'dashboard:view'],
-  },
-  {
-    id: 'menu:system-settings',
-    label: '系统设置',
-    metaLabel: '一级菜单',
-    pathHint: '/system',
-    children: [
-      {
-        id: 'page:system-config',
-        label: '系统配置',
-        metaLabel: '系统设置子页面',
-        pathHint: '/system/settings',
-        permissionCodes: ['page.system-settings.config', 'system-config:*', 'system-config:view', 'system-config:update'],
-      },
-      {
-        id: 'page:audit-logs',
-        label: '操作日志',
-        metaLabel: '系统设置子页面',
-        pathHint: '/system/audit-logs',
-        permissionCodes: [
-          'page.system-settings.audit-logs',
-          'audit-log:*',
-          'audit-log:view',
-          'audit-log:sensitive-view',
-        ],
-      },
-      {
-        id: 'page:admin-settings',
-        label: '管理员设置',
-        metaLabel: '系统设置子页面',
-        pathHint: '/system/admin-users',
-        children: [
-          {
-            id: 'tab:admin-users',
-            label: '管理员账号',
-            metaLabel: '管理员设置 Tab',
-            pathHint: 'Tab / 管理员账号',
-            permissionCodes: [
-              'page.system-settings.admin-users',
-              'admin-user:*',
-              'admin-user:view',
-              'admin-user:create',
-              'admin-user:update',
-              'admin-user:password-reset',
-            ],
-          },
-          {
-            id: 'tab:admin-roles',
-            label: '管理员权限',
-            metaLabel: '管理员设置 Tab',
-            pathHint: 'Tab / 管理员权限',
-            permissionCodes: [
-              'page.system-settings.admin-roles',
-              'admin-role:*',
-              'admin-role:view',
-              'admin-role:create',
-              'admin-role:update',
-            ],
-          },
-          {
-            id: 'tab:admin-sessions',
-            label: '管理员会话',
-            metaLabel: '管理员设置 Tab',
-            pathHint: 'Tab / 管理员会话',
-            permissionCodes: [
-              'page.system-settings.admin-sessions',
-              'admin-session:*',
-              'admin-session:view',
-              'admin-session:revoke',
-            ],
-          },
-        ],
-      },
-    ],
-  },
-]
 
 const props = defineProps<{
   visible: boolean
@@ -109,7 +16,7 @@ const props = defineProps<{
   isBuiltInRole: boolean
   form: RoleEditorState
   rules: FormRules<RoleEditorState>
-  permissionGroups: AdminPermissionGroup[]
+  permissionTree: AdminPermissionItem[]
   submitting: boolean
 }>()
 
@@ -134,26 +41,20 @@ interface PermissionTreeRow {
   checkedLeafCount: number
 }
 
-const flatPermissions = computed(() =>
-  props.permissionGroups
-    .flatMap((group) => group.permissions)
-    .sort((left, right) => left.code.localeCompare(right.code, 'zh-CN')),
-)
+const flatPermissions = computed(() => flattenPermissionTree(props.permissionTree))
 
 const permissionCodeSet = computed(() => new Set(flatPermissions.value.map((permission) => permission.code)))
 const permissionCount = computed(() => props.form.permission_codes.length)
 const permissionTreeData = computed<PermissionTreeNode[]>(() =>
-  buildPermissionTree(flatPermissions.value, props.permissionGroups, props.isBuiltInRole),
+  buildPermissionTree(props.permissionTree, props.isBuiltInRole),
 )
 const normalizedFilter = computed(() => filterText.value.trim().toLowerCase())
 const expandedNodeIdSet = computed(() => new Set(expandedNodeIds.value))
 const visibleRows = computed(() => buildVisibleRows(permissionTreeData.value))
 const totalPermissionCount = computed(() => flatPermissions.value.length)
-const unmatchedPermissionCount = computed(() =>
-  permissionTreeData.value.find((node) => node.id === 'unmatched-permissions')?.count ?? 0,
-)
+const unmatchedPermissionCount = computed(() => 0)
 const visiblePermissionCount = computed(() =>
-  visibleRows.value.filter((row) => row.node.type === 'permission').length,
+  visibleRows.value.filter((row) => row.node.type === 'action').length,
 )
 const dialogDescription = computed(() =>
   props.isCreateMode
@@ -176,7 +77,7 @@ watch(
 )
 
 watch(
-  () => props.permissionGroups,
+  () => props.permissionTree,
   () => {
     if (!props.visible) {
       return
@@ -256,106 +157,31 @@ async function handleSubmit() {
   emit('submit')
 }
 
-function buildPermissionTree(
-  permissions: Array<AdminPermissionGroup['permissions'][number]>,
-  _groups: AdminPermissionGroup[],
-  disabled: boolean,
-) {
-  const permissionMap = new Map(permissions.map((permission) => [permission.code, permission]))
-  const assignedCodes = new Set<string>()
-  const roots = permissionCatalog
-    .map((catalogNode, index) => buildCatalogTreeNode(catalogNode, permissionMap, assignedCodes, disabled, index))
-    .filter(Boolean) as PermissionTreeNode[]
+function flattenPermissionTree(nodes: AdminPermissionItem[]): AdminPermissionItem[] {
+  return nodes.flatMap((node) => [node, ...flattenPermissionTree(node.children ?? [])])
+}
 
-  const unmatchedPermissions = permissions.filter((permission) => !assignedCodes.has(permission.code))
-  if (unmatchedPermissions.length > 0) {
-    roots.push(buildUnmatchedTreeNode(unmatchedPermissions, disabled, roots.length))
-  }
-
+function buildPermissionTree(nodes: AdminPermissionItem[], disabled: boolean): PermissionTreeNode[] {
+  const roots = nodes.map((node) => buildPermissionNode(node, disabled))
   for (const root of roots) {
     finalizeTree(root)
   }
-
   return roots
 }
 
-function buildCatalogTreeNode(
-  catalogNode: PermissionCatalogNode,
-  permissionMap: Map<string, AdminPermissionGroup['permissions'][number]>,
-  assignedCodes: Set<string>,
-  disabled: boolean,
-  index: number,
-): PermissionTreeNode | null {
-  const children: PermissionTreeNode[] = []
-
-  for (const [permissionIndex, code] of (catalogNode.permissionCodes ?? []).entries()) {
-    const permission = permissionMap.get(code)
-    if (!permission) {
-      continue
-    }
-    assignedCodes.add(code)
-    children.push(createPermissionLeafNode(permission, disabled, permissionIndex))
-  }
-
-  for (const [childIndex, childNode] of (catalogNode.children ?? []).entries()) {
-    const builtChild = buildCatalogTreeNode(childNode, permissionMap, assignedCodes, disabled, childIndex)
-    if (builtChild) {
-      children.push(builtChild)
-    }
-  }
-
-  if (children.length === 0) {
-    return null
-  }
-
-  return {
-    id: catalogNode.id,
-    label: catalogNode.label,
-    type: 'root',
-    disabled,
-    meta_label: catalogNode.metaLabel,
-    path_hint: catalogNode.pathHint,
-    keywords: [catalogNode.label, catalogNode.metaLabel, catalogNode.pathHint ?? ''],
-    sort_order: index,
-    children,
-  }
-}
-
-function createPermissionLeafNode(
-  permission: AdminPermissionGroup['permissions'][number],
-  disabled: boolean,
-  index: number,
-): PermissionTreeNode {
+function buildPermissionNode(permission: AdminPermissionItem, disabled: boolean): PermissionTreeNode {
   return {
     id: permission.code,
     label: permission.name,
-    type: 'permission',
+    type: permission.type,
     code: permission.code,
     description: permission.description,
     disabled,
-    meta_label: permission.code.startsWith('page.') ? '页面入口权限' : '资源操作权限',
-    keywords: [permission.code, permission.name, permission.group_name],
-    sort_order: index,
-  }
-}
-
-function buildUnmatchedTreeNode(
-  permissions: Array<AdminPermissionGroup['permissions'][number]>,
-  disabled: boolean,
-  index: number,
-): PermissionTreeNode {
-  return {
-    id: 'unmatched-permissions',
-    label: '未归类权限',
-    type: 'root',
-    disabled,
-    meta_label: '需要补充目录映射',
-    path_hint: '新增权限若出现在这里，说明还没挂到正确业务目录',
-    keywords: ['未归类', '权限映射', '目录映射'],
-    sort_order: index,
-    children: permissions.map((permission, permissionIndex) =>
-      createPermissionLeafNode(permission, disabled, permissionIndex),
-    ),
+    meta_label: permission.type === 'menu' ? '菜单权限' : '操作权限',
+    path_hint: permission.path ?? undefined,
+    keywords: [permission.code, permission.name, permission.group_name, permission.path ?? ''],
+    sort_order: permission.sort_order,
+    children: (permission.children ?? []).map((child) => buildPermissionNode(child, disabled)),
   }
 }
 
@@ -365,7 +191,7 @@ function finalizeTree(node: PermissionTreeNode) {
       finalizeTree(child)
     }
     node.children.sort(compareTreeNodes)
-    node.count = node.children.reduce((sum, child) => sum + (child.type === 'permission' ? 1 : child.count ?? 0), 0)
+    node.count = node.children.reduce((sum, child) => sum + (child.type === 'action' ? 1 : child.count ?? 0), 0)
   }
 }
 
@@ -378,7 +204,7 @@ function compareTreeNodes(left: PermissionTreeNode, right: PermissionTreeNode) {
 }
 
 function isPermissionNode(node: PermissionTreeNode) {
-  return node.type === 'permission'
+  return node.type === 'action'
 }
 
 function isBranchNode(node: PermissionTreeNode) {
@@ -677,11 +503,11 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
                           </span>
                         </div>
                         <span v-if="getSecondaryLabel(row.node)" class="role-editor-dialog__permission-meta">{{ getSecondaryLabel(row.node) }}</span>
-                        <span v-if="row.node.type === 'permission' && row.node.description" class="role-editor-dialog__permission-description">
+                        <span v-if="row.node.type === 'action' && row.node.description" class="role-editor-dialog__permission-description">
                           {{ row.node.description }}
                         </span>
                       </div>
-                      <span v-if="row.node.type === 'permission' && row.node.code" class="role-editor-dialog__permission-code">
+                      <span v-if="row.node.type === 'action' && row.node.code" class="role-editor-dialog__permission-code">
                         {{ row.node.code }}
                       </span>
                       <el-tag v-else size="small" effect="plain">

@@ -20,7 +20,7 @@ const groups = ref<SystemConfigGroup[]>([])
 const permissionStore = usePermissionStore()
 
 const activeGroup = ref('')
-const canViewConfig = computed(() => permissionStore.hasPermission('system-config:view'))
+const canViewConfig = computed(() => permissionStore.hasPermission('page.system-settings.config'))
 const canUpdateConfig = computed(() => permissionStore.hasPermission('system-config:update'))
 
 const currentGroup = computed(() =>

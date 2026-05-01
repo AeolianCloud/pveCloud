@@ -34,8 +34,8 @@ func TestAdminRoleUpdateAuditActionDetectsPermissionChange(t *testing.T) {
 	action := AdminRoleUpdateAuditAction(
 		models.AdminRole{Status: AdminStatusActive},
 		models.AdminRole{Status: AdminStatusActive},
-		[]string{"dashboard:view"},
-		[]string{"dashboard:view", "audit:view"},
+		[]string{"page.dashboard"},
+		[]string{"page.dashboard", "audit-log:sensitive-view"},
 	)
 	if action != AdminRolePermissionUpdateAction {
 		t.Fatalf("expected permission update action, got %s", action)
@@ -46,10 +46,65 @@ func TestAdminRoleUpdateAuditActionDetectsDisable(t *testing.T) {
 	action := AdminRoleUpdateAuditAction(
 		models.AdminRole{Status: AdminStatusActive},
 		models.AdminRole{Status: "disabled"},
-		[]string{"dashboard:view"},
-		[]string{"dashboard:view"},
+		[]string{"page.dashboard"},
+		[]string{"page.dashboard"},
 	)
 	if action != AdminRoleDisableAction {
 		t.Fatalf("expected role disable action, got %s", action)
+	}
+}
+
+func TestBuildVisibleAdminMenusUsesOwnedMenuPermissions(t *testing.T) {
+	systemParent := "page.system-settings"
+	systemPath := "/system"
+	systemIcon := "Setting"
+	settingsPath := "/system/settings"
+	auditPath := "/system/audit-logs"
+	permissions := []models.AdminPermission{
+		{
+			ID:            1,
+			Code:          "page.system-settings",
+			Name:          "系统设置",
+			Type:          "menu",
+			Path:          &systemPath,
+			Icon:          &systemIcon,
+			SortOrder:     20,
+			VisibleInMenu: true,
+		},
+		{
+			ID:            2,
+			Code:          "page.system-settings.config",
+			Name:          "系统配置",
+			Type:          "menu",
+			ParentCode:    &systemParent,
+			Path:          &settingsPath,
+			SortOrder:     10,
+			VisibleInMenu: true,
+		},
+		{
+			ID:            3,
+			Code:          "page.system-settings.audit-logs",
+			Name:          "操作日志",
+			Type:          "menu",
+			ParentCode:    &systemParent,
+			Path:          &auditPath,
+			SortOrder:     30,
+			VisibleInMenu: true,
+		},
+	}
+
+	menus := BuildVisibleAdminMenus(permissions, []string{
+		"page.system-settings",
+		"page.system-settings.config",
+	})
+
+	if len(menus) != 1 {
+		t.Fatalf("expected one root menu, got %d", len(menus))
+	}
+	if menus[0].Key != "page.system-settings" {
+		t.Fatalf("expected system settings root, got %s", menus[0].Key)
+	}
+	if len(menus[0].Children) != 1 || menus[0].Children[0].Key != "page.system-settings.config" {
+		t.Fatalf("expected only system config child, got %#v", menus[0].Children)
 	}
 }

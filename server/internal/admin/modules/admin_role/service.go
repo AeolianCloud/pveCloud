@@ -102,7 +102,7 @@ func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, re
 	if err := s.ensureRoleCodeUnique(ctx, 0, code); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
-	permissionIDs, err := s.permissionIDsByCodes(ctx, req.PermissionCodes)
+	permissionIDs, normalizedCodes, err := s.permissionIDsByCodes(ctx, req.PermissionCodes)
 	if err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
@@ -126,13 +126,13 @@ func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, re
 			Action:     adminRoleCreateAction,
 			ObjectType: adminRoleObjectType,
 			ObjectID:   textutil.Uint64String(created.ID),
-			AfterData:  adminRoleAuditSnapshot(created, req.PermissionCodes),
+			AfterData:  adminRoleAuditSnapshot(created, normalizedCodes),
 			Remark:     "创建管理端角色",
 		})
 	}); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
-	return adminRoleItem(created, sets.UniqueStrings(req.PermissionCodes)), nil
+	return adminRoleItem(created, normalizedCodes), nil
 }
 
 /**
@@ -173,7 +173,7 @@ func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id
 	var permissionIDs []uint64
 	var err error
 	if req.PermissionCodes != nil {
-		permissionIDs, err = s.permissionIDsByCodes(ctx, req.PermissionCodes)
+		permissionIDs, _, err = s.permissionIDsByCodes(ctx, req.PermissionCodes)
 		if err != nil {
 			return admindto.AdminRoleItem{}, err
 		}
@@ -236,48 +236,24 @@ func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id
 }
 
 /**
- * Permissions 查询系统权限码分组。
+ * Permissions 查询系统权限目录树。
  *
  * @param ctx 请求上下文
  * @param query 查询参数
- * @return []admin.AdminPermissionGroup 权限分组列表
+ * @return []admin.AdminPermissionItem 权限目录树
  * @return error 查询失败原因
  */
-func (s *AdminRoleService) Permissions(ctx context.Context, query admindto.AdminPermissionListQuery) ([]admindto.AdminPermissionGroup, error) {
+func (s *AdminRoleService) Permissions(ctx context.Context, query admindto.AdminPermissionListQuery) ([]admindto.AdminPermissionItem, error) {
 	db := s.db.WithContext(ctx).Model(&models.AdminPermission{})
 	if query.GroupName != "" {
 		db = db.Where("group_name = ?", strings.TrimSpace(query.GroupName))
 	}
 
 	var permissions []models.AdminPermission
-	if err := db.Order("group_name ASC, id ASC").Find(&permissions).Error; err != nil {
+	if err := db.Order("sort_order ASC, id ASC").Find(&permissions).Error; err != nil {
 		return nil, err
 	}
-
-	groupMap := make(map[string][]admindto.AdminPermissionItem)
-	groupNames := make([]string, 0)
-	for _, permission := range permissions {
-		if _, ok := groupMap[permission.GroupName]; !ok {
-			groupNames = append(groupNames, permission.GroupName)
-		}
-		groupMap[permission.GroupName] = append(groupMap[permission.GroupName], admindto.AdminPermissionItem{
-			ID:          permission.ID,
-			Code:        permission.Code,
-			Name:        permission.Name,
-			GroupName:   permission.GroupName,
-			Description: permission.Description,
-		})
-	}
-	sort.Strings(groupNames)
-
-	result := make([]admindto.AdminPermissionGroup, 0, len(groupNames))
-	for _, groupName := range groupNames {
-		result = append(result, admindto.AdminPermissionGroup{
-			GroupName:   groupName,
-			Permissions: groupMap[groupName],
-		})
-	}
-	return result, nil
+	return buildPermissionTree(permissions), nil
 }
 
 func (s *AdminRoleService) findRole(ctx context.Context, db *gorm.DB, id uint64) (models.AdminRole, error) {
@@ -330,23 +306,72 @@ func (s *AdminRoleService) ensureBuiltInRoleCanUpdate(ctx context.Context, id ui
 	return nil
 }
 
-func (s *AdminRoleService) permissionIDsByCodes(ctx context.Context, codes []string) ([]uint64, error) {
+func (s *AdminRoleService) permissionIDsByCodes(ctx context.Context, codes []string) ([]uint64, []string, error) {
 	codes = sets.UniqueStrings(codes)
 	if len(codes) == 0 {
-		return nil, nil
+		return nil, nil, nil
+	}
+	normalizedCodes, err := s.normalizePermissionCodes(ctx, codes)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(normalizedCodes) == 0 {
+		return nil, nil, nil
 	}
 	var rows []models.AdminPermission
-	if err := s.db.WithContext(ctx).Where("code IN ?", codes).Find(&rows).Error; err != nil {
-		return nil, err
+	if err := s.db.WithContext(ctx).Where("code IN ?", normalizedCodes).Find(&rows).Error; err != nil {
+		return nil, nil, err
 	}
-	if len(rows) != len(codes) {
-		return nil, apperrors.ErrValidation.WithMessage("权限码不存在")
+	if len(rows) != len(normalizedCodes) {
+		return nil, nil, apperrors.ErrValidation.WithMessage("权限码不存在")
 	}
 	ids := make([]uint64, 0, len(rows))
 	for _, row := range rows {
 		ids = append(ids, row.ID)
 	}
-	return ids, nil
+	return ids, normalizedCodes, nil
+}
+
+func (s *AdminRoleService) normalizePermissionCodes(ctx context.Context, requestedCodes []string) ([]string, error) {
+	requestedCodes = sets.UniqueStrings(requestedCodes)
+	if len(requestedCodes) == 0 {
+		return nil, nil
+	}
+
+	var permissions []models.AdminPermission
+	if err := s.db.WithContext(ctx).Find(&permissions).Error; err != nil {
+		return nil, err
+	}
+
+	permissionByCode := make(map[string]models.AdminPermission, len(permissions))
+	for _, permission := range permissions {
+		permissionByCode[permission.Code] = permission
+	}
+
+	result := make(map[string]struct{}, len(requestedCodes))
+	for _, code := range requestedCodes {
+		permission, ok := permissionByCode[code]
+		if !ok {
+			return nil, apperrors.ErrValidation.WithMessage("权限码不存在")
+		}
+		result[permission.Code] = struct{}{}
+		parent := strings.TrimSpace(parentCode(permission))
+		for parent != "" {
+			parentPermission, ok := permissionByCode[parent]
+			if !ok {
+				return nil, apperrors.ErrValidation.WithMessage("权限目录父节点不存在")
+			}
+			result[parentPermission.Code] = struct{}{}
+			parent = strings.TrimSpace(parentCode(parentPermission))
+		}
+	}
+
+	codes := make([]string, 0, len(result))
+	for code := range result {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+	return codes, nil
 }
 
 func (s *AdminRoleService) permissionCodesByRoleIDs(ctx context.Context, roleIDs []uint64) (map[uint64][]string, error) {
@@ -433,4 +458,47 @@ func adminRoleAuditSnapshot(role models.AdminRole, permissionCodes []string) map
 		"status":           role.Status,
 		"permission_codes": sets.UniqueStrings(permissionCodes),
 	}
+}
+
+func buildPermissionTree(permissions []models.AdminPermission) []admindto.AdminPermissionItem {
+	childrenByParent := make(map[string][]models.AdminPermission)
+	for _, permission := range permissions {
+		childrenByParent[parentCode(permission)] = append(childrenByParent[parentCode(permission)], permission)
+	}
+	for parent := range childrenByParent {
+		sort.SliceStable(childrenByParent[parent], func(left, right int) bool {
+			if childrenByParent[parent][left].SortOrder != childrenByParent[parent][right].SortOrder {
+				return childrenByParent[parent][left].SortOrder < childrenByParent[parent][right].SortOrder
+			}
+			return childrenByParent[parent][left].ID < childrenByParent[parent][right].ID
+		})
+	}
+	return buildPermissionTreeItems("", childrenByParent)
+}
+
+func buildPermissionTreeItems(parent string, childrenByParent map[string][]models.AdminPermission) []admindto.AdminPermissionItem {
+	items := make([]admindto.AdminPermissionItem, 0, len(childrenByParent[parent]))
+	for _, permission := range childrenByParent[parent] {
+		items = append(items, admindto.AdminPermissionItem{
+			ID:          permission.ID,
+			Code:        permission.Code,
+			Name:        permission.Name,
+			Type:        permission.Type,
+			ParentCode:  permission.ParentCode,
+			Path:        permission.Path,
+			Icon:        permission.Icon,
+			SortOrder:   permission.SortOrder,
+			GroupName:   permission.GroupName,
+			Description: permission.Description,
+			Children:    buildPermissionTreeItems(permission.Code, childrenByParent),
+		})
+	}
+	return items
+}
+
+func parentCode(permission models.AdminPermission) string {
+	if permission.ParentCode == nil {
+		return ""
+	}
+	return strings.TrimSpace(*permission.ParentCode)
 }

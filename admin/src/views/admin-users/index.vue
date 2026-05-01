@@ -13,7 +13,7 @@ import {
   getAdminPermissions,
   getAdminRoles,
   updateAdminRole,
-  type AdminPermissionGroup,
+  type AdminPermissionItem,
   type AdminRoleCreateRequest,
   type AdminRoleItem,
   type AdminRoleUpdateRequest,
@@ -80,7 +80,7 @@ const users = ref<AdminUserItem[]>([])
 const roleOptions = ref<AdminRoleItem[]>([])
 const roles = ref<AdminRoleItem[]>([])
 const sessions = ref<AdminSessionItem[]>([])
-const permissionGroups = ref<AdminPermissionGroup[]>([])
+const permissionTree = ref<AdminPermissionItem[]>([])
 
 const userPagination = reactive<PaginationState>({
   page: 1,
@@ -147,10 +147,10 @@ const canViewUsersTab = computed(() => permissionStore.hasPermission('page.syste
 const canViewRolesTab = computed(() => permissionStore.hasPermission('page.system-settings.admin-roles'))
 const canViewSessionsTab = computed(() => permissionStore.hasPermission('page.system-settings.admin-sessions'))
 
-const canViewUsersResource = computed(() => permissionStore.hasPermission('admin-user:view'))
-const canViewRolesResource = computed(() => permissionStore.hasPermission('admin-role:view'))
-const canViewSessionsResource = computed(() => permissionStore.hasPermission('admin-session:view'))
-const canReadRoleOptions = computed(() => permissionStore.hasPermission('admin-role:view'))
+const canViewUsersResource = computed(() => permissionStore.hasPermission('page.system-settings.admin-users'))
+const canViewRolesResource = computed(() => permissionStore.hasPermission('page.system-settings.admin-roles'))
+const canViewSessionsResource = computed(() => permissionStore.hasPermission('page.system-settings.admin-sessions'))
+const canReadRoleOptions = computed(() => permissionStore.hasPermission('page.system-settings.admin-roles'))
 
 const canCreateUser = computed(() => permissionStore.hasPermission('admin-user:create'))
 const canUpdateUser = computed(() => permissionStore.hasPermission('admin-user:update'))
@@ -263,7 +263,7 @@ async function loadRoleOptions() {
 }
 
 async function loadPermissionGroups() {
-  permissionGroups.value = await getAdminPermissions()
+  permissionTree.value = await getAdminPermissions()
 }
 
 async function loadUsersData() {
@@ -1010,7 +1010,7 @@ function toErrorMessage(error: unknown, fallback: string) {
       :is-built-in-role="isBuiltInRole"
       :form="roleEditorForm"
       :rules="roleEditorRules"
-      :permission-groups="permissionGroups"
+      :permission-tree="permissionTree"
       :submitting="roleSubmitting"
       @submit="submitRoleEditor"
       @closed="handleRoleEditorClosed"

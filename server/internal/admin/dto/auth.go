@@ -62,5 +62,6 @@ type LoginResponse struct {
 	Admin           AdminSummary   `json:"admin"`
 	RoleIDs         []uint64       `json:"role_ids"`
 	PermissionCodes []string       `json:"permission_codes"`
+	Menus           []MenuItem     `json:"menus"`
 	Session         SessionSummary `json:"session"`
 }

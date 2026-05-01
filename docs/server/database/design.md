@@ -23,7 +23,7 @@ collation: utf8mb4_unicode_ci
 
 ## 当前表分组
 
-### 基础后台账号与权限
+### 基础后台账号、菜单与权限
 
 ```text
 admin_users
@@ -44,9 +44,12 @@ admin_audit_logs
 ## 管理端关键规则
 
 - 管理端专用表使用 `admin_` 前缀
-- 权限码分为页面入口权限和资源操作权限
-- 页面入口权限使用 `page.<menu>.<feature>`
-- 资源操作权限使用 `resource:action`
+- `admin_permissions` 是管理端菜单和操作权限的唯一目录来源
+- 权限节点分为 `type=menu` 和 `type=action`
+- 菜单权限使用 `page.<menu>.<feature>`，控制菜单可见、路由访问和页面主数据读取
+- 操作权限使用 `resource:action`，控制按钮、写接口、危险操作和敏感详情读取
+- 操作权限必须通过 `parent_code` 挂到明确菜单节点
+- 菜单树通过 `parent_code`、`path`、`icon`、`sort_order` 和 `visible_in_menu` 生成
 - 管理端会话最终状态以 `admin_sessions` 为准
 - `super_admin` 角色应始终拥有当前 `admin_permissions` 中定义的全部权限
 - JWT 中的角色和权限快照只用于登录响应与前端体验，不替代服务端当前 RBAC 校验

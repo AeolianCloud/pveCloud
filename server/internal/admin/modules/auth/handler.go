@@ -92,12 +92,19 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, h.authService.Me(
+	result, err := h.authService.Me(
+		c.Request.Context(),
 		admin,
 		middleware.CurrentAdminRoleIDs(c),
 		middleware.CurrentAdminPermissionCodes(c),
 		session,
-	))
+	)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, result)
 }
 
 /**

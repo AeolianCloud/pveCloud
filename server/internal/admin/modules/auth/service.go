@@ -197,14 +197,18 @@ func (s *AdminAuthService) Login(ctx context.Context, req admindto.LoginRequest)
  * @param session 当前会话摘要
  * @return admin.AuthStateResponse 认证态响应
  */
-func (s *AdminAuthService) Me(admin models.AdminUser, roleIDs []uint64, permissionCodes []string, session admindto.SessionSummary) admindto.AuthStateResponse {
+func (s *AdminAuthService) Me(ctx context.Context, admin models.AdminUser, roleIDs []uint64, permissionCodes []string, session admindto.SessionSummary) (admindto.AuthStateResponse, error) {
+	menus, err := support.VisibleAdminMenus(ctx, s.db, permissionCodes)
+	if err != nil {
+		return admindto.AuthStateResponse{}, err
+	}
 	return admindto.AuthStateResponse{
 		Admin:           support.AdminSummary(admin),
 		RoleIDs:         roleIDs,
 		PermissionCodes: permissionCodes,
-		Menus:           support.VisibleAdminMenus(permissionCodes),
+		Menus:           menus,
 		Session:         session,
-	}
+	}, nil
 }
 
 /**
@@ -337,6 +341,10 @@ func (s *AdminAuthService) issueSession(ctx context.Context, tx *gorm.DB, admin 
 	if err := tx.Create(&session).Error; err != nil {
 		return admindto.LoginResponse{}, err
 	}
+	menus, err := support.VisibleAdminMenus(ctx, tx, permissionCodes)
+	if err != nil {
+		return admindto.LoginResponse{}, err
+	}
 
 	claims := jwtpkg.Claims{
 		TokenType:       "admin",
@@ -362,6 +370,7 @@ func (s *AdminAuthService) issueSession(ctx context.Context, tx *gorm.DB, admin 
 		Admin:           support.AdminSummary(admin),
 		RoleIDs:         roleIDs,
 		PermissionCodes: permissionCodes,
+		Menus:           menus,
 		Session:         support.SessionSummary(session),
 	}, nil
 }

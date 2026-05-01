@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
 
+import type { AdminMenuItem } from '../api/auth'
 import type { RoutePermission } from '../router/types'
 
 export interface SidebarMenuItem {
@@ -129,4 +130,15 @@ export function buildSidebarMenus(routes: RouteRecordRaw[]): SidebarMenuItem[] {
 
       return base
     })
+}
+
+export function buildSidebarMenusFromSnapshot(menus: AdminMenuItem[]): SidebarMenuItem[] {
+  return menus.map((menu) => ({
+    key: menu.key,
+    title: menu.title,
+    path: menu.path,
+    icon: menu.icon,
+    affix: false,
+    children: menu.children?.length ? buildSidebarMenusFromSnapshot(menu.children) : undefined,
+  }))
 }

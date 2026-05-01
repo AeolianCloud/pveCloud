@@ -54,13 +54,19 @@ func (AdminRole) TableName() string {
  * AdminPermission 映射 admin_permissions 管理端权限码表。
  */
 type AdminPermission struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	Code        string    `gorm:"column:code"`
-	Name        string    `gorm:"column:name"`
-	GroupName   string    `gorm:"column:group_name"`
-	Description *string   `gorm:"column:description"`
-	CreatedAt   time.Time `gorm:"column:created_at"`
-	UpdatedAt   time.Time `gorm:"column:updated_at"`
+	ID            uint64    `gorm:"column:id;primaryKey"`
+	Code          string    `gorm:"column:code"`
+	Name          string    `gorm:"column:name"`
+	Type          string    `gorm:"column:type"`
+	ParentCode    *string   `gorm:"column:parent_code"`
+	Path          *string   `gorm:"column:path"`
+	Icon          *string   `gorm:"column:icon"`
+	SortOrder     int       `gorm:"column:sort_order"`
+	VisibleInMenu bool      `gorm:"column:visible_in_menu"`
+	GroupName     string    `gorm:"column:group_name"`
+	Description   *string   `gorm:"column:description"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at"`
 }
 
 /**

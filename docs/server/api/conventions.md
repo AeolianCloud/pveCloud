@@ -54,16 +54,16 @@
 - `jti` 对应 `admin_sessions.session_id`
 - 受保护管理端接口不仅校验 token，还要校验当前会话状态和当前数据库 RBAC
 
-## 管理端权限码
+## 管理端权限目录
 
-管理端权限采用双层模型：
+管理端权限以 `admin_permissions` 作为唯一目录来源，采用菜单节点和操作节点一体化模型：
 
-1. 页面入口权限：控制菜单、路由、tab 是否显示
-2. 资源操作权限：控制进入页面后能执行哪些读写操作
+1. 菜单权限：控制服务端下发菜单、页面路由访问和页面主数据读取
+2. 操作权限：控制进入页面后能执行哪些按钮、写操作、危险操作或敏感详情读取
 
-### 页面入口权限
+### 菜单权限
 
-页面入口权限格式统一为：
+菜单权限格式统一为：
 
 ```text
 page.<menu>.<feature>
@@ -78,9 +78,24 @@ page.<menu>.<feature>
 - `page.system-settings.admin-sessions`
 - `page.system-settings.audit-logs`
 
-### 资源操作权限
+菜单权限在权限目录中使用 `type=menu`。`/admin-api/auth/me`、登录恢复和 Dashboard 响应中的 `menus` 必须按当前管理员拥有的菜单权限生成。
 
-资源操作权限格式统一为：
+`menus` 节点结构：
+
+```json
+{
+  "key": "page.dashboard",
+  "title": "控制台",
+  "path": "/dashboard",
+  "icon": "Odometer",
+  "permission_code": "page.dashboard",
+  "children": []
+}
+```
+
+### 操作权限
+
+操作权限格式统一为：
 
 ```text
 resource:action
@@ -100,9 +115,11 @@ resource:action
 
 实现要求：
 
-- 前端菜单、路由和 tab 显示判断使用页面入口权限
-- 前端按钮、区块、提交动作和后端接口鉴权使用资源操作权限
+- 前端侧栏菜单使用服务端 `menus`
+- 前端路由、tab 显示和页面主数据读取使用菜单权限
+- 前端按钮、区块、提交动作和后端写接口鉴权使用操作权限
 - 如果持有 `resource:*`，则应视为同时拥有该资源全部细粒度权限
+- 操作权限在权限目录中必须挂到明确父级菜单；创建或更新角色时，后端需要归一化权限集合，保留被选中操作权限的父级菜单权限
 
 ## 幂等原则
 

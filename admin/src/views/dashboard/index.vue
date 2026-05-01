@@ -15,7 +15,7 @@ const permissionStore = usePermissionStore()
 const loading = ref(false)
 const errorMessage = ref('')
 const metrics = ref<DashboardMetric[]>([])
-const canViewDashboard = computed(() => permissionStore.hasPermission('dashboard:view'))
+const canViewDashboard = computed(() => permissionStore.hasPermission('page.dashboard'))
 
 const metricMeta: Record<string, { icon: Component }> = {
   active_admins: { icon: UserFilled },

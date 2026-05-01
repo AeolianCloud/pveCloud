@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 
 import type { AdminMenuItem, AdminPermissionSnapshot } from '../../api/auth'
-import { viewRoutes } from '../../router/view-routes'
-import { buildSidebarMenus, checkPermission, filterViewRoutes } from '../../utils/permission'
+import type { SidebarMenuItem } from '../../utils/permission'
+import { buildSidebarMenusFromSnapshot, checkPermission } from '../../utils/permission'
 
 interface PermissionState {
   roleIds: number[]
@@ -17,7 +17,7 @@ export const usePermissionStore = defineStore('admin-permission', {
     menuSnapshot: [],
   }),
   getters: {
-    sidebarMenus: (state) => buildSidebarMenus(filterViewRoutes(viewRoutes, state.permissionCodes)),
+    sidebarMenus: (state): SidebarMenuItem[] => buildSidebarMenusFromSnapshot(state.menuSnapshot),
     hasPermission: (state) => (required?: string | string[]) =>
       checkPermission(state.permissionCodes, required),
     hasAllPermissions: (state) => (required?: string | string[]) =>

@@ -60,6 +60,10 @@ func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs
 	if err != nil {
 		return admindto.DashboardResponse{}, err
 	}
+	menus, err := support.VisibleAdminMenus(ctx, s.db, permissionCodes)
+	if err != nil {
+		return admindto.DashboardResponse{}, err
+	}
 
 	return admindto.DashboardResponse{
 		AuthStateResponse: admindto.AuthStateResponse{
@@ -72,7 +76,7 @@ func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs
 			},
 			RoleIDs:         roleIDs,
 			PermissionCodes: permissionCodes,
-			Menus:           support.VisibleAdminMenus(permissionCodes),
+			Menus:           menus,
 			Session:         session,
 		},
 		Metrics: metrics,

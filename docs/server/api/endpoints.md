@@ -42,18 +42,20 @@
   - `admin`
   - `role_ids`
   - `permission_codes`
+  - `menus`
   - `session`
 
 ### `GET /admin-api/auth/me`
 
 - 鉴权：管理端 Bearer Token
-- 作用：恢复当前管理员、权限快照、菜单快照与会话状态
+- 作用：恢复当前管理员、权限快照、后端菜单树与会话状态
 - 成功数据包含：
   - `admin`
   - `role_ids`
   - `permission_codes`
   - `menus`
   - `session`
+- `menus` 由 `admin_permissions` 中 `type=menu` 且当前管理员拥有的权限节点生成，前端侧栏按该树渲染。
 
 ### `POST /admin-api/auth/logout`
 
@@ -71,8 +73,7 @@
 ### `GET /admin-api/dashboard`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.dashboard`
-- 资源权限：`dashboard:view` 或 `dashboard:*`
+- 菜单权限：`page.dashboard`
 - 作用：获取当前基础后台首页数据
 - 成功数据包含：
   - `admin`
@@ -89,36 +90,31 @@
 ### `GET /admin-api/admin-users`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-users`
-- 资源权限：`admin-user:view` 或 `admin-user:*`
+- 菜单权限：`page.system-settings.admin-users`
 - 作用：分页查询管理员账号
 
 ### `POST /admin-api/admin-users`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-users`
-- 资源权限：`admin-user:create` 或 `admin-user:*`
+- 操作权限：`admin-user:create` 或 `admin-user:*`
 - 作用：创建管理员账号
 
 ### `GET /admin-api/admin-users/{id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-users`
-- 资源权限：`admin-user:view` 或 `admin-user:*`
+- 菜单权限：`page.system-settings.admin-users`
 - 作用：查看管理员详情
 
 ### `PATCH /admin-api/admin-users/{id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-users`
-- 资源权限：`admin-user:update` 或 `admin-user:*`
+- 操作权限：`admin-user:update` 或 `admin-user:*`
 - 作用：更新管理员信息、状态和角色
 
 ### `POST /admin-api/admin-users/{id}/password`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-users`
-- 资源权限：`admin-user:password-reset` 或 `admin-user:*`
+- 操作权限：`admin-user:password-reset` 或 `admin-user:*`
 - 作用：重置管理员密码
 
 ## 角色与权限域
@@ -126,53 +122,47 @@
 ### `GET /admin-api/admin-roles`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-roles`
-- 资源权限：`admin-role:view` 或 `admin-role:*`
+- 菜单权限：`page.system-settings.admin-roles`
 - 作用：查询角色列表
 
 ### `POST /admin-api/admin-roles`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-roles`
-- 资源权限：`admin-role:create` 或 `admin-role:*`
+- 操作权限：`admin-role:create` 或 `admin-role:*`
 - 作用：创建角色
 
 ### `GET /admin-api/admin-roles/{id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-roles`
-- 资源权限：`admin-role:view` 或 `admin-role:*`
+- 菜单权限：`page.system-settings.admin-roles`
 - 作用：查看角色详情
 
 ### `PATCH /admin-api/admin-roles/{id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-roles`
-- 资源权限：`admin-role:update` 或 `admin-role:*`
+- 操作权限：`admin-role:update` 或 `admin-role:*`
 - 作用：更新角色信息、状态和权限
 
 ### `GET /admin-api/admin-permissions`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-roles`
-- 资源权限：`admin-role:view` 或 `admin-role:*`
-- 作用：只读查询权限码分组
+- 菜单权限：`page.system-settings.admin-roles`
+- 作用：只读查询菜单和操作权限目录树
+- 成功数据为树形节点数组，每个节点包含：`code`、`name`、`type`、`parent_code`、`path`、`icon`、`sort_order`、`description`、`children`
 
 ## 管理员会话域
 
 ### `GET /admin-api/admin-sessions`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-sessions`
-- 资源权限：`admin-session:view` 或 `admin-session:*`
+- 菜单权限：`page.system-settings.admin-sessions`
 - 作用：分页查询管理员会话列表
 - 查询参数支持：`page`、`per_page`、`keyword`、`status`
 
 ### `PATCH /admin-api/admin-sessions/{session_id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.admin-sessions`
-- 资源权限：`admin-session:revoke` 或 `admin-session:*`
+- 操作权限：`admin-session:revoke` 或 `admin-session:*`
 - 作用：吊销指定管理员会话
 - 请求字段：`status`，当前固定为 `revoked`
 - 约束：不得通过该接口吊销当前会话自身
@@ -182,15 +172,13 @@
 ### `GET /admin-api/system-configs`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.config`
-- 资源权限：`system-config:view` 或 `system-config:*`
+- 菜单权限：`page.system-settings.config`
 - 作用：按配置分组查询系统配置
 
 ### `PATCH /admin-api/system-configs/{id}`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.config`
-- 资源权限：`system-config:update` 或 `system-config:*`
+- 操作权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
 
 ## 操作日志域
@@ -198,8 +186,7 @@
 ### `GET /admin-api/audit-logs`
 
 - 鉴权：管理端 Bearer Token
-- 页面入口权限建议：`page.system-settings.audit-logs`
-- 资源权限：`audit-log:view` 或 `audit-log:*`
+- 菜单权限：`page.system-settings.audit-logs`
 - 敏感详情权限：`audit-log:sensitive-view` 或 `audit-log:*`
 - 作用：分页查询普通后台操作日志
 - 查询参数支持：`page`、`per_page`、`admin_id`、`action`、`object_type`、`object_id`、`date_from`、`date_to`

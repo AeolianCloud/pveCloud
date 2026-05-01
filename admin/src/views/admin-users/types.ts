@@ -57,7 +57,7 @@ export interface RoleEditorSnapshot {
 export interface PermissionTreeNode {
   id: string
   label: string
-  type: 'root' | 'segment' | 'permission'
+  type: 'menu' | 'action'
   code?: string
   count?: number
   description?: string | null

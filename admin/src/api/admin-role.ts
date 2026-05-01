@@ -35,17 +35,20 @@ export interface AdminRoleUpdateRequest {
   permission_codes?: string[]
 }
 
+export type AdminPermissionType = 'menu' | 'action'
+
 export interface AdminPermissionItem {
   id: number
   code: string
   name: string
+  type: AdminPermissionType
+  parent_code: string | null
+  path: string | null
+  icon: string | null
+  sort_order: number
   group_name: string
   description: string | null
-}
-
-export interface AdminPermissionGroup {
-  group_name: string
-  permissions: AdminPermissionItem[]
+  children?: AdminPermissionItem[]
 }
 
 export async function getAdminRoles(query?: AdminRoleListQuery) {
@@ -68,6 +71,6 @@ export async function getAdminPermissions(groupName?: string) {
   if (groupName) {
     params.group_name = groupName
   }
-  const response = await http.get<ApiEnvelope<AdminPermissionGroup[]>>('/admin-permissions', { params })
+  const response = await http.get<ApiEnvelope<AdminPermissionItem[]>>('/admin-permissions', { params })
   return response.data.data
 }
