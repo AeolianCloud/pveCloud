@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Refresh, Search } from '@element-plus/icons-vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
@@ -12,7 +12,14 @@ const loading = ref(false)
 const refreshing = ref(false)
 const errorMessage = ref('')
 const logs = ref<AuditLogItem[]>([])
+const loginLogs = ref<AuditLogItem[]>([])
+const activeTab = ref<'operation' | 'login'>('operation')
 const pagination = reactive({
+  page: 1,
+  per_page: 15,
+  total: 0,
+})
+const loginPagination = reactive({
   page: 1,
   per_page: 15,
   total: 0,
@@ -24,12 +31,29 @@ const queryForm = reactive({
   object_id: '',
   date_range: [] as string[],
 })
+const loginQueryForm = reactive({
+  admin_id: '',
+  action: '',
+  date_range: [] as string[],
+})
+
+const loginActionOptions = [
+  { label: '登录成功', value: 'admin.login.success' },
+  { label: '登录失败', value: 'admin.login.failed' },
+  { label: '登录限流', value: 'admin.login.limited' },
+  { label: '验证码限流', value: 'admin.captcha.limited' },
+  { label: '退出登录', value: 'admin.logout' },
+  { label: '会话刷新', value: 'admin.refresh' },
+]
 
 const canViewLogs = computed(() => permissionStore.hasPermission('page.system-settings.audit-logs'))
 const canViewSensitive = computed(() => permissionStore.hasPermission('audit-log:sensitive-view'))
-const hasLogs = computed(() => logs.value.length > 0)
+const currentLogs = computed(() => (activeTab.value === 'login' ? loginLogs.value : logs.value))
+const currentPagination = computed(() => (activeTab.value === 'login' ? loginPagination : pagination))
+const hasLogs = computed(() => currentLogs.value.length > 0)
+const isLoginTab = computed(() => activeTab.value === 'login')
 
-function buildQuery(): AuditLogListQuery {
+function buildOperationQuery(): AuditLogListQuery {
   const [dateFrom, dateTo] = queryForm.date_range
   return {
     page: pagination.page,
@@ -43,9 +67,23 @@ function buildQuery(): AuditLogListQuery {
   }
 }
 
+function buildLoginQuery(): AuditLogListQuery {
+  const [dateFrom, dateTo] = loginQueryForm.date_range
+  return {
+    page: loginPagination.page,
+    per_page: loginPagination.per_page,
+    admin_id: loginQueryForm.admin_id ? Number(loginQueryForm.admin_id) : undefined,
+    action: loginQueryForm.action || undefined,
+    object_type: 'admin_auth',
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+  }
+}
+
 async function loadLogs(options: { refresh?: boolean } = {}) {
   if (!canViewLogs.value) {
     logs.value = []
+    loginLogs.value = []
     errorMessage.value = ''
     return
   }
@@ -54,7 +92,14 @@ async function loadLogs(options: { refresh?: boolean } = {}) {
   refreshing.value = Boolean(options.refresh)
   errorMessage.value = ''
   try {
-    const result = await getAuditLogs(buildQuery())
+    const result = await getAuditLogs(activeTab.value === 'login' ? buildLoginQuery() : buildOperationQuery())
+    if (activeTab.value === 'login') {
+      loginLogs.value = result.list
+      loginPagination.total = result.total
+      loginPagination.page = result.page
+      loginPagination.per_page = result.per_page
+      return
+    }
     logs.value = result.list
     pagination.total = result.total
     pagination.page = result.page
@@ -68,29 +113,40 @@ async function loadLogs(options: { refresh?: boolean } = {}) {
 }
 
 function handleSearch() {
-  pagination.page = 1
+  currentPagination.value.page = 1
   void loadLogs()
 }
 
 function handleReset() {
-  queryForm.admin_id = ''
-  queryForm.action = ''
-  queryForm.object_type = ''
-  queryForm.object_id = ''
-  queryForm.date_range = []
-  pagination.page = 1
+  if (activeTab.value === 'login') {
+    loginQueryForm.admin_id = ''
+    loginQueryForm.action = ''
+    loginQueryForm.date_range = []
+  } else {
+    queryForm.admin_id = ''
+    queryForm.action = ''
+    queryForm.object_type = ''
+    queryForm.object_id = ''
+    queryForm.date_range = []
+  }
+  currentPagination.value.page = 1
   void loadLogs()
 }
 
 function handlePageChange(page: number) {
-  pagination.page = page
+  currentPagination.value.page = page
   void loadLogs()
 }
 
 function handlePageSizeChange(perPage: number) {
-  pagination.per_page = perPage
-  pagination.page = 1
+  currentPagination.value.per_page = perPage
+  currentPagination.value.page = 1
   void loadLogs()
+}
+
+function formatAction(value: string) {
+  const option = loginActionOptions.find((item) => item.value === value)
+  return option ? option.label : value
 }
 
 function formatDateTime(value: string | null | undefined) {
@@ -135,14 +191,24 @@ function requestLine(row: AuditLogItem) {
 onMounted(() => {
   void loadLogs()
 })
+
+watch(activeTab, () => {
+  if (activeTab.value === 'login' && loginLogs.value.length === 0 && loginPagination.total === 0) {
+    void loadLogs()
+    return
+  }
+  if (activeTab.value === 'operation' && logs.value.length === 0 && pagination.total === 0) {
+    void loadLogs()
+  }
+})
 </script>
 
 <template>
   <div class="audit-logs-page">
     <div class="audit-logs-page__header">
       <div>
-        <h2>操作日志</h2>
-        <p>查看普通后台操作记录，帮助追踪谁在什么时候操作了后台。</p>
+        <h2>日志管理</h2>
+        <p>集中查看后台操作记录和管理端登录认证记录。</p>
       </div>
       <el-button :icon="Refresh" :loading="refreshing" @click="loadLogs({ refresh: true })">刷新</el-button>
     </div>
@@ -155,50 +221,89 @@ onMounted(() => {
       </template>
 
       <template v-else>
-        <el-card shadow="never" class="audit-logs-page__filter-card">
+        <el-card shadow="never" class="audit-logs-page__tabs-card">
+          <el-tabs v-model="activeTab">
+            <el-tab-pane label="操作日志" name="operation" />
+            <el-tab-pane label="登录日志" name="login" />
+          </el-tabs>
+
           <el-form inline class="audit-logs-page__filters" @submit.prevent>
-            <el-form-item label="管理员 ID">
-              <el-input
-                v-model="queryForm.admin_id"
-                clearable
-                placeholder="例如 1"
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item label="动作">
-              <el-input
-                v-model="queryForm.action"
-                clearable
-                placeholder="例如 admin.login.success"
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item label="对象类型">
-              <el-input
-                v-model="queryForm.object_type"
-                clearable
-                placeholder="例如 admin_auth"
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item label="对象 ID">
-              <el-input
-                v-model="queryForm.object_id"
-                clearable
-                placeholder="对象标识"
-                @keyup.enter="handleSearch"
-              />
-            </el-form-item>
-            <el-form-item label="时间">
-              <el-date-picker
-                v-model="queryForm.date_range"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
+            <template v-if="isLoginTab">
+              <el-form-item label="管理员 ID">
+                <el-input
+                  v-model="loginQueryForm.admin_id"
+                  clearable
+                  placeholder="例如 1"
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item label="动作类型">
+                <el-select v-model="loginQueryForm.action" clearable placeholder="全部认证日志">
+                  <el-option
+                    v-for="item in loginActionOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="时间">
+                <el-date-picker
+                  v-model="loginQueryForm.date_range"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  value-format="YYYY-MM-DD"
+                />
+              </el-form-item>
+            </template>
+
+            <template v-else>
+              <el-form-item label="管理员 ID">
+                <el-input
+                  v-model="queryForm.admin_id"
+                  clearable
+                  placeholder="例如 1"
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item label="动作">
+                <el-input
+                  v-model="queryForm.action"
+                  clearable
+                  placeholder="例如 admin.login.success"
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item label="对象类型">
+                <el-input
+                  v-model="queryForm.object_type"
+                  clearable
+                  placeholder="例如 admin_auth"
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item label="对象 ID">
+                <el-input
+                  v-model="queryForm.object_id"
+                  clearable
+                  placeholder="对象标识"
+                  @keyup.enter="handleSearch"
+                />
+              </el-form-item>
+              <el-form-item label="时间">
+                <el-date-picker
+                  v-model="queryForm.date_range"
+                  type="daterange"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  value-format="YYYY-MM-DD"
+                />
+              </el-form-item>
+            </template>
+
             <el-form-item>
               <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
               <el-button @click="handleReset">重置</el-button>
@@ -208,7 +313,7 @@ onMounted(() => {
 
         <el-card shadow="never">
           <template v-if="hasLogs">
-            <el-table :data="logs" stripe class="audit-logs-page__table">
+            <el-table :data="currentLogs" stripe class="audit-logs-page__table">
               <el-table-column label="操作者" min-width="180">
                 <template #default="{ row }">
                   <div class="audit-logs-page__identity">
@@ -217,7 +322,11 @@ onMounted(() => {
                   </div>
                 </template>
               </el-table-column>
-              <el-table-column label="动作" prop="action" min-width="190" show-overflow-tooltip />
+              <el-table-column :label="isLoginTab ? '认证动作' : '动作'" min-width="190" show-overflow-tooltip>
+                <template #default="{ row }">
+                  {{ isLoginTab ? formatAction(row.action) : row.action }}
+                </template>
+              </el-table-column>
               <el-table-column label="对象" min-width="190" show-overflow-tooltip>
                 <template #default="{ row }">
                   <div class="audit-logs-page__identity">
@@ -271,10 +380,10 @@ onMounted(() => {
               <el-pagination
                 background
                 layout="total, sizes, prev, pager, next"
-                :current-page="pagination.page"
-                :page-size="pagination.per_page"
+                :current-page="currentPagination.page"
+                :page-size="currentPagination.per_page"
                 :page-sizes="[15, 30, 50, 100]"
-                :total="pagination.total"
+                :total="currentPagination.total"
                 @current-change="handlePageChange"
                 @size-change="handlePageSizeChange"
               />
@@ -283,8 +392,8 @@ onMounted(() => {
 
           <EmptyState
             v-else
-            title="暂无操作日志"
-            description="当前筛选条件下没有可展示的后台操作记录。"
+            :title="isLoginTab ? '暂无登录日志' : '暂无操作日志'"
+            :description="isLoginTab ? '当前筛选条件下没有可展示的登录认证记录。' : '当前筛选条件下没有可展示的后台操作记录。'"
           />
         </el-card>
       </template>
@@ -317,8 +426,12 @@ onMounted(() => {
   color: var(--el-text-color-secondary);
 }
 
-.audit-logs-page__filter-card {
+.audit-logs-page__tabs-card {
   overflow: visible;
+}
+
+.audit-logs-page__tabs-card :deep(.el-tabs__header) {
+  margin-bottom: 16px;
 }
 
 .audit-logs-page__filters {
