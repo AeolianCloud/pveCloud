@@ -21,6 +21,8 @@ Use this skill whenever the task touches implementation, refactoring, migration,
 
 If a skill reference conflicts with a project document or machine contract, the project document or machine contract wins.
 
+When you are about to work on a new feature or enhancement, you must name the exact docs/contracts you read before coding. If you cannot name them, you have not satisfied the reading requirement.
+
 ## Required Reading Order
 
 1. `AGENTS.md`
@@ -62,6 +64,10 @@ Before making changes, classify the task:
   API, schema, route meaning, permission logic, request wrapper semantics, page workflow, state semantics, config shape, deployment behavior, business process.
 - Pure UI/UX polish:
   layout, spacing, colors, typography, iconography, visual density, responsive presentation, or non-contract copy.
+
+Do not start implementing after only drafting a plan from memory. For any contract or behavior change, first explicitly identify the owning contract files that were read and the owner docs or machine contracts that must change. If the required owner docs have not been read yet, stop reading and do not edit implementation files.
+
+If the implementation plan changes while coding, or if you add a security hardening, validation rule, transaction rule, config default, permission check, route behavior, state transition, or storage behavior that was not in the already confirmed contract, treat it as a new contract/behavior change. Update the owning docs or machine contracts first, stop, and ask the maintainer to confirm before continuing implementation.
 
 ## Drift-First Check
 
@@ -106,14 +112,17 @@ When the maintainer asks AI to commit, the commit message must be written in Chi
 
 1. Run `git status --short`.
 2. Read the required files in the order above.
-3. If code was pulled, already changed, or the user says work is unfinished, run the drift-first check.
-4. Decide whether the task is contract/behavior work or pure UI/UX polish.
-5. For contract/behavior work, update the owning docs or machine contracts first.
-6. After updating those docs/contracts, stop and ask the maintainer to confirm.
-7. Do not implement contract/behavior code until the maintainer explicitly confirms.
-8. For pure UI/UX polish, implement directly after reading the frontend guardrail.
-9. Verify with the smallest meaningful tests or builds.
-10. Report what changed, what was verified, and any residual risk.
+3. State the owner docs or machine contracts that were read for the task before editing implementation files.
+4. If code was pulled, already changed, or the user says work is unfinished, run the drift-first check.
+5. Decide whether the task is contract/behavior work or pure UI/UX polish.
+6. For contract/behavior work, update the owning docs or machine contracts first.
+7. After updating those docs/contracts, stop and ask the maintainer to confirm.
+8. Do not implement contract/behavior code until the maintainer explicitly confirms.
+9. While implementing, if new behavior or hardening is discovered or added, return to step 6 before continuing.
+10. For pure UI/UX polish, implement directly after reading the frontend guardrail.
+11. Before final response, compare implemented behavior against the updated owner docs/contracts and fix drift.
+12. Verify with the smallest meaningful tests or builds.
+13. Report what changed, what was verified, and any residual risk.
 
 ## Non-Negotiable Rules
 
@@ -122,6 +131,9 @@ When the maintainer asks AI to commit, the commit message must be written in Chi
 - Do not overwrite user changes.
 - Do not mutate the Git staging area, local commits, or remote branches unless the maintainer explicitly asks for that Git action.
 - Do not assume docs are current just because they exist; validate them against the current code path before continuing an unfinished feature.
+- Do not implement a new feature, API, schema, permission, config, storage behavior, validation rule, security hardening, or transaction rule before reading the owning docs/contracts and updating them when needed.
+- Do not treat security hardening as "implementation-only" if it changes accepted inputs, rejected inputs, storage semantics, audit behavior, transactional guarantees, permissions, or runtime configuration.
+- Do not finish a task until implementation and owning docs/contracts have been compared for drift.
 - Do not treat progress/plan docs as the only source of truth when they conflict with owning contract docs or implementation.
 - Do not let completed phase notes keep driving new code after the durable contract docs have moved on.
 - Do not add more code on top of a known code/docs mismatch unless the maintainer explicitly asks for an emergency implementation path.

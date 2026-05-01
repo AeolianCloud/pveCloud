@@ -21,6 +21,7 @@ type Config struct {
 	Worker   WorkerConfig   `yaml:"worker"`
 	OpenAPI  OpenAPIConfig  `yaml:"openapi"`
 	Log      LogConfig      `yaml:"log"`
+	Storage  StorageConfig  `yaml:"storage"`
 }
 
 /**
@@ -100,6 +101,16 @@ type LogConfig struct {
 }
 
 /**
+ * StorageConfig 表示文件上传与存储配置。
+ */
+type StorageConfig struct {
+	Driver       string   `yaml:"driver"`
+	LocalPath    string   `yaml:"local_path"`
+	MaxSize      int64    `yaml:"max_size"`
+	AllowedTypes []string `yaml:"allowed_types"`
+}
+
+/**
  * LoadConfig 读取并校验 YAML 配置文件。
  *
  * @param path YAML 配置文件路径；为空时使用 config.yaml
@@ -163,6 +174,18 @@ func defaultConfig() *Config {
 		Log: LogConfig{
 			Level: "info",
 		},
+		Storage: StorageConfig{
+			Driver:    "local",
+			LocalPath: "./uploads",
+			MaxSize:   10485760,
+			AllowedTypes: []string{
+				"image/jpeg",
+				"image/png",
+				"image/gif",
+				"image/webp",
+				"application/pdf",
+			},
+		},
 	}
 }
 
@@ -189,6 +212,21 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.JWT.AdminSecret == "" {
 		return fmt.Errorf("jwt.admin_secret 不能为空")
+	}
+	if cfg.Storage.Driver == "" {
+		return fmt.Errorf("storage.driver 不能为空")
+	}
+	if cfg.Storage.Driver != "local" {
+		return fmt.Errorf("storage.driver 当前仅支持 local")
+	}
+	if cfg.Storage.LocalPath == "" {
+		return fmt.Errorf("storage.local_path 不能为空")
+	}
+	if cfg.Storage.MaxSize <= 0 {
+		return fmt.Errorf("storage.max_size 必须大于 0")
+	}
+	if len(cfg.Storage.AllowedTypes) == 0 {
+		return fmt.Errorf("storage.allowed_types 不能为空")
 	}
 	return nil
 }

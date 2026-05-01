@@ -30,6 +30,9 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => {
+    if (response.config.responseType === 'blob') {
+      return response
+    }
     const body = response.data as ApiEnvelope<unknown>
     if (isAuthExpiredCode(body.code)) {
       handleExpiredLogin(response.config.url)

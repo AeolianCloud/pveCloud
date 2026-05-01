@@ -77,6 +77,7 @@ page.<menu>.<feature>
 - `page.system-settings.admin-roles`
 - `page.system-settings.admin-sessions`
 - `page.system-settings.audit-logs`
+- `page.file-management`
 
 菜单权限在权限目录中使用 `type=menu`。`/admin-api/auth/me`、登录恢复和 Dashboard 响应中的 `menus` 必须按当前管理员拥有的菜单权限生成。
 
@@ -112,6 +113,9 @@ resource:action
 - `admin-session:revoke`
 - `audit-log:view`
 - `audit-log:sensitive-view`
+- `file:upload`
+- `file:delete`
+- `file:*`
 
 实现要求：
 

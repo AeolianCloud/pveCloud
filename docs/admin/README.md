@@ -30,6 +30,11 @@
 - 读 `docs/admin/pages/dashboard.md`
 - 读 `docs/server/api/` 中 Dashboard 相关契约
 
+修改附件管理：
+
+- 读 `docs/admin/pages/file-management.md`
+- 读文件管理相关 API 契约
+
 修改系统设置：
 
 - 读 `docs/admin/pages/system-settings.md`

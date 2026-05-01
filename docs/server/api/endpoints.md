@@ -202,6 +202,86 @@
 
 登录日志 tab 不新增独立接口或表，使用本接口并固定 `object_type=admin_auth` 查询认证相关日志；如需按动作类型筛选，继续使用单个 `action` 查询参数。
 
+## 文件管理域
+
+### `POST /admin-api/files/upload`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`file:upload` 或 `file:*`
+- 作用：上传单个文件（图片/附件）
+- 请求格式：`multipart/form-data`
+- 请求字段：`file`（文件流）
+- 安全校验：
+  - 扩展名白名单校验（jpg/png/gif/webp/pdf）
+  - 声明 MIME 类型必须在白名单内
+  - Magic Bytes 文件头必须匹配扩展名和声明 MIME 类型，防止伪装文件
+  - 危险文件类型黑名单拦截（php/exe/sh/bat/js/html 等）
+  - 单文件最大 10MB（可配置）
+  - 上传读取必须限制最大字节数，避免超大文件被完整读入内存
+  - 路径穿越防护：原始文件名只保留 basename，存储文件名强制使用随机 UUID
+- 成功数据包含：
+  - `id`：附件 ID
+  - `original_name`：原始文件名
+  - `mime_type`：MIME 类型
+  - `size`：文件大小（字节）
+  - `url`：文件访问 URL
+  - `created_at`：上传时间
+- 存储：数据库只保存相对存储路径，不保存本地根目录
+- 审计：文件记录和审计日志必须在同一事务中写入；事务失败时清理已写入的物理文件
+
+### `GET /admin-api/files`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.file-management`
+- 作用：分页查询文件列表
+- 查询参数支持：`page`、`per_page`、`keyword`、`mime_type`、`uploader_id`、`date_from`、`date_to`
+- 成功数据包含：
+  - `list`：文件列表
+  - `total`：总数
+  - `page`：当前页
+  - `per_page`：每页数量
+  - `last_page`：最后一页
+- 列表项包含：id、original_name、mime_type、size、uploader 信息、created_at
+
+### `GET /admin-api/files/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.file-management`
+- 作用：查看文件详情
+- 成功数据包含：完整文件元信息、引用信息、可用操作信息
+
+### `GET /admin-api/files/{id}/download`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.file-management`
+- 作用：安全下载或预览文件
+- 约束：
+  - 仅允许已授权管理员访问
+  - 仅返回非删除状态文件
+  - 下载响应不得暴露物理存储路径
+  - 图片和 PDF 可直接预览，其它类型走下载
+
+### `GET /admin-api/files/{id}/references`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.file-management`
+- 作用：查看文件引用关系，用于详情抽屉和删除前校验
+- 成功数据包含：
+  - `file_id`
+  - `reference_count`
+  - `references`
+- `references` 用于展示被哪些业务记录引用，后续公告、工单、页面配置等业务域可复用
+
+### `DELETE /admin-api/files/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`file:delete` 或 `file:*`
+- 作用：删除文件（软删除，物理文件保留）
+- 约束：
+  - 若文件仍被业务记录引用，必须阻止删除并返回明确错误
+  - 删除前应先通过引用接口或服务端校验确认无引用
+- 审计：软删除状态和审计日志必须在同一事务中写入（action: `file.delete`）
+
 ## 暂未开放的管理域
 
 密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。

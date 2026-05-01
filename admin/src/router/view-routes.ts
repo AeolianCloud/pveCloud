@@ -63,4 +63,15 @@ export const viewRoutes: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: ADMIN_ROUTE_PATH.files,
+    name: ADMIN_ROUTE_NAME.files,
+    component: () => import('../views/file-management/index.vue'),
+    meta: {
+      title: '附件管理',
+      icon: 'FolderOpened',
+      requiresAuth: true,
+      permission: ['page.file-management'],
+    },
+  },
 ]

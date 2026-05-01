@@ -10,6 +10,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/auth"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/dashboard"
+	fileattachment "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/file_attachment"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system"
 	systemconfig "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system_config"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
@@ -37,6 +38,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	adminSessionHandler := adminsession.NewAdminSessionHandler(adminSessionService)
 	systemConfigService := systemconfig.NewSystemConfigService(app.DB, auditService)
 	systemConfigHandler := systemconfig.NewSystemConfigHandler(systemConfigService)
+	fileAttachmentService := fileattachment.NewFileAttachmentService(app.DB, auditService, app.Config.Storage)
+	fileAttachmentHandler := fileattachment.NewFileAttachmentHandler(fileAttachmentService)
 
 	admin := group.Group("")
 	admin.Use(middleware.AdminAuditContext())
@@ -65,4 +68,10 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.GET("/audit-logs", middleware.AdminPermission("page.system-settings.audit-logs"), auditHandler.Logs)
 	protected.GET("/system-configs", middleware.AdminPermission("page.system-settings.config"), systemConfigHandler.Configs)
 	protected.PATCH("/system-configs/:id", middleware.AdminPermission("system-config:update"), systemConfigHandler.Update)
+	protected.POST("/files/upload", middleware.AdminPermission("file:upload"), fileAttachmentHandler.Upload)
+	protected.GET("/files", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.List)
+	protected.GET("/files/:id", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.Detail)
+	protected.GET("/files/:id/download", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.Download)
+	protected.GET("/files/:id/references", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.Reference)
+	protected.DELETE("/files/:id", middleware.AdminPermission("file:delete"), fileAttachmentHandler.Delete)
 }

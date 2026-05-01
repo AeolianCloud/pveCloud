@@ -23,6 +23,7 @@
 - 当前路由和权限口径以 `docs/admin/routing-permissions.md` 为准。
 - 管理员会话能力当前收敛在 `System Settings -> 管理员设置` 的第三个 tab 内，不提供独立页面、菜单入口或受保护路由。
 - 操作日志在 `System Settings -> 操作日志` 下开放，不提供系统设置之外的独立一级菜单。
+- 附件管理以 `File Management` 独立页面开放，用于管理上传图片和附件。
 
 ## 技术栈
 

@@ -6,6 +6,7 @@ export const ADMIN_ROUTE_PATH = {
   systemSettingsConfig: '/system/settings',
   adminUsers: '/system/admin-users',
   auditLogs: '/system/audit-logs',
+  files: '/files',
   forbidden: '/403',
 } as const
 
@@ -16,6 +17,7 @@ export const ADMIN_ROUTE_NAME = {
   systemSettingsConfig: 'system-settings-config',
   adminUsers: 'admin-users',
   auditLogs: 'audit-logs',
+  files: 'files',
   forbidden: 'forbidden',
 } as const
 

@@ -58,3 +58,19 @@ jwt:
 log:
   # 日志级别；本地开发可使用 debug，部署环境建议使用 info 或 warn。
   level: debug
+
+# 文件上传与存储配置。
+storage:
+  # 存储驱动：当前仅支持 local。
+  driver: local
+  # 本地存储根目录（相对于 server/ 或绝对路径）；数据库只保存该目录下的相对路径。
+  local_path: ./uploads
+  # 单文件最大尺寸（字节），默认 10MB；上传读取按此值限制，避免超大文件完整进入内存。
+  max_size: 10485760
+  # 允许的 MIME 类型；上传时声明 MIME、扩展名和 Magic Bytes 必须互相匹配。
+  allowed_types:
+    - image/jpeg
+    - image/png
+    - image/gif
+    - image/webp
+    - application/pdf

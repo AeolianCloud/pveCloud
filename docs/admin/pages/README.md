@@ -9,6 +9,7 @@
 - `Login`：`docs/admin/pages/login.md`
 - `Dashboard`：`docs/admin/pages/dashboard.md`
 - `System Settings`：`docs/admin/pages/system-settings.md`
+- `File Management`：`docs/admin/pages/file-management.md`
 - `403`：`docs/admin/pages/403.md`
 
 ## 当前未开放页面
