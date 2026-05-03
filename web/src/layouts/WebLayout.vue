@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { onMounted } from 'vue'
 
@@ -8,6 +8,7 @@ import { useWebAuthStore } from '../store/modules/auth'
 
 const appStore = useWebAppStore()
 const authStore = useWebAuthStore()
+const router = useRouter()
 const { logoUrl, navigationOpen, siteName, theme } = storeToRefs(appStore)
 const { isLoggedIn } = storeToRefs(authStore)
 
@@ -20,6 +21,12 @@ const navItems = [
 onMounted(() => {
   void appStore.loadSiteConfig()
 })
+
+async function handleLogout() {
+  await authStore.logout()
+  appStore.closeNavigation()
+  await router.replace('/login')
+}
 </script>
 
 <template>
@@ -62,7 +69,7 @@ onMounted(() => {
         <RouterLink v-if="!isLoggedIn" to="/login" class="nav-link nav-link--primary" @click="appStore.closeNavigation">
           登录
         </RouterLink>
-        <button v-else class="nav-link nav-action nav-link--quiet" type="button" @click="authStore.logout()">
+        <button v-else class="nav-link nav-action nav-link--quiet" type="button" @click="handleLogout">
           退出
         </button>
       </nav>

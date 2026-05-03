@@ -208,13 +208,13 @@
   - `expires_in`：有效期秒数
   - `user`：用户摘要，包含 `id`、`username`、`email`、`display_name`、`status`
   - `session`：当前会话摘要，包含 `session_id`、`issued_at`、`expires_at`
-- 约束：仅 `status=active` 的用户允许登录；失败不得返回账号是否存在
+- 约束：仅 `status=active` 的用户允许登录；账号不存在或密码错误时返回未登录错误，用户被禁用时返回明确禁用错误
 
 ### `GET /api/auth/me`
 
 - 鉴权：用户端 Bearer Token
 - 作用：恢复当前用户登录态
-- 成功数据包含当前用户摘要和当前会话摘要
+- 成功数据包含当前用户真实摘要和当前会话摘要；用户被禁用后登录态恢复返回明确禁用错误
 
 ### `POST /api/auth/logout`
 
@@ -225,9 +225,9 @@
 ### `POST /api/auth/refresh`
 
 - 鉴权：用户端 Bearer Token
-- 作用：轮换当前用户 access token，保持同一用户端会话
+- 作用：轮换当前用户 access token，创建新的用户端会话，并吊销旧用户端会话
 - 成功数据同登录接口
-- 约束：当前会话已过期、已吊销或用户被禁用时返回未登录错误
+- 约束：当前会话已过期或已吊销时返回未登录错误；用户被禁用时返回明确禁用错误
 
 ## Web 用户管理域
 

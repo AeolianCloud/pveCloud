@@ -15,16 +15,31 @@ const errorMessage = ref('')
 
 const canSubmit = computed(() => account.value.trim() !== '' && password.value.length >= 6 && !loading.value)
 
+function resolveRedirect(value: unknown) {
+  if (typeof value !== 'string') return '/user'
+  if (!value.startsWith('/') || value.startsWith('//')) return '/user'
+  return value
+}
+
+function loginErrorMessage(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { status?: number; data?: { message?: string } } }).response
+    if (response?.status === 403 && response.data?.message) {
+      return response.data.message
+    }
+  }
+  return '账号或密码错误'
+}
+
 async function handleLogin() {
   if (!canSubmit.value) return
   loading.value = true
   errorMessage.value = ''
   try {
     await authStore.login({ account: account.value.trim(), password: password.value })
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/user'
-    await router.replace(redirect)
+    await router.replace(resolveRedirect(route.query.redirect))
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '登录失败，请稍后重试'
+    errorMessage.value = loginErrorMessage(error)
   } finally {
     loading.value = false
   }
