@@ -168,6 +168,8 @@ func defaultConfig() *Config {
 			KeyPrefix: "pvecloud:",
 		},
 		JWT: JWTConfig{
+			UserIssuer:         "pvecloud-user",
+			UserExpireMinutes:  480,
 			AdminIssuer:        "pvecloud-admin",
 			AdminExpireMinutes: 480,
 		},
@@ -212,6 +214,15 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.JWT.AdminSecret == "" {
 		return fmt.Errorf("jwt.admin_secret 不能为空")
+	}
+	if cfg.JWT.UserSecret == "" {
+		return fmt.Errorf("jwt.user_secret 不能为空")
+	}
+	if cfg.JWT.UserIssuer == "" {
+		return fmt.Errorf("jwt.user_issuer 不能为空")
+	}
+	if cfg.JWT.UserExpireMinutes <= 0 {
+		return fmt.Errorf("jwt.user_expire_minutes 必须大于 0")
 	}
 	if cfg.Storage.Driver == "" {
 		return fmt.Errorf("storage.driver 不能为空")

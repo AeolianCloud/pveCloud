@@ -40,6 +40,11 @@
 - 读 `docs/admin/pages/system-settings.md`
 - 读系统配置、管理员、角色、权限、管理员会话相关 API 契约
 
+修改 Web 用户管理：
+
+- 读 `docs/admin/pages/web-user-management.md`
+- 读 Web 用户账号和用户会话相关 API 契约
+
 修改 403 或权限反馈：
 
 - 读 `docs/admin/pages/403.md`

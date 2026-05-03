@@ -181,6 +181,124 @@
 - 操作权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
 
+## 用户端公开配置域
+
+### `GET /api/site-config`
+
+- 鉴权：公开接口，无需登录
+- 作用：读取 Web 端公开站点基础展示配置
+- 数据来源：`system_configs` 中的非敏感配置
+- 返回字段：
+  - `site_name`：站点显示名称，来自 `site.name`，为空时服务端返回默认值 `pveCloud`
+  - `logo_url`：站点 Logo 图片 URL，来自 `site.logo_url`，为空时返回空字符串
+- 约束：不得返回 `is_secret=1` 的配置项，不得返回任意配置键列表
+
+## 用户端认证域
+
+### `POST /api/auth/login`
+
+- 鉴权：公开接口，无需登录
+- 作用：用户登录，创建用户端会话并签发用户端 access token
+- 请求字段：
+  - `account`：用户名或邮箱
+  - `password`：密码
+- 成功数据包含：
+  - `access_token`
+  - `token_type`：固定 `Bearer`
+  - `expires_in`：有效期秒数
+  - `user`：用户摘要，包含 `id`、`username`、`email`、`display_name`、`status`
+  - `session`：当前会话摘要，包含 `session_id`、`issued_at`、`expires_at`
+- 约束：仅 `status=active` 的用户允许登录；失败不得返回账号是否存在
+
+### `GET /api/auth/me`
+
+- 鉴权：用户端 Bearer Token
+- 作用：恢复当前用户登录态
+- 成功数据包含当前用户摘要和当前会话摘要
+
+### `POST /api/auth/logout`
+
+- 鉴权：用户端 Bearer Token
+- 作用：吊销当前用户会话
+- 成功数据：空对象
+
+### `POST /api/auth/refresh`
+
+- 鉴权：用户端 Bearer Token
+- 作用：轮换当前用户 access token，保持同一用户端会话
+- 成功数据同登录接口
+- 约束：当前会话已过期、已吊销或用户被禁用时返回未登录错误
+
+## Web 用户管理域
+
+### `GET /admin-api/users`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.web-users`
+- 作用：分页查询用户端账号列表
+- 查询参数支持：`page`、`per_page`、`keyword`、`status`
+- 成功数据包含：
+  - `list`
+  - `total`
+  - `page`
+  - `per_page`
+  - `last_page`
+- 列表项包含：id、username、email、display_name、status、created_at、updated_at
+- 约束：不得返回 `password_hash`
+
+### `POST /admin-api/users`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`web-user:create` 或 `web-user:*`
+- 作用：创建用户端账号
+- 请求字段：`username`、`email`、`password`、`display_name`、`status`
+- 约束：`username` 和 `email` 必须唯一；密码只保存 bcrypt 哈希
+
+### `GET /admin-api/users/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.web-users`
+- 作用：查看用户端账号详情
+- 成功数据包含用户摘要，不包含 `password_hash`
+
+### `PATCH /admin-api/users/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`web-user:update` 或 `web-user:*`
+- 作用：编辑用户端账号邮箱、显示名称和状态
+- 请求字段：`email`、`display_name`、`status`
+- 约束：用户被设置为 `disabled` 后，后续 Web 受保护接口必须拒绝该用户 token
+
+### `POST /admin-api/users/{id}/password`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`web-user:password-reset` 或 `web-user:*`
+- 作用：重置用户端账号密码
+- 请求字段：`password`
+- 约束：密码只保存 bcrypt 哈希，不返回明文或哈希
+
+### `GET /admin-api/user-sessions`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.web-user-sessions`
+- 作用：分页查询用户端登录会话
+- 查询参数支持：`page`、`per_page`、`user_id`、`status`、`date_from`、`date_to`
+- 成功数据包含：
+  - `list`
+  - `total`
+  - `page`
+  - `per_page`
+  - `last_page`
+- 列表项包含用户摘要、session_id、status、issued_at、expires_at、revoked_at、revoke_reason、last_seen_at、last_seen_ip、user_agent、created_at
+
+### `PATCH /admin-api/user-sessions/{session_id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`web-user-session:revoke` 或 `web-user-session:*`
+- 作用：吊销指定用户端登录会话
+- 请求字段：`status`，当前固定为 `revoked`
+- 约束：仅 active 状态会话可吊销；吊销后对应 Web token 后续访问必须失效
+
 ## 日志管理域
 
 ### `GET /admin-api/audit-logs`
@@ -290,8 +408,8 @@
 
 以下业务域已经从当前 API 契约中移除：
 
-- 用户端 API
-- 用户端账号
+- 用户端业务 API（公开站点配置和用户登录会话接口除外）
+- 用户注册、密码找回和账号资料编辑
 - 产品
 - 订单
 - 支付

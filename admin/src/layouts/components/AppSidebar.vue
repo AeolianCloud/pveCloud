@@ -120,7 +120,29 @@ function handleSelect() {
 
 .app-sidebar__menu {
   flex: 1;
+  min-height: 0;
   border-right: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+.app-sidebar__menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar__menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar__menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.app-sidebar__menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .app-sidebar__empty {

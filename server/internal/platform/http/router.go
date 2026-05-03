@@ -12,6 +12,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	httpmiddleware "github.com/AeolianCloud/pveCloud/server/internal/shared/httpmiddleware"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/response"
+	webroutes "github.com/AeolianCloud/pveCloud/server/internal/web/routes"
 )
 
 /**
@@ -34,6 +35,7 @@ func NewRouter(app *bootstrap.App) *gin.Engine {
 	)
 
 	router.GET("/healthz", healthz(app))
+	webroutes.RegisterWebRoutes(router.Group("/api"), app)
 	adminroutes.RegisterAdminRoutes(router.Group("/admin-api"), app)
 
 	return router

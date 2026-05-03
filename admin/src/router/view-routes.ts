@@ -74,4 +74,16 @@ export const viewRoutes: RouteRecordRaw[] = [
       permission: ['page.file-management'],
     },
   },
+  {
+    path: ADMIN_ROUTE_PATH.webUsers,
+    name: ADMIN_ROUTE_NAME.webUsers,
+    component: () => import('../views/web-users/index.vue'),
+    meta: {
+      title: 'Web 用户管理',
+      icon: 'User',
+      requiresAuth: true,
+      permission: ['page.web-users', 'page.web-user-sessions'],
+      permissionMode: 'any',
+    },
+  },
 ]

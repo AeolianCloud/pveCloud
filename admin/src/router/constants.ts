@@ -7,6 +7,7 @@ export const ADMIN_ROUTE_PATH = {
   adminUsers: '/system/admin-users',
   auditLogs: '/system/audit-logs',
   files: '/files',
+  webUsers: '/web/users',
   forbidden: '/403',
 } as const
 
@@ -18,6 +19,7 @@ export const ADMIN_ROUTE_NAME = {
   adminUsers: 'admin-users',
   auditLogs: 'audit-logs',
   files: 'files',
+  webUsers: 'web-users',
   forbidden: 'forbidden',
 } as const
 

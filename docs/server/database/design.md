@@ -41,6 +41,17 @@ system_configs
 admin_audit_logs
 ```
 
+### 用户端认证
+
+```text
+users
+user_sessions
+```
+
+`users` 用于用户端登录账号。当前阶段只支持已有用户登录，不开放用户注册、资料编辑、实名、钱包或业务资料。
+
+`user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
+
 ### 文件管理
 
 ```text
@@ -78,6 +89,8 @@ file_attachment_references
 - `super_admin` 角色应始终拥有当前 `admin_permissions` 中定义的全部权限
 - JWT 中的角色和权限快照只用于登录响应与前端体验，不替代服务端当前 RBAC 校验
 - `system_configs.is_secret=1` 的配置不得通过接口返回明文
+- `system_configs` 中 `site.name` 和 `site.logo_url` 是公开站点基础展示配置，分别控制 Web 左上角品牌文字和 Logo 图片 URL
+- 站点品牌配置在系统设置中使用中文分组“站点设置”展示
 - 普通操作日志用于查看后台操作历史，应保存操作者快照和请求上下文，避免只依赖当前管理员资料反查
 - 普通操作日志的请求上下文由管理端中间件统一采集，业务模块不得重复从每个模块内拼装 IP、会话、请求路径等通用信息
 
@@ -107,7 +120,7 @@ file_attachment_references
 
 以下业务域表不再属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
-- 用户端账号
+- 用户注册、密码找回和账号资料编辑
 - 产品目录
 - 订单
 - 支付与钱包
@@ -120,10 +133,28 @@ file_attachment_references
 - `admin_roles.code`
 - `admin_permissions.code`
 - `admin_sessions.session_id`
+- `users.username`
+- `users.email`
+- `user_sessions.session_id`
 - `system_configs.config_key`
+
+## 管理端权限新增口径
+
+Web 用户管理需要新增以下管理端权限目录：
+
+- `page.web-users`
+- `web-user:*`
+- `web-user:create`
+- `web-user:update`
+- `web-user:password-reset`
+- `page.web-user-sessions`
+- `web-user-session:*`
+- `web-user-session:revoke`
+
+其中 `page.web-user-sessions` 是 `page.web-users` 下的非侧栏 tab 权限，不作为独立菜单展示。
 
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前基础后台阶段不以 PVE、支付、订单、实例、工单或异步任务为现行数据库契约
+- 当前阶段不以 PVE、支付、订单、实例、工单或异步任务为现行数据库契约

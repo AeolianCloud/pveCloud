@@ -14,6 +14,7 @@
 ## 路由边界
 
 - 管理端：`/admin-api/*`
+- 用户端：`/api/*`
 - 健康检查：`/healthz`
 
 ## 统一响应格式
@@ -54,6 +55,15 @@
 - `jti` 对应 `admin_sessions.session_id`
 - 受保护管理端接口不仅校验 token，还要校验当前会话状态和当前数据库 RBAC
 
+### 用户端
+
+- 使用用户端 JWT secret 和 issuer
+- 作用范围为 `/api/*`
+- JWT 必须带 `jti`
+- `jti` 对应 `user_sessions.session_id`
+- 受保护用户端接口需要同时校验 token 和当前用户会话状态
+- 当前阶段用户端不引入权限码；登录后即可访问 `/user` 控制台入口
+
 ## 管理端权限目录
 
 管理端权限以 `admin_permissions` 作为唯一目录来源，采用菜单节点和操作节点一体化模型：
@@ -78,6 +88,8 @@ page.<menu>.<feature>
 - `page.system-settings.admin-sessions`
 - `page.system-settings.audit-logs`
 - `page.file-management`
+- `page.web-users`
+- `page.web-user-sessions`
 
 菜单权限在权限目录中使用 `type=menu`。`/admin-api/auth/me`、登录恢复和 Dashboard 响应中的 `menus` 必须按当前管理员拥有的菜单权限生成。
 
@@ -116,6 +128,12 @@ resource:action
 - `file:upload`
 - `file:delete`
 - `file:*`
+- `web-user:view`
+- `web-user:create`
+- `web-user:update`
+- `web-user:password-reset`
+- `web-user-session:view`
+- `web-user-session:revoke`
 
 实现要求：
 
@@ -144,8 +162,8 @@ resource:action
 
 以下业务域已经从当前 API 契约中移除：
 
-- 用户端 API
-- 用户端账号
+- 用户端业务 API（公开站点配置和用户登录会话接口除外）
+- 用户注册、密码找回和账号资料编辑
 - 产品
 - 订单
 - 支付

@@ -151,6 +151,8 @@ INSERT INTO `admin_permissions` (`code`, `name`, `type`, `parent_code`, `path`, 
   ('page.system-settings.admin-roles', '管理组权限', 'menu', 'page.system-settings.admin-users', NULL, NULL, 21, 0, '菜单', '显示管理员设置中的管理组权限入口'),
   ('page.system-settings.admin-sessions', '管理员会话', 'menu', 'page.system-settings.admin-users', NULL, NULL, 22, 0, '菜单', '显示管理员设置中的管理员会话入口'),
   ('page.system-settings.audit-logs', '操作日志', 'menu', 'page.system-settings', '/system/audit-logs', NULL, 30, 1, '菜单', '显示系统设置下的操作日志入口'),
+  ('page.web-users', 'Web 用户管理', 'menu', NULL, '/web/users', 'User', 40, 1, '菜单', '显示 Web 用户管理菜单和页面入口'),
+  ('page.web-user-sessions', '用户状态', 'menu', 'page.web-users', NULL, NULL, 45, 0, '菜单', '显示 Web 用户管理中的用户状态 tab'),
   ('dashboard:*', '控制台全权限', 'action', 'page.dashboard', NULL, NULL, 100, 0, '控制台', '控制台模块全部能力'),
   ('system-config:*', '系统配置全权限', 'action', 'page.system-settings.config', NULL, NULL, 100, 0, '系统配置', '系统配置模块全部能力'),
   ('system-config:update', '修改系统配置', 'action', 'page.system-settings.config', NULL, NULL, 120, 0, '系统配置', '修改系统配置项'),
@@ -164,7 +166,13 @@ INSERT INTO `admin_permissions` (`code`, `name`, `type`, `parent_code`, `path`, 
   ('admin-session:*', '管理员会话全权限', 'action', 'page.system-settings.admin-sessions', NULL, NULL, 100, 0, '管理员会话', '管理员会话模块全部能力'),
   ('admin-session:revoke', '吊销管理员会话', 'action', 'page.system-settings.admin-sessions', NULL, NULL, 120, 0, '管理员会话', '吊销指定管理员会话'),
   ('audit-log:*', '操作日志全权限', 'action', 'page.system-settings.audit-logs', NULL, NULL, 100, 0, '操作日志', '操作日志模块全部能力'),
-  ('audit-log:sensitive-view', '查看操作日志敏感详情', 'action', 'page.system-settings.audit-logs', NULL, NULL, 120, 0, '操作日志', '查看操作日志中的前后快照和 User-Agent')
+  ('audit-log:sensitive-view', '查看操作日志敏感详情', 'action', 'page.system-settings.audit-logs', NULL, NULL, 120, 0, '操作日志', '查看操作日志中的前后快照和 User-Agent'),
+  ('web-user:*', 'Web 用户全权限', 'action', 'page.web-users', NULL, NULL, 100, 0, 'Web 用户', 'Web 用户账号模块全部能力'),
+  ('web-user:create', '创建 Web 用户', 'action', 'page.web-users', NULL, NULL, 120, 0, 'Web 用户', '创建用户端账号'),
+  ('web-user:update', '修改 Web 用户', 'action', 'page.web-users', NULL, NULL, 130, 0, 'Web 用户', '编辑用户端账号资料和状态'),
+  ('web-user:password-reset', '重置 Web 用户密码', 'action', 'page.web-users', NULL, NULL, 140, 0, 'Web 用户', '重置用户端账号密码'),
+  ('web-user-session:*', '用户状态全权限', 'action', 'page.web-user-sessions', NULL, NULL, 100, 0, '用户状态', '用户端登录状态模块全部能力'),
+  ('web-user-session:revoke', '吊销用户会话', 'action', 'page.web-user-sessions', NULL, NULL, 120, 0, '用户状态', '吊销用户端登录会话')
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `type` = VALUES(`type`),
@@ -192,7 +200,8 @@ ON DUPLICATE KEY UPDATE
   `role_id` = VALUES(`role_id`);
 
 INSERT INTO `system_configs` (`config_key`, `config_value`, `value_type`, `group_name`, `is_secret`, `description`) VALUES
-  ('site.name', 'pveCloud', 'string', 'site', 0, '站点名称')
+  ('site.name', 'pveCloud', 'string', '站点设置', 0, '站点名称'),
+  ('site.logo_url', '', 'string', '站点设置', 0, 'Web 左上角 Logo 图片 URL')
 ON DUPLICATE KEY UPDATE
   `config_value` = VALUES(`config_value`),
   `value_type` = VALUES(`value_type`),

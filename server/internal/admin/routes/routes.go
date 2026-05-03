@@ -13,6 +13,7 @@ import (
 	fileattachment "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/file_attachment"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system"
 	systemconfig "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system_config"
+	webuser "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/web_user"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 )
 
@@ -38,6 +39,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	adminSessionHandler := adminsession.NewAdminSessionHandler(adminSessionService)
 	systemConfigService := systemconfig.NewSystemConfigService(app.DB, auditService)
 	systemConfigHandler := systemconfig.NewSystemConfigHandler(systemConfigService)
+	webUserService := webuser.NewWebUserService(app.DB, auditService)
+	webUserHandler := webuser.NewWebUserHandler(webUserService)
 	fileAttachmentService := fileattachment.NewFileAttachmentService(app.DB, auditService, app.Config.Storage)
 	fileAttachmentHandler := fileattachment.NewFileAttachmentHandler(fileAttachmentService)
 
@@ -68,6 +71,13 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.GET("/audit-logs", middleware.AdminPermission("page.system-settings.audit-logs"), auditHandler.Logs)
 	protected.GET("/system-configs", middleware.AdminPermission("page.system-settings.config"), systemConfigHandler.Configs)
 	protected.PATCH("/system-configs/:id", middleware.AdminPermission("system-config:update"), systemConfigHandler.Update)
+	protected.GET("/users", middleware.AdminPermission("page.web-users"), webUserHandler.Users)
+	protected.POST("/users", middleware.AdminPermission("web-user:create"), webUserHandler.CreateUser)
+	protected.GET("/users/:id", middleware.AdminPermission("page.web-users"), webUserHandler.UserDetail)
+	protected.PATCH("/users/:id", middleware.AdminPermission("web-user:update"), webUserHandler.UpdateUser)
+	protected.POST("/users/:id/password", middleware.AdminPermission("web-user:password-reset"), webUserHandler.ResetPassword)
+	protected.GET("/user-sessions", middleware.AdminPermission("page.web-user-sessions"), webUserHandler.Sessions)
+	protected.PATCH("/user-sessions/:session_id", middleware.AdminPermission("web-user-session:revoke"), webUserHandler.RevokeSession)
 	protected.POST("/files/upload", middleware.AdminPermission("file:upload"), fileAttachmentHandler.Upload)
 	protected.GET("/files", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.List)
 	protected.GET("/files/:id", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.Detail)
