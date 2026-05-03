@@ -400,17 +400,166 @@
   - 删除前应先通过引用接口或服务端校验确认无引用
 - 审计：软删除状态和审计日志必须在同一事务中写入（action: `file.delete`）
 
+## 产品目录
+
+产品目录只维护服务器产品展示和可售约束，不创建订单、不发起支付、不创建实例、不绑定 PVE 节点。
+
+### `GET /admin-api/products`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：分页查看产品主数据
+- 支持按 `type`、`status`、`keyword` 查询
+
+### `POST /admin-api/products`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:create` 或 `product:*`
+- 作用：创建产品，当前 `type` 仅允许 `server`
+- 审计：`product.create`
+
+### `PUT /admin-api/products/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：编辑产品名称、slug、介绍、可见性和排序
+- 审计：`product.update`
+
+### `PATCH /admin-api/products/{id}/status`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:publish` 或 `product:*`
+- 作用：切换产品 `draft`、`active`、`inactive` 状态
+- 审计：`product.status.update`
+
+### `GET /admin-api/product-plans`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：分页查看服务器套餐和规格
+- 支持按 `product_id`、`status`、`keyword` 查询
+
+### `POST /admin-api/product-plans`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:create` 或 `product:*`
+- 作用：创建固定服务器套餐
+- 约束：套餐只保存固定规格，不提供自定义配置器
+- 审计：`product_plan.create`
+
+### `PUT /admin-api/product-plans/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：编辑套餐规格、介绍、推荐、可见性和排序
+- 审计：`product_plan.update`
+
+### `PATCH /admin-api/product-plans/{id}/status`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:publish` 或 `product:*`
+- 作用：切换套餐 `draft`、`active`、`inactive`、`sold_out` 状态
+- 审计：`product_plan.status.update`
+
+### `PUT /admin-api/product-plans/{id}/prices`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：覆盖保存套餐周期价格
+- 金额单位：分，不使用浮点数
+- 支持周期：`monthly`、`quarterly`、`semi_yearly`、`yearly`
+- 审计：`product_plan.prices.update`
+
+### `GET /admin-api/product-plans/{id}/prices`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：读取套餐当前周期价格，用于产品管理页面回显
+
+### `PUT /admin-api/product-plans/{id}/regions`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：覆盖保存套餐可用销售地域
+- 审计：`product_plan.regions.update`
+
+### `GET /admin-api/product-plans/{id}/regions`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：读取套餐当前可用销售地域，用于产品管理页面回显
+
+### `PUT /admin-api/product-plans/{id}/os-templates`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：覆盖保存套餐可用服务器系统模板
+- 审计：`product_plan.os_templates.update`
+
+### `GET /admin-api/product-plans/{id}/os-templates`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：读取套餐当前可用服务器系统模板，用于产品管理页面回显
+
+### `GET /admin-api/sales-regions`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：查看销售地域列表
+
+### `POST /admin-api/sales-regions`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:create` 或 `product:*`
+- 作用：创建销售地域。销售地域不绑定 PVE 节点。
+- 审计：`sales_region.create`
+
+### `PUT /admin-api/sales-regions/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：编辑销售地域
+- 审计：`sales_region.update`
+
+### `GET /admin-api/server-os-templates`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：查看服务器系统模板列表
+
+### `POST /admin-api/server-os-templates`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:create` 或 `product:*`
+- 作用：创建服务器系统模板。当前不绑定 PVE 模板。
+- 审计：`server_os_template.create`
+
+### `PUT /admin-api/server-os-templates/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：编辑服务器系统模板
+- 审计：`server_os_template.update`
+
+### `GET /api/server-catalog`
+
+- 鉴权：公开接口，不要求用户登录
+- 作用：返回 Web 可展示服务器产品目录聚合数据
+- 返回范围：已上架且可见的服务器产品、套餐、周期价格、销售地域和服务器系统模板
+- 展示约束：套餐需要至少有一个 active 周期价格、一个 active 且 visible 的销售地域、一个 active 且 visible 的服务器系统模板才进入公开目录
+- 禁止返回：订单、支付、实例、库存扣减、PVE 节点、PVE 模板 ID 或资源池信息
+
 ## 暂未开放的管理域
 
 密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。
 
 ## 当前不在契约内的业务域
 
-以下业务域已经从当前 API 契约中移除：
+以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置和用户登录会话接口除外）
+- 用户端业务 API（公开站点配置、用户登录会话和服务器产品目录接口除外）
 - 用户注册、密码找回和账号资料编辑
-- 产品
 - 订单
 - 支付
 - 实例

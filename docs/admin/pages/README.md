@@ -10,13 +10,13 @@
 - `Dashboard`：`docs/admin/pages/dashboard.md`
 - `System Settings`：`docs/admin/pages/system-settings.md`
 - `File Management`：`docs/admin/pages/file-management.md`
+- `Product Management`：`docs/admin/pages/product-management.md`
 - `403`：`docs/admin/pages/403.md`
 
 ## 当前未开放页面
 
 以下后端能力或接口可以存在，但当前管理端前端不提供独立页面、菜单入口或受保护路由：
 
-- 产品套餐
 - 订单
 - 支付
 - 实例

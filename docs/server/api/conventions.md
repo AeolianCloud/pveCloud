@@ -63,6 +63,7 @@
 - `jti` 对应 `user_sessions.session_id`
 - 受保护用户端接口需要同时校验 token 和当前用户会话状态
 - 当前阶段用户端不引入权限码；登录后即可访问 `/user` 控制台入口
+- `GET /api/server-catalog` 是公开产品目录接口，不要求用户登录，但不得返回订单、支付、实例或 PVE 节点信息
 
 ## 管理端权限目录
 
@@ -90,6 +91,7 @@ page.<menu>.<feature>
 - `page.file-management`
 - `page.web-users`
 - `page.web-user-sessions`
+- `page.products`
 
 菜单权限在权限目录中使用 `type=menu`。`/admin-api/auth/me`、登录恢复和 Dashboard 响应中的 `menus` 必须按当前管理员拥有的菜单权限生成。
 
@@ -134,6 +136,10 @@ resource:action
 - `web-user:password-reset`
 - `web-user-session:view`
 - `web-user-session:revoke`
+- `product:view`
+- `product:create`
+- `product:update`
+- `product:publish`
 
 实现要求：
 
@@ -160,11 +166,10 @@ resource:action
 
 ## 当前不在契约内的业务域
 
-以下业务域已经从当前 API 契约中移除：
+以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置和用户登录会话接口除外）
+- 用户端业务 API（公开站点配置、用户登录会话和服务器产品目录接口除外）
 - 用户注册、密码找回和账号资料编辑
-- 产品
 - 订单
 - 支付
 - 实例

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
 
 import QueryState from '../../components/QueryState.vue'
 import { usePermissionStore } from '../../store/modules/permission'
@@ -15,27 +14,14 @@ import {
   type WebUserItem,
   type WebUserSessionItem,
 } from '../../api/web-user'
-
-type TabKey = 'users' | 'sessions'
-type EditorMode = 'create' | 'edit'
-
-interface PaginationState {
-  page: number
-  per_page: number
-  total: number
-  last_page: number
-}
-
-interface UserFormState {
-  username: string
-  email: string
-  display_name: string
-  password: string
-  status: string
-}
+import PasswordResetDialog from './components/PasswordResetDialog.vue'
+import WebUserEditorDialog from './components/WebUserEditorDialog.vue'
+import WebUserSessionsTab from './components/WebUserSessionsTab.vue'
+import WebUsersTab from './components/WebUsersTab.vue'
+import type { EditorMode, PaginationState, PasswordFormState, UserFormState, WebUsersTabKey } from './types'
 
 const permissionStore = usePermissionStore()
-const activeTab = ref<TabKey>('users')
+const activeTab = ref<WebUsersTabKey>('users')
 const initialLoading = ref(false)
 const errorMessage = ref('')
 
@@ -59,7 +45,7 @@ const userForm = reactive<UserFormState>(defaultUserForm())
 
 const passwordVisible = ref(false)
 const passwordTarget = ref<WebUserItem | null>(null)
-const passwordForm = reactive({ password: '' })
+const passwordForm = reactive<PasswordFormState>({ password: '' })
 
 const canViewUsersTab = computed(() => permissionStore.hasPermission('page.web-users'))
 const canViewSessionsTab = computed(() => permissionStore.hasPermission('page.web-user-sessions'))
@@ -93,7 +79,7 @@ const userRules: FormRules<UserFormState> = {
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
-const passwordRules: FormRules<{ password: string }> = {
+const passwordRules: FormRules<PasswordFormState> = {
   password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, max: 72, message: '密码长度需为 6 到 72 个字符', trigger: 'blur' },
@@ -291,91 +277,43 @@ function toError(error: unknown, fallback: string) {
       <el-card>
         <el-tabs v-model="activeTab">
           <el-tab-pane v-if="canViewUsersTab" label="Web 用户" name="users">
-            <div class="toolbar">
-              <el-input v-model="userQuery.keyword" clearable placeholder="用户名 / 邮箱 / 显示名称" @keyup.enter="searchUsers" />
-              <el-select v-model="userQuery.status" clearable placeholder="状态">
-                <el-option label="启用" value="active" />
-                <el-option label="禁用" value="disabled" />
-              </el-select>
-              <el-button type="primary" @click="searchUsers">查询</el-button>
-              <el-button :icon="Refresh" :loading="userLoading" @click="refreshUsers">刷新</el-button>
-              <el-button v-if="canCreateUser" type="success" @click="openCreateDialog">新建用户</el-button>
-            </div>
-
-            <el-table v-loading="userLoading" :data="users" stripe>
-              <el-table-column label="用户名" prop="username" min-width="140" />
-              <el-table-column label="邮箱" prop="email" min-width="190" />
-              <el-table-column label="显示名称" min-width="140">
-                <template #default="{ row }">{{ row.display_name || '-' }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="100" align="center">
-                <template #default="{ row }"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template>
-              </el-table-column>
-              <el-table-column label="创建时间" prop="created_at" min-width="180" />
-              <el-table-column label="操作" width="190" fixed="right">
-                <template #default="{ row }">
-                  <el-button v-if="canUpdateUser" size="small" @click="openEditDialog(row)">编辑</el-button>
-                  <el-button v-if="canResetPassword" size="small" type="warning" @click="openPasswordDialog(row)">重置密码</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <el-pagination v-model:current-page="userPagination.page" v-model:page-size="userPagination.per_page" background layout="total, sizes, prev, pager, next" :total="userPagination.total" :page-sizes="[15, 30, 50, 100]" @change="refreshUsers" />
+            <WebUsersTab
+              :users="users"
+              :query="userQuery"
+              :pagination="userPagination"
+              :loading="userLoading"
+              :can-create="canCreateUser"
+              :can-update="canUpdateUser"
+              :can-reset-password="canResetPassword"
+              :status-type="statusType"
+              @search="searchUsers"
+              @refresh="refreshUsers"
+              @create="openCreateDialog"
+              @edit="openEditDialog"
+              @reset-password="openPasswordDialog"
+            />
           </el-tab-pane>
 
           <el-tab-pane v-if="canViewSessionsTab" label="用户状态" name="sessions">
-            <div class="toolbar">
-              <el-input-number v-model="sessionQuery.user_id" :min="1" controls-position="right" placeholder="用户 ID" />
-              <el-select v-model="sessionQuery.status" clearable placeholder="状态">
-                <el-option label="活跃" value="active" />
-                <el-option label="已吊销" value="revoked" />
-                <el-option label="已过期" value="expired" />
-              </el-select>
-              <el-button type="primary" @click="searchSessions">查询</el-button>
-              <el-button :icon="Refresh" :loading="sessionLoading" @click="refreshSessions">刷新</el-button>
-            </div>
-
-            <el-table v-loading="sessionLoading" :data="sessions" stripe>
-              <el-table-column label="用户" min-width="180">
-                <template #default="{ row }">{{ row.user.username }} / {{ row.user.email }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="100" align="center">
-                <template #default="{ row }"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template>
-              </el-table-column>
-              <el-table-column label="签发时间" prop="issued_at" min-width="180" />
-              <el-table-column label="过期时间" prop="expires_at" min-width="180" />
-              <el-table-column label="最近 IP" min-width="140"><template #default="{ row }">{{ row.last_seen_ip || '-' }}</template></el-table-column>
-              <el-table-column label="User-Agent" min-width="220" show-overflow-tooltip><template #default="{ row }">{{ row.user_agent || '-' }}</template></el-table-column>
-              <el-table-column label="操作" width="110" fixed="right">
-                <template #default="{ row }">
-                  <el-button v-if="canRevokeSession && row.status === 'active'" size="small" type="danger" :loading="revokingSessionId === row.session_id" @click="revokeSession(row)">吊销</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-
-            <el-pagination v-model:current-page="sessionPagination.page" v-model:page-size="sessionPagination.per_page" background layout="total, sizes, prev, pager, next" :total="sessionPagination.total" :page-sizes="[15, 30, 50, 100]" @change="refreshSessions" />
+            <WebUserSessionsTab
+              :sessions="sessions"
+              :query="sessionQuery"
+              :pagination="sessionPagination"
+              :loading="sessionLoading"
+              :can-revoke="canRevokeSession"
+              :revoking-session-id="revokingSessionId"
+              :status-type="statusType"
+              @search="searchSessions"
+              @refresh="refreshSessions"
+              @revoke="revokeSession"
+            />
           </el-tab-pane>
         </el-tabs>
       </el-card>
     </QueryState>
 
-    <el-dialog v-model="editorVisible" :title="editorTitle" width="520px">
-      <el-form :model="userForm" :rules="userRules" label-width="92px">
-        <el-form-item label="用户名" prop="username"><el-input v-model="userForm.username" :disabled="!isCreateMode" /></el-form-item>
-        <el-form-item label="邮箱" prop="email"><el-input v-model="userForm.email" /></el-form-item>
-        <el-form-item label="显示名称" prop="display_name"><el-input v-model="userForm.display_name" /></el-form-item>
-        <el-form-item v-if="isCreateMode" label="密码" prop="password"><el-input v-model="userForm.password" type="password" show-password /></el-form-item>
-        <el-form-item label="状态" prop="status"><el-select v-model="userForm.status"><el-option label="启用" value="active" /><el-option label="禁用" value="disabled" /></el-select></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="editorVisible = false">取消</el-button><el-button type="primary" :loading="userSubmitting" @click="submitUser">保存</el-button></template>
-    </el-dialog>
-
-    <el-dialog v-model="passwordVisible" title="重置密码" width="420px">
-      <el-form :model="passwordForm" :rules="passwordRules" label-width="80px">
-        <el-form-item label="新密码" prop="password"><el-input v-model="passwordForm.password" type="password" show-password /></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="passwordVisible = false">取消</el-button><el-button type="primary" :loading="passwordSubmitting" @click="submitPassword">保存</el-button></template>
-    </el-dialog>
+    <WebUserEditorDialog v-model:visible="editorVisible" :mode="editorMode" :title="editorTitle" :form="userForm" :rules="userRules" :submitting="userSubmitting" @submit="submitUser" />
+    <PasswordResetDialog v-model:visible="passwordVisible" :form="passwordForm" :rules="passwordRules" :submitting="passwordSubmitting" @submit="submitPassword" />
   </div>
 </template>
 
@@ -383,8 +321,4 @@ function toError(error: unknown, fallback: string) {
 .web-users-page { display: flex; flex-direction: column; gap: 16px; }
 .web-users-page__header { display: flex; align-items: center; justify-content: space-between; }
 .web-users-page__header h2 { margin: 0; font-size: 18px; font-weight: 600; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-.toolbar .el-input { width: 260px; }
-.toolbar .el-select { width: 140px; }
-.el-pagination { margin-top: 16px; justify-content: flex-end; }
 </style>

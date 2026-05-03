@@ -11,6 +11,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/auth"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/dashboard"
 	fileattachment "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/file_attachment"
+	productcatalog "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/product_catalog"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system"
 	systemconfig "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system_config"
 	webuser "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/web_user"
@@ -43,6 +44,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	webUserHandler := webuser.NewWebUserHandler(webUserService)
 	fileAttachmentService := fileattachment.NewFileAttachmentService(app.DB, auditService, app.Config.Storage)
 	fileAttachmentHandler := fileattachment.NewFileAttachmentHandler(fileAttachmentService)
+	productCatalogService := productcatalog.NewProductCatalogService(app.DB, auditService)
+	productCatalogHandler := productcatalog.NewProductCatalogHandler(productCatalogService)
 
 	admin := group.Group("")
 	admin.Use(middleware.AdminAuditContext())
@@ -78,6 +81,26 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.POST("/users/:id/password", middleware.AdminPermission("web-user:password-reset"), webUserHandler.ResetPassword)
 	protected.GET("/user-sessions", middleware.AdminPermission("page.web-user-sessions"), webUserHandler.Sessions)
 	protected.PATCH("/user-sessions/:session_id", middleware.AdminPermission("web-user-session:revoke"), webUserHandler.RevokeSession)
+	protected.GET("/products", middleware.AdminPermission("page.products"), productCatalogHandler.Products)
+	protected.POST("/products", middleware.AdminPermission("product:create"), productCatalogHandler.CreateProduct)
+	protected.PUT("/products/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateProduct)
+	protected.PATCH("/products/:id/status", middleware.AdminPermission("product:publish"), productCatalogHandler.UpdateProductStatus)
+	protected.GET("/product-plans", middleware.AdminPermission("page.products"), productCatalogHandler.Plans)
+	protected.POST("/product-plans", middleware.AdminPermission("product:create"), productCatalogHandler.CreatePlan)
+	protected.PUT("/product-plans/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdatePlan)
+	protected.PATCH("/product-plans/:id/status", middleware.AdminPermission("product:publish"), productCatalogHandler.UpdatePlanStatus)
+	protected.GET("/product-plans/:id/prices", middleware.AdminPermission("page.products"), productCatalogHandler.PlanPrices)
+	protected.PUT("/product-plans/:id/prices", middleware.AdminPermission("product:update"), productCatalogHandler.UpdatePlanPrices)
+	protected.GET("/product-plans/:id/regions", middleware.AdminPermission("page.products"), productCatalogHandler.PlanRegions)
+	protected.PUT("/product-plans/:id/regions", middleware.AdminPermission("product:update"), productCatalogHandler.UpdatePlanRegions)
+	protected.GET("/product-plans/:id/os-templates", middleware.AdminPermission("page.products"), productCatalogHandler.PlanOSTemplates)
+	protected.PUT("/product-plans/:id/os-templates", middleware.AdminPermission("product:update"), productCatalogHandler.UpdatePlanOSTemplates)
+	protected.GET("/sales-regions", middleware.AdminPermission("page.products"), productCatalogHandler.SalesRegions)
+	protected.POST("/sales-regions", middleware.AdminPermission("product:create"), productCatalogHandler.CreateSalesRegion)
+	protected.PUT("/sales-regions/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateSalesRegion)
+	protected.GET("/server-os-templates", middleware.AdminPermission("page.products"), productCatalogHandler.ServerOSTemplates)
+	protected.POST("/server-os-templates", middleware.AdminPermission("product:create"), productCatalogHandler.CreateServerOSTemplate)
+	protected.PUT("/server-os-templates/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateServerOSTemplate)
 	protected.POST("/files/upload", middleware.AdminPermission("file:upload"), fileAttachmentHandler.Upload)
 	protected.GET("/files", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.List)
 	protected.GET("/files/:id", middleware.AdminPermission("page.file-management"), fileAttachmentHandler.Detail)

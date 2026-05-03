@@ -18,6 +18,7 @@
 | 日志管理 | `/system/audit-logs` | `page.system-settings.audit-logs` |
 | 文件管理 | `/files` | `page.file-management` |
 | Web 用户管理 | `/web/users` | `page.web-users` 或 `page.web-user-sessions` |
+| 产品管理 | `/products` | `page.products` |
 
 管理员设置页面使用 `permissionMode: any` 时，只要具备管理员账号、管理组权限或管理员会话入口之一即可进入页面；页面内部能力继续按按钮或功能块权限控制。
 
@@ -26,7 +27,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 ## 权限码命名
 
 - 菜单权限统一采用 `page.xxx`，也是页面访问和侧栏可见的授权节点。
-- 操作权限统一采用 `resource:action`，例如 `admin-user:create`、`web-user:create`。
+- 操作权限统一采用 `resource:action`，例如 `admin-user:create`、`web-user:create`、`product:update`。
 - 支持 `resource:*` 风格的模块全权限，例如 `admin-user:*`，并在前后端权限判断中覆盖同资源细权限。
 - 操作权限在权限目录中必须挂到明确菜单父节点；授权时选中操作权限会自动保留父级菜单权限。
 

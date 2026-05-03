@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Compass, DataAnalysis, FolderOpened, Odometer, Setting } from '@element-plus/icons-vue'
+import { Box, Compass, DataAnalysis, FolderOpened, Odometer, Setting } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -10,7 +10,7 @@ const appStore = useAppStore()
 const permissionStore = usePermissionStore()
 const route = useRoute()
 
-const iconMap = { Compass, DataAnalysis, FolderOpened, Odometer, Setting }
+const iconMap = { Box, Compass, DataAnalysis, FolderOpened, Odometer, Setting }
 
 const activeMenu = computed(() => route.path)
 const menus = computed(() => permissionStore.sidebarMenus)

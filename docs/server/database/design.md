@@ -76,6 +76,34 @@ file_attachment_references
 当前阶段先为公告、工单和页面配置预留引用能力，具体业务表接入时再补充映射字段或关联写入逻辑。
 删除文件前必须先检查引用关系；存在引用时不允许删除。
 
+### 服务器产品目录
+
+```text
+products
+product_plans
+plan_prices
+sales_regions
+server_os_templates
+plan_regions
+plan_os_templates
+```
+
+服务器产品目录用于维护 Web 可展示的固定服务器套餐，不包含订单、支付、实例、库存扣减或 PVE 节点绑定。
+
+`products` 表示产品主数据，当前只开放 `type=server` 的云服务器产品。
+
+`product_plans` 表示固定服务器套餐，保存 CPU、内存、磁盘、带宽、流量、公网 IP、虚拟化和架构等销售规格。
+
+`plan_prices` 保存套餐周期价格，金额字段使用分为单位，不使用浮点数。
+
+`sales_regions` 表示销售地域，只用于展示和可售约束，不等同于 PVE 节点、集群或资源池。
+
+`server_os_templates` 表示服务器系统模板，避免与图片、Logo、附件等 image 概念混淆；当前不绑定 PVE 模板 ID。
+
+`plan_regions` 和 `plan_os_templates` 分别维护套餐可用销售地域和可用服务器系统模板。
+
+产品目录状态使用字符串字段，不使用数据库 enum。产品和套餐对外展示使用 `product_no`、`plan_no`、`template_no`、`region_no` 等业务编号，不直接暴露自增 ID。
+
 ## 管理端关键规则
 
 - 管理端专用表使用 `admin_` 前缀
@@ -109,19 +137,20 @@ file_attachment_references
 
 ## 当前阶段说明
 
-当前仓库已经收口到“基础后台阶段”。
-数据库契约只保留以下管理域：
+当前仓库已经从“基础后台阶段”进入服务器产品目录阶段。
+数据库契约保留以下管理域：
 
 - 认证
 - RBAC
 - 会话
 - 系统配置
 - 审计日志
+- 用户端账号与会话
+- 服务器产品目录
 
-以下业务域表不再属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
+以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
 - 用户注册、密码找回和账号资料编辑
-- 产品目录
 - 订单
 - 支付与钱包
 - 实例
@@ -137,6 +166,15 @@ file_attachment_references
 - `users.email`
 - `user_sessions.session_id`
 - `system_configs.config_key`
+- `products.product_no`
+- `products.slug`
+- `product_plans.plan_no`
+- `product_plans.code`
+- `plan_prices(plan_id, billing_cycle)`
+- `sales_regions.region_no`
+- `sales_regions.code`
+- `server_os_templates.template_no`
+- `server_os_templates.code`
 
 ## 管理端权限新增口径
 
@@ -153,8 +191,18 @@ Web 用户管理需要新增以下管理端权限目录：
 
 其中 `page.web-user-sessions` 是 `page.web-users` 下的非侧栏 tab 权限，不作为独立菜单展示。
 
+产品目录需要新增以下管理端权限目录：
+
+- `page.products`
+- `product:*`
+- `product:view`
+- `product:create`
+- `product:update`
+- `product:publish`
+
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
 - 当前阶段不以 PVE、支付、订单、实例、工单或异步任务为现行数据库契约
+- 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

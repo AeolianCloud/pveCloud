@@ -86,4 +86,15 @@ export const viewRoutes: RouteRecordRaw[] = [
       permissionMode: 'any',
     },
   },
+  {
+    path: ADMIN_ROUTE_PATH.products,
+    name: ADMIN_ROUTE_NAME.products,
+    component: () => import('../views/products/index.vue'),
+    meta: {
+      title: '产品管理',
+      icon: 'Box',
+      requiresAuth: true,
+      permission: ['page.products'],
+    },
+  },
 ]
