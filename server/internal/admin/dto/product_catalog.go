@@ -101,7 +101,7 @@ type ProductPlanItem struct {
 type PlanPriceRequest struct {
 	BillingCycle       string  `json:"billing_cycle" validate:"required,oneof=monthly quarterly semi_yearly yearly"`
 	PriceCents         uint64  `json:"price_cents" validate:"required,min=1"`
-	OriginalPriceCents *uint64 `json:"original_price_cents" validate:"omitempty,min=1"`
+	OriginalPriceCents *uint64 `json:"original_price_cents" validate:"omitempty,min=0"`
 	Currency           string  `json:"currency" validate:"required,oneof=CNY"`
 	Status             string  `json:"status" validate:"required,oneof=active inactive"`
 	SortOrder          int     `json:"sort_order" validate:"omitempty,min=0,max=100000"`
