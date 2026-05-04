@@ -41,6 +41,16 @@
 - `site.name` 和 `site.logo_url` 用于 Web 左上角品牌区域，分别控制显示文字和 Logo 图片 URL。
 - `site.logo_url` 可为空；为空时 Web 使用前端默认标识。
 - 站点品牌配置在后台系统配置中按中文分组“站点设置”展示。
+- Web 用户认证验证码开关在后台系统配置中按中文分组“用户认证”展示。
+- `value_type=bool` 的配置项必须使用明确布尔编辑控件，不使用自由文本输入。
+- 保存布尔配置时始终提交字符串 `true` / `false`。
+
+当前阶段系统配置至少包含以下用户认证开关：
+
+- `web.auth.login_captcha_enabled`
+- `web.auth.register_captcha_enabled`
+- `web.auth.password_reset_request_captcha_enabled`
+- `web.auth.password_reset_confirm_captcha_enabled`
 
 权限建议：
 

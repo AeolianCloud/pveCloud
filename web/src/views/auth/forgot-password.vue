@@ -1,14 +1,38 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 
-import { requestPasswordReset } from '../../api/auth'
+import { getPasswordResetRequestCaptcha, requestPasswordReset } from '../../api/auth'
+import { useAuthCaptcha } from '../../composables/use-auth-captcha'
+import { useWebAppStore } from '../../store/modules/app'
+
+const appStore = useWebAppStore()
+const { passwordResetRequestCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
 
 const email = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 const sent = ref(false)
 
-const canSubmit = computed(() => email.value.trim() !== '' && !loading.value)
+const {
+  captchaCode,
+  captchaError,
+  captchaId,
+  captchaImage,
+  captchaLoading,
+  captchaReady,
+  refreshCaptcha,
+} = useAuthCaptcha(passwordResetRequestCaptchaEnabled, getPasswordResetRequestCaptcha)
+
+const canSubmit = computed(() => {
+  return (
+    siteConfigLoaded.value &&
+    email.value.trim() !== '' &&
+    (!passwordResetRequestCaptchaEnabled.value || captchaCode.value.trim().length >= 4) &&
+    captchaReady.value &&
+    !loading.value
+  )
+})
 
 function errorText(error: unknown) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -27,14 +51,28 @@ async function handleSubmit() {
   errorMessage.value = ''
   sent.value = false
   try {
-    await requestPasswordReset({ email: email.value.trim() })
+    await requestPasswordReset({
+      email: email.value.trim(),
+      captcha_id: passwordResetRequestCaptchaEnabled.value ? captchaId.value : undefined,
+      captcha_code: passwordResetRequestCaptchaEnabled.value ? captchaCode.value.trim() : undefined,
+    })
     sent.value = true
+    if (passwordResetRequestCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
   } catch (error) {
     errorMessage.value = errorText(error)
+    if (passwordResetRequestCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  void appStore.loadSiteConfig()
+})
 </script>
 
 <template>
@@ -54,7 +92,23 @@ async function handleSubmit() {
           <span>注册邮箱</span>
           <input v-model="email" type="email" placeholder="请输入邮箱" autocomplete="email" />
         </label>
+        <div v-if="passwordResetRequestCaptchaEnabled" class="captcha-field">
+          <label>
+            <span>验证码</span>
+            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
+          </label>
+          <div class="captcha-row">
+            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="找回密码验证码" />
+            <div v-else class="captcha-image captcha-image--placeholder">
+              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+            </div>
+            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+              {{ captchaLoading ? '刷新中...' : '换一张' }}
+            </button>
+          </div>
+        </div>
         <p v-if="sent" class="hint success-text">如果邮箱对应有效账号，重置链接会发送到该邮箱。</p>
+        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
         <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
         <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
           {{ loading ? '发送中...' : '发送重置链接' }}

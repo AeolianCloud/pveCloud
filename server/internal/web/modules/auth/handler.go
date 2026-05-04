@@ -25,6 +25,54 @@ func NewUserAuthHandler(service *UserAuthService) *UserAuthHandler {
 }
 
 /**
+ * LoginCaptcha 处理登录验证码获取。
+ */
+func (h *UserAuthHandler) LoginCaptcha(c *gin.Context) {
+	result, err := h.service.LoginCaptcha(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+/**
+ * RegisterCaptcha 处理注册验证码获取。
+ */
+func (h *UserAuthHandler) RegisterCaptcha(c *gin.Context) {
+	result, err := h.service.RegisterCaptcha(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+/**
+ * PasswordResetRequestCaptcha 处理忘记密码验证码获取。
+ */
+func (h *UserAuthHandler) PasswordResetRequestCaptcha(c *gin.Context) {
+	result, err := h.service.PasswordResetRequestCaptcha(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+/**
+ * PasswordResetConfirmCaptcha 处理重置密码验证码获取。
+ */
+func (h *UserAuthHandler) PasswordResetConfirmCaptcha(c *gin.Context) {
+	result, err := h.service.PasswordResetConfirmCaptcha(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+/**
  * Login 处理用户端登录。
  */
 func (h *UserAuthHandler) Login(c *gin.Context) {

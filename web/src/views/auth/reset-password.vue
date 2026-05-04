@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
-import { confirmPasswordReset } from '../../api/auth'
+import { confirmPasswordReset, getPasswordResetConfirmCaptcha } from '../../api/auth'
+import { useAuthCaptcha } from '../../composables/use-auth-captcha'
+import { useWebAppStore } from '../../store/modules/app'
 
 const route = useRoute()
 const router = useRouter()
+const appStore = useWebAppStore()
+const { passwordResetConfirmCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
 
 const password = ref('')
 const confirmPassword = ref('')
@@ -13,11 +18,31 @@ const loading = ref(false)
 const errorMessage = ref('')
 const done = ref(false)
 
+const {
+  captchaCode,
+  captchaError,
+  captchaId,
+  captchaImage,
+  captchaLoading,
+  captchaReady,
+  refreshCaptcha,
+} = useAuthCaptcha(passwordResetConfirmCaptchaEnabled, getPasswordResetConfirmCaptcha)
+
 const token = computed(() => {
   const value = route.query.token
   return typeof value === 'string' ? value : ''
 })
-const canSubmit = computed(() => token.value !== '' && password.value.length >= 6 && password.value === confirmPassword.value && !loading.value)
+const canSubmit = computed(() => {
+  return (
+    siteConfigLoaded.value &&
+    token.value !== '' &&
+    password.value.length >= 6 &&
+    password.value === confirmPassword.value &&
+    (!passwordResetConfirmCaptchaEnabled.value || captchaCode.value.trim().length >= 4) &&
+    captchaReady.value &&
+    !loading.value
+  )
+})
 
 function errorText(error: unknown) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -35,17 +60,32 @@ async function handleSubmit() {
   loading.value = true
   errorMessage.value = ''
   try {
-    await confirmPasswordReset({ token: token.value, password: password.value })
+    await confirmPasswordReset({
+      token: token.value,
+      password: password.value,
+      captcha_id: passwordResetConfirmCaptchaEnabled.value ? captchaId.value : undefined,
+      captcha_code: passwordResetConfirmCaptchaEnabled.value ? captchaCode.value.trim() : undefined,
+    })
     done.value = true
+    if (passwordResetConfirmCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
     window.setTimeout(() => {
       void router.replace('/login')
     }, 1200)
   } catch (error) {
     errorMessage.value = errorText(error)
+    if (passwordResetConfirmCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  void appStore.loadSiteConfig()
+})
 </script>
 
 <template>
@@ -70,7 +110,23 @@ async function handleSubmit() {
           <span>确认新密码</span>
           <input v-model="confirmPassword" type="password" placeholder="再次输入新密码" autocomplete="new-password" />
         </label>
+        <div v-if="passwordResetConfirmCaptchaEnabled" class="captcha-field">
+          <label>
+            <span>验证码</span>
+            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
+          </label>
+          <div class="captcha-row">
+            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="重置密码验证码" />
+            <div v-else class="captcha-image captcha-image--placeholder">
+              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+            </div>
+            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+              {{ captchaLoading ? '刷新中...' : '换一张' }}
+            </button>
+          </div>
+        </div>
         <p v-if="password && confirmPassword && password !== confirmPassword" class="hint error-text">两次输入的密码不一致</p>
+        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
         <p v-if="done" class="hint success-text">密码已重置，正在返回登录页。</p>
         <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
         <button class="btn btn-primary" type="submit" :disabled="!canSubmit">

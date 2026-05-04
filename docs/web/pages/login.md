@@ -16,6 +16,20 @@
 - 登录失败停留在登录页；账号不存在或密码错误使用统一错误提示，用户被禁用时展示明确禁用提示。
 - 用户端退出后无论接口成功失败都清理本地登录态，并跳转 `/login`。
 
+## 登录验证码
+
+- 站点配置字段 `login_captcha_enabled` 来自 `GET /api/site-config`。
+- 当 `login_captcha_enabled=false` 时：
+  - 登录页不显示验证码区域。
+  - 登录页不请求 `GET /api/auth/login-captcha`。
+  - `POST /api/auth/login` 不要求提交 `captcha_id`、`captcha_code`。
+- 当 `login_captcha_enabled=true` 时：
+  - 登录页首屏加载后请求 `GET /api/auth/login-captcha`。
+  - 登录表单显示验证码图片、验证码输入框和刷新入口。
+  - `POST /api/auth/login` 必须额外提交 `captcha_id`、`captcha_code`。
+  - 验证码错误、缺失、过期或登录失败后，前端刷新当前场景验证码。
+  - 登录验证码不能用于注册、密码找回申请或密码重置确认。
+
 ## 注册范围
 
 - 未登录用户访问 `/register` 时展示注册表单。
@@ -24,6 +38,20 @@
 - 用户名和邮箱必须唯一；重复时展示明确重复提示。
 - 注册成功后写入用户端 access token、用户摘要和当前会话摘要，并跳转 `/user`。
 - 注册不创建订单、实例、钱包、余额或任何业务资源。
+
+## 注册验证码
+
+- 站点配置字段 `register_captcha_enabled` 来自 `GET /api/site-config`。
+- 当 `register_captcha_enabled=false` 时：
+  - 注册页不显示验证码区域。
+  - 注册页不请求 `GET /api/auth/register-captcha`。
+  - `POST /api/auth/register` 不要求提交 `captcha_id`、`captcha_code`。
+- 当 `register_captcha_enabled=true` 时：
+  - 注册页首屏加载后请求 `GET /api/auth/register-captcha`。
+  - 注册表单显示验证码图片、验证码输入框和刷新入口。
+  - `POST /api/auth/register` 必须额外提交 `captcha_id`、`captcha_code`。
+  - 验证码错误、缺失、过期或注册失败后，前端刷新当前场景验证码。
+  - 注册验证码不能用于登录、密码找回申请或密码重置确认。
 
 ## 密码找回范围
 
@@ -66,11 +94,15 @@
 ## 关联接口
 
 - `POST /api/auth/login`
+- `GET /api/auth/login-captcha`
 - `POST /api/auth/register`
+- `GET /api/auth/register-captcha`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
 - `POST /api/auth/refresh`
+- `GET /api/auth/password-reset-request-captcha`
 - `POST /api/auth/password-reset/request`
+- `GET /api/auth/password-reset-confirm-captcha`
 - `POST /api/auth/password-reset/confirm`
 
 具体字段、响应和错误码以 `docs/server/api/` 为准。
@@ -83,10 +115,13 @@
 - `/user` 未登录时进入 `/login`，登录成功后可回到合法站内 `redirect`。
 - 非法 `redirect` 不会触发站外跳转。
 - 登录失败不区分账号不存在和密码错误；禁用账号展示明确禁用提示。
+- 登录验证码开关开启时，登录页首屏能拉取验证码且失败后会刷新。
 - 退出后清理本地登录态并回到 `/login`。
 - `GET /api/auth/me` 失败后清理本地登录态。
 - HTTP 401 或业务码 `401xx` 会清理本地 token。
 - `/register` 注册成功后进入 `/user`，重复用户名或邮箱有明确提示。
+- 注册验证码开关开启时，注册页首屏能拉取验证码且失败后会刷新。
 - `/forgot-password` 不暴露邮箱是否存在。
+- 忘记密码和重置密码流程的验证码行为以各自页面契约为准，4 个认证场景的验证码互不通用。
 - `/reset-password` 成功后吊销旧会话并回到 `/login`。
 - token 接近过期时会自动 refresh；refresh 失败后清理本地登录态。

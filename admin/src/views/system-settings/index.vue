@@ -29,10 +29,18 @@ const currentGroup = computed(() =>
 
 const editForm = ref<Record<number, string>>({})
 
+function normalizeConfigValue(config: SystemConfigItem) {
+  if (config.is_secret) return ''
+  if (config.value_type === 'bool') {
+    return (config.config_value ?? '').trim().toLowerCase() === 'true' ? 'true' : 'false'
+  }
+  return config.config_value ?? ''
+}
+
 function initEditForm(group: SystemConfigGroup) {
   const form: Record<number, string> = {}
   for (const config of group.items) {
-    form[config.id] = config.is_secret ? '' : (config.config_value ?? '')
+    form[config.id] = normalizeConfigValue(config)
   }
   editForm.value = form
 }
@@ -71,7 +79,19 @@ function handleGroupChange(name: string) {
 
 function isDirty(config: SystemConfigItem): boolean {
   if (config.is_secret) return false
-  return (editForm.value[config.id] ?? '') !== (config.config_value ?? '')
+  return (editForm.value[config.id] ?? '') !== normalizeConfigValue(config)
+}
+
+function isBoolConfig(config: SystemConfigItem) {
+  return config.value_type === 'bool'
+}
+
+function boolValue(config: SystemConfigItem) {
+  return (editForm.value[config.id] ?? 'false') === 'true'
+}
+
+function updateBoolValue(config: SystemConfigItem, value: boolean) {
+  editForm.value[config.id] = value ? 'true' : 'false'
 }
 
 async function saveConfig(config: SystemConfigItem) {
@@ -137,7 +157,17 @@ onMounted(() => {
                   <el-tag type="danger" size="small">敏感配置</el-tag>
                 </template>
                 <template v-else>
+                  <el-switch
+                    v-if="isBoolConfig(row)"
+                    :model-value="boolValue(row)"
+                    :disabled="!canUpdateConfig"
+                    inline-prompt
+                    active-text="开"
+                    inactive-text="关"
+                    @update:model-value="(value: boolean) => updateBoolValue(row, value)"
+                  />
                   <el-input
+                    v-else
                     v-model="editForm[row.id]"
                     size="small"
                     :type="row.value_type === 'json' ? 'textarea' : 'text'"

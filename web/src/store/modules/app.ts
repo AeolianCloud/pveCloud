@@ -18,6 +18,7 @@ function applyTheme(theme: Theme) {
 
 const initialTheme = getInitialTheme()
 applyTheme(initialTheme)
+let siteConfigPromise: Promise<void> | undefined
 
 export const useWebAppStore = defineStore('web-app', {
   state: () => ({
@@ -25,17 +26,40 @@ export const useWebAppStore = defineStore('web-app', {
     theme: initialTheme,
     siteName: 'pveCloud',
     logoUrl: '',
+    siteConfigLoaded: false,
+    loginCaptchaEnabled: false,
+    registerCaptchaEnabled: false,
+    passwordResetRequestCaptchaEnabled: false,
+    passwordResetConfirmCaptchaEnabled: false,
   }),
   actions: {
-    async loadSiteConfig() {
-      try {
-        const config = await getSiteConfig()
-        this.siteName = config.site_name.trim() || 'pveCloud'
-        this.logoUrl = config.logo_url.trim()
-      } catch {
-        this.siteName = 'pveCloud'
-        this.logoUrl = ''
-      }
+    async loadSiteConfig(force = false) {
+      if (this.siteConfigLoaded && !force) return
+      if (siteConfigPromise && !force) return siteConfigPromise
+
+      siteConfigPromise = (async () => {
+        try {
+          const config = await getSiteConfig()
+          this.siteName = config.site_name.trim() || 'pveCloud'
+          this.logoUrl = config.logo_url.trim()
+          this.loginCaptchaEnabled = config.login_captcha_enabled
+          this.registerCaptchaEnabled = config.register_captcha_enabled
+          this.passwordResetRequestCaptchaEnabled = config.password_reset_request_captcha_enabled
+          this.passwordResetConfirmCaptchaEnabled = config.password_reset_confirm_captcha_enabled
+        } catch {
+          this.siteName = 'pveCloud'
+          this.logoUrl = ''
+          this.loginCaptchaEnabled = false
+          this.registerCaptchaEnabled = false
+          this.passwordResetRequestCaptchaEnabled = false
+          this.passwordResetConfirmCaptchaEnabled = false
+        } finally {
+          this.siteConfigLoaded = true
+          siteConfigPromise = undefined
+        }
+      })()
+
+      return siteConfigPromise
     },
     openNavigation() {
       this.navigationOpen = true

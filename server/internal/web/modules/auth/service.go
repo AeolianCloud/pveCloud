@@ -2,9 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,13 +10,16 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	gojwt "github.com/golang-jwt/jwt/v5"
+	goredis "github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/mail"
+	sharedcaptcha "github.com/AeolianCloud/pveCloud/server/internal/shared/captcha"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	jwtpkg "github.com/AeolianCloud/pveCloud/server/internal/shared/jwt"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
@@ -39,6 +39,42 @@ const (
 	revokeReasonRefresh       = "refresh"
 	revokeReasonPasswordReset = "password_reset"
 	passwordResetTTL          = 30 * time.Minute
+	userCaptchaRateLimit      = int64(30)
+	userCaptchaRateWindow     = time.Minute
+)
+
+type userCaptchaScene struct {
+	configKey       string
+	redisKeySegment string
+	rateKeySegment  string
+	disabledMessage string
+}
+
+var (
+	loginCaptchaScene = userCaptchaScene{
+		configKey:       "web.auth.login_captcha_enabled",
+		redisKeySegment: "login_captcha",
+		rateKeySegment:  "login_captcha_rate",
+		disabledMessage: "登录验证码未开启",
+	}
+	registerCaptchaScene = userCaptchaScene{
+		configKey:       "web.auth.register_captcha_enabled",
+		redisKeySegment: "register_captcha",
+		rateKeySegment:  "register_captcha_rate",
+		disabledMessage: "注册验证码未开启",
+	}
+	passwordResetRequestCaptchaScene = userCaptchaScene{
+		configKey:       "web.auth.password_reset_request_captcha_enabled",
+		redisKeySegment: "password_reset_request_captcha",
+		rateKeySegment:  "password_reset_request_captcha_rate",
+		disabledMessage: "忘记密码验证码未开启",
+	}
+	passwordResetConfirmCaptchaScene = userCaptchaScene{
+		configKey:       "web.auth.password_reset_confirm_captcha_enabled",
+		redisKeySegment: "password_reset_confirm_captcha",
+		rateKeySegment:  "password_reset_confirm_captcha_rate",
+		disabledMessage: "重置密码验证码未开启",
+	}
 )
 
 /**
@@ -46,6 +82,7 @@ const (
  */
 type UserAuthService struct {
 	db     *gorm.DB
+	redis  *cache.Redis
 	cfg    bootstrap.JWTConfig
 	mail   *mail.Sender
 	webURL string
@@ -54,13 +91,42 @@ type UserAuthService struct {
 /**
  * NewUserAuthService 创建用户端认证服务。
  */
-func NewUserAuthService(db *gorm.DB, cfg bootstrap.JWTConfig, mailCfg bootstrap.MailConfig) *UserAuthService {
+func NewUserAuthService(db *gorm.DB, redis *cache.Redis, cfg bootstrap.JWTConfig, mailCfg bootstrap.MailConfig) *UserAuthService {
 	return &UserAuthService{
 		db:     db,
+		redis:  redis,
 		cfg:    cfg,
 		mail:   mail.NewSender(mailCfg),
 		webURL: mailCfg.PasswordResetURLBase,
 	}
+}
+
+/**
+ * LoginCaptcha 生成登录验证码。
+ */
+func (s *UserAuthService) LoginCaptcha(ctx context.Context) (webdto.CaptchaResponse, error) {
+	return s.generateCaptcha(ctx, loginCaptchaScene)
+}
+
+/**
+ * RegisterCaptcha 生成注册验证码。
+ */
+func (s *UserAuthService) RegisterCaptcha(ctx context.Context) (webdto.CaptchaResponse, error) {
+	return s.generateCaptcha(ctx, registerCaptchaScene)
+}
+
+/**
+ * PasswordResetRequestCaptcha 生成忘记密码申请验证码。
+ */
+func (s *UserAuthService) PasswordResetRequestCaptcha(ctx context.Context) (webdto.CaptchaResponse, error) {
+	return s.generateCaptcha(ctx, passwordResetRequestCaptchaScene)
+}
+
+/**
+ * PasswordResetConfirmCaptcha 生成重置密码确认验证码。
+ */
+func (s *UserAuthService) PasswordResetConfirmCaptcha(ctx context.Context) (webdto.CaptchaResponse, error) {
+	return s.generateCaptcha(ctx, passwordResetConfirmCaptchaScene)
 }
 
 /**
@@ -71,6 +137,9 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 	account := strings.ToLower(strings.TrimSpace(req.Account))
 	if account == "" {
 		return webdto.LoginResponse{}, apperrors.ErrValidation.WithMessage("账号不能为空")
+	}
+	if err := s.verifyCaptchaIfEnabled(ctx, loginCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
+		return webdto.LoginResponse{}, err
 	}
 
 	var user models.User
@@ -114,6 +183,9 @@ func (s *UserAuthService) Register(ctx context.Context, req webdto.RegisterReque
 	displayName := trimOptional(req.DisplayName)
 	if username == "" || email == "" {
 		return webdto.LoginResponse{}, apperrors.ErrValidation.WithMessage("用户名和邮箱不能为空")
+	}
+	if err := s.verifyCaptchaIfEnabled(ctx, registerCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
+		return webdto.LoginResponse{}, err
 	}
 
 	var result webdto.LoginResponse
@@ -238,6 +310,9 @@ func (s *UserAuthService) Refresh(ctx context.Context, userID uint64, sessionID 
  * RequestPasswordReset 创建一次性密码重置 token 并发送邮件。
  */
 func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.PasswordResetRequest) error {
+	if err := s.verifyCaptchaIfEnabled(ctx, passwordResetRequestCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
+		return err
+	}
 	if s.mail == nil || !s.mail.Enabled() {
 		return apperrors.ErrInternal.WithMessage("密码找回服务暂不可用，请稍后再试")
 	}
@@ -294,6 +369,9 @@ func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.P
  * ConfirmPasswordReset 使用一次性 token 重置密码。
  */
 func (s *UserAuthService) ConfirmPasswordReset(ctx context.Context, req webdto.PasswordResetConfirmRequest) error {
+	if err := s.verifyCaptchaIfEnabled(ctx, passwordResetConfirmCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
+		return err
+	}
 	tokenHash := hashPasswordResetToken(strings.TrimSpace(req.Token))
 	now := time.Now()
 
@@ -407,25 +485,19 @@ func (s *UserAuthService) issueSession(ctx context.Context, tx *gorm.DB, user mo
 }
 
 func newUserSessionID() (string, error) {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "usr_" + hex.EncodeToString(bytes[:]), nil
+	return sharedcaptcha.NewID("usr_")
 }
 
 func newPasswordResetToken() (string, string, error) {
-	var bytes [32]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
+	token, err := sharedcaptcha.RandomHex(32)
+	if err != nil {
 		return "", "", err
 	}
-	token := hex.EncodeToString(bytes[:])
 	return token, hashPasswordResetToken(token), nil
 }
 
 func hashPasswordResetToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	return sharedcaptcha.HashText(token)
 }
 
 func (s *UserAuthService) resetURL(token string) string {
@@ -454,4 +526,117 @@ func trimOptional(value *string) *string {
 func isDuplicateEntry(err error) bool {
 	var mysqlErr *mysql.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+}
+
+func (s *UserAuthService) generateCaptcha(ctx context.Context, scene userCaptchaScene) (webdto.CaptchaResponse, error) {
+	enabled, err := s.isCaptchaEnabled(ctx, scene.configKey)
+	if err != nil {
+		return webdto.CaptchaResponse{}, err
+	}
+	if !enabled {
+		return webdto.CaptchaResponse{}, apperrors.ErrForbidden.WithMessage(scene.disabledMessage)
+	}
+	if s.redis == nil {
+		return webdto.CaptchaResponse{}, apperrors.ErrInternal.WithMessage("验证码服务暂不可用，请稍后再试")
+	}
+
+	request := audit.RequestContextFrom(ctx)
+	if err := s.ensureCaptchaAllowed(ctx, scene, request.IP); err != nil {
+		return webdto.CaptchaResponse{}, err
+	}
+
+	code, err := sharedcaptcha.RandomCode(sharedcaptcha.DefaultCodeLength)
+	if err != nil {
+		return webdto.CaptchaResponse{}, err
+	}
+	captchaID, err := sharedcaptcha.NewID("web_captcha_")
+	if err != nil {
+		return webdto.CaptchaResponse{}, err
+	}
+
+	key := s.redis.Key("web", scene.redisKeySegment, captchaID)
+	if err := s.redis.Client().Set(ctx, key, sharedcaptcha.HashText(code), time.Duration(sharedcaptcha.DefaultTTLSeconds)*time.Second).Err(); err != nil {
+		return webdto.CaptchaResponse{}, err
+	}
+
+	return webdto.CaptchaResponse{
+		CaptchaID: captchaID,
+		Image:     sharedcaptcha.ImageDataURL(code),
+		ExpiresIn: sharedcaptcha.DefaultTTLSeconds,
+	}, nil
+}
+
+func (s *UserAuthService) verifyCaptchaIfEnabled(ctx context.Context, scene userCaptchaScene, captchaID string, captchaCode string) error {
+	enabled, err := s.isCaptchaEnabled(ctx, scene.configKey)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return nil
+	}
+	if s.redis == nil {
+		return apperrors.ErrInternal.WithMessage("验证码服务暂不可用，请稍后再试")
+	}
+
+	captchaID = strings.TrimSpace(captchaID)
+	captchaCode = strings.TrimSpace(captchaCode)
+	if captchaID == "" || captchaCode == "" {
+		return apperrors.ErrValidation.WithMessage("请输入验证码")
+	}
+
+	key := s.redis.Key("web", scene.redisKeySegment, captchaID)
+	expected, err := s.redis.Client().GetDel(ctx, key).Result()
+	if errors.Is(err, goredis.Nil) {
+		return apperrors.ErrValidation.WithMessage("验证码已过期，请重新获取")
+	}
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(expected, sharedcaptcha.HashText(captchaCode)) {
+		return apperrors.ErrValidation.WithMessage("验证码错误，请重新输入")
+	}
+	return nil
+}
+
+func (s *UserAuthService) ensureCaptchaAllowed(ctx context.Context, scene userCaptchaScene, clientIP string) error {
+	if s.redis == nil {
+		return apperrors.ErrInternal.WithMessage("验证码服务暂不可用，请稍后再试")
+	}
+
+	key := s.redis.Key("web", scene.rateKeySegment, sharedcaptcha.HashText(clientIP))
+	count, err := s.redis.Client().Incr(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	if count == 1 {
+		if err := s.redis.Client().Expire(ctx, key, userCaptchaRateWindow).Err(); err != nil {
+			return err
+		}
+	}
+	if count > userCaptchaRateLimit {
+		return apperrors.ErrTooManyRequests.WithMessage("验证码获取过于频繁，请稍后再试")
+	}
+	return nil
+}
+
+func (s *UserAuthService) isCaptchaEnabled(ctx context.Context, configKey string) (bool, error) {
+	var config models.SystemConfig
+	err := s.db.WithContext(ctx).
+		Select("config_value").
+		Where("config_key = ? AND is_secret = 0", configKey).
+		First(&config).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return parseBoolConfig(config.ConfigValue), nil
+}
+
+func parseBoolConfig(value *string) bool {
+	if value == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(*value), "true")
 }

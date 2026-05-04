@@ -131,6 +131,8 @@ plan_os_templates
 - `system_configs.is_secret=1` 的配置不得通过接口返回明文
 - `system_configs` 中 `site.name` 和 `site.logo_url` 是公开站点基础展示配置，分别控制 Web 左上角品牌文字和 Logo 图片 URL
 - 站点品牌配置在系统设置中使用中文分组“站点设置”展示
+- `system_configs` 中 `web.auth.login_captcha_enabled`、`web.auth.register_captcha_enabled`、`web.auth.password_reset_request_captcha_enabled`、`web.auth.password_reset_confirm_captcha_enabled` 是用户端认证验证码开关，使用中文分组“用户认证”展示
+- 上述 4 个验证码开关使用 `value_type=bool`，`config_value` 统一保存字符串 `true` 或 `false`
 - 普通操作日志用于查看后台操作历史，应保存操作者快照和请求上下文，避免只依赖当前管理员资料反查
 - 普通操作日志的请求上下文由管理端中间件统一采集，业务模块不得重复从每个模块内拼装 IP、会话、请求路径等通用信息
 

@@ -22,6 +22,8 @@ export interface AuthStateResponse {
 export interface LoginRequest {
   account: string
   password: string
+  captcha_id?: string
+  captcha_code?: string
 }
 
 export interface RegisterRequest {
@@ -29,15 +31,27 @@ export interface RegisterRequest {
   email: string
   password: string
   display_name?: string | null
+  captcha_id?: string
+  captcha_code?: string
 }
 
 export interface PasswordResetRequest {
   email: string
+  captcha_id?: string
+  captcha_code?: string
 }
 
 export interface PasswordResetConfirmRequest {
   token: string
   password: string
+  captcha_id?: string
+  captcha_code?: string
+}
+
+export interface CaptchaResponse {
+  captcha_id: string
+  image: string
+  expires_in: number
 }
 
 export interface LoginResponse extends AuthStateResponse {
@@ -78,5 +92,25 @@ export async function requestPasswordReset(payload: PasswordResetRequest) {
 
 export async function confirmPasswordReset(payload: PasswordResetConfirmRequest) {
   const response = await request.post<WebApiEnvelope<Record<string, never>>>('/auth/password-reset/confirm', payload)
+  return response.data.data
+}
+
+export async function getLoginCaptcha() {
+  const response = await request.get<WebApiEnvelope<CaptchaResponse>>('/auth/login-captcha')
+  return response.data.data
+}
+
+export async function getRegisterCaptcha() {
+  const response = await request.get<WebApiEnvelope<CaptchaResponse>>('/auth/register-captcha')
+  return response.data.data
+}
+
+export async function getPasswordResetRequestCaptcha() {
+  const response = await request.get<WebApiEnvelope<CaptchaResponse>>('/auth/password-reset-request-captcha')
+  return response.data.data
+}
+
+export async function getPasswordResetConfirmCaptcha() {
+  const response = await request.get<WebApiEnvelope<CaptchaResponse>>('/auth/password-reset-confirm-captcha')
   return response.data.data
 }

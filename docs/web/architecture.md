@@ -10,6 +10,8 @@
 ## 文档入口
 
 - Web 登录页契约：`docs/web/pages/login.md`
+- Web 忘记密码页契约：`docs/web/pages/forgot-password.md`
+- Web 重置密码页契约：`docs/web/pages/reset-password.md`
 - Web 用户资料页契约：`docs/web/pages/account-profile.md`
 
 ## 定位
@@ -32,7 +34,7 @@
 - Home
 - Products 服务器产品展示页
 - Pricing 服务器套餐价格展示页
-- Login / Register / Forgot Password 用户认证页
+- Login / Register / Forgot Password / Reset Password 用户认证页
 - User Center 控制台入口页
 - Account Profile 用户资料页
 - 404
@@ -114,18 +116,24 @@ Web 左上角品牌区域由后台系统配置驱动：
 
 - `site.name`：站点显示名称，默认 `pveCloud`。
 - `site.logo_url`：站点 Logo 图片 URL，默认空；为空时使用前端默认字母标识。
+- `web.auth.login_captcha_enabled`：是否为登录页开启图形验证码，默认 `false`。
+- `web.auth.register_captcha_enabled`：是否为注册页开启图形验证码，默认 `false`。
+- `web.auth.password_reset_request_captcha_enabled`：是否为忘记密码申请页开启图形验证码，默认 `false`。
+- `web.auth.password_reset_confirm_captcha_enabled`：是否为重置密码确认页开启图形验证码，默认 `false`。
 
 展示规则：
 
 - Web 顶部品牌区域同时支持文字和图片。
 - 文字来自 `site.name`，为空时回退为 `pveCloud`。
 - 图片来自 `site.logo_url`，为空时展示前端默认标识。
+- 4 个用户认证验证码开关由 `GET /api/site-config` 暴露为布尔字段，前端按页面独立决定是否显示验证码区域。
 - 该配置为公开展示信息，不包含敏感配置。
 
 ## 请求边界
 
 - 请求基础路径为 `/api/*`。
 - 本阶段允许 Web 调用 `GET /api/site-config` 获取公开站点基础展示配置。
+- 本阶段允许 Web 调用用户认证验证码接口：`GET /api/auth/login-captcha`、`GET /api/auth/register-captcha`、`GET /api/auth/password-reset-request-captcha`、`GET /api/auth/password-reset-confirm-captcha`。
 - 本阶段允许 Web 调用用户账号自助接口：`POST /api/auth/login`、`POST /api/auth/register`、`GET /api/auth/me`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password-reset/request`、`POST /api/auth/password-reset/confirm`、`PATCH /api/user/profile`、`POST /api/user/password`。
 - 本阶段允许 Web 调用 `GET /api/server-catalog` 获取公开服务器产品目录。
 - 本阶段可以创建用户端请求封装骨架，但不得调用 `/admin-api/*`。
@@ -139,8 +147,13 @@ Web 左上角品牌区域由后台系统配置驱动：
 - Web 启动和进入 `/user` 前通过 `GET /api/auth/me` 恢复登录态；失败时清理本地 token。
 - 用户退出时调用 `POST /api/auth/logout`，无论接口成功失败都清理本地 token 并回到登录入口。
 - 登录成功后保存用户摘要和当前会话摘要；登录失败停留在 `/login`，账号不存在或密码错误使用统一提示，禁用账号展示明确禁用提示。
+- 当 `login_captcha_enabled=true` 时，登录页首屏拉取 `GET /api/auth/login-captcha` 并在提交 `POST /api/auth/login` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
 - 注册成功后直接创建用户端会话并进入 `/user`；用户名和邮箱重复时返回明确重复提示。
+- 当 `register_captcha_enabled=true` 时，注册页首屏拉取 `GET /api/auth/register-captcha` 并在提交 `POST /api/auth/register` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
 - 忘记密码通过邮箱发送一次性重置链接；申请接口不得暴露账号是否存在。
+- 当 `password_reset_request_captcha_enabled=true` 时，忘记密码页首屏拉取 `GET /api/auth/password-reset-request-captcha` 并在提交 `POST /api/auth/password-reset/request` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
+- 当 `password_reset_confirm_captcha_enabled=true` 时，重置密码页首屏拉取 `GET /api/auth/password-reset-confirm-captcha` 并在提交 `POST /api/auth/password-reset/confirm` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
+- 4 个认证流程的验证码互不通用，场景关闭时前端不得请求对应验证码接口。
 - 用户资料编辑仅允许当前登录用户修改邮箱、显示名称和密码，不开放用户名修改。
 - 已登录用户访问 `/login` 时跳转 `/user`。
 - `401xx` 按未登录、token 无效、token 过期或会话失效处理，前端必须清理本地登录态；受保护路由访问失败时回到 `/login`。
@@ -197,7 +210,8 @@ Web 通过 `GET /api/server-catalog` 展示服务器产品目录。
 - Home、Products 和 Pricing 通过公开服务器产品目录展示产品、套餐、价格、销售地域、服务器系统模板、简介和状态
 - Web 左上角品牌区域可展示后台配置的站点名称和 Logo 图片，配置为空时有默认回退
 - 顶部导航“登录”和“控制台”指向同一用户登录体系；未登录访问控制台进入 `/login`，登录成功进入 `/user`
-- 注册、密码找回、自动刷新和用户资料编辑流程可用，且不调用 `/admin-api/*`
+- 登录、注册、密码找回、重置密码、自动刷新和用户资料编辑流程可用，且不调用 `/admin-api/*`
+- 4 个认证页面根据 `GET /api/site-config` 返回的布尔开关独立显示或隐藏验证码区域；开关关闭时不请求验证码接口
 - 基础路由和 404 可访问
 - 用户端静态页面在桌面和移动端可用
 - `web` 构建通过

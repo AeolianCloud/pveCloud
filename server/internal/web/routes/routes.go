@@ -17,7 +17,7 @@ import (
 func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	siteConfigService := siteconfig.NewSiteConfigService(app.DB)
 	siteConfigHandler := siteconfig.NewSiteConfigHandler(siteConfigService)
-	authService := webauth.NewUserAuthService(app.DB, app.Config.JWT, app.Config.Mail)
+	authService := webauth.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)
 	authHandler := webauth.NewUserAuthHandler(authService)
 	userProfileService := userprofile.NewUserProfileService(app.DB)
 	userProfileHandler := userprofile.NewUserProfileHandler(userProfileService)
@@ -26,6 +26,10 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 
 	group.GET("/site-config", siteConfigHandler.Show)
 	group.GET("/server-catalog", productCatalogHandler.Show)
+	group.GET("/auth/login-captcha", authHandler.LoginCaptcha)
+	group.GET("/auth/register-captcha", authHandler.RegisterCaptcha)
+	group.GET("/auth/password-reset-request-captcha", authHandler.PasswordResetRequestCaptcha)
+	group.GET("/auth/password-reset-confirm-captcha", authHandler.PasswordResetConfirmCaptcha)
 	group.POST("/auth/login", authHandler.Login)
 	group.POST("/auth/register", authHandler.Register)
 	group.POST("/auth/password-reset/request", authHandler.RequestPasswordReset)

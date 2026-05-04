@@ -2,13 +2,7 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
@@ -22,6 +16,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/support"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
+	sharedcaptcha "github.com/AeolianCloud/pveCloud/server/internal/shared/captcha"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	jwtpkg "github.com/AeolianCloud/pveCloud/server/internal/shared/jwt"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
@@ -88,7 +83,7 @@ func (s *AdminAuthService) Captcha(ctx context.Context) (admindto.LoginCaptchaRe
 		return admindto.LoginCaptchaResponse{}, err
 	}
 
-	code, err := randomCaptchaCode(4)
+	code, err := sharedcaptcha.RandomCode(sharedcaptcha.DefaultCodeLength)
 	if err != nil {
 		return admindto.LoginCaptchaResponse{}, err
 	}
@@ -98,13 +93,13 @@ func (s *AdminAuthService) Captcha(ctx context.Context) (admindto.LoginCaptchaRe
 	}
 
 	key := s.loginCaptchaRedisKey(captchaID)
-	if err := s.redis.Client().Set(ctx, key, hashText(code), adminCaptchaTTLSeconds*time.Second).Err(); err != nil {
+	if err := s.redis.Client().Set(ctx, key, sharedcaptcha.HashText(code), adminCaptchaTTLSeconds*time.Second).Err(); err != nil {
 		return admindto.LoginCaptchaResponse{}, err
 	}
 
 	return admindto.LoginCaptchaResponse{
 		CaptchaID: captchaID,
-		Image:     captchaImageDataURL(code),
+		Image:     sharedcaptcha.ImageDataURL(code),
 		ExpiresIn: adminCaptchaTTLSeconds,
 	}, nil
 }
@@ -418,7 +413,7 @@ func (s *AdminAuthService) clearLoginFailures(ctx context.Context, identifier st
 }
 
 func (s *AdminAuthService) ensureCaptchaAllowed(ctx context.Context, clientIP string) error {
-	key := s.redis.Key("admin", "login_captcha_rate", hashText(clientIP))
+	key := s.redis.Key("admin", "login_captcha_rate", sharedcaptcha.HashText(clientIP))
 	count, err := s.redis.Client().Incr(ctx, key).Result()
 	if err != nil {
 		return err
@@ -434,7 +429,7 @@ func (s *AdminAuthService) ensureCaptchaAllowed(ctx context.Context, clientIP st
 			s.db,
 			nil,
 			adminCaptchaLimitedAction,
-			"captcha_"+hashText(clientIP)[:32],
+			"captcha_"+sharedcaptcha.HashText(clientIP)[:32],
 			"验证码获取过于频繁",
 		)
 		return apperrors.ErrTooManyRequests.WithMessage("验证码获取过于频繁，请稍后再试")
@@ -457,14 +452,14 @@ func (s *AdminAuthService) verifyLoginCaptcha(ctx context.Context, captchaID str
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(expected, hashText(captchaCode)) {
+	if !strings.EqualFold(expected, sharedcaptcha.HashText(captchaCode)) {
 		return apperrors.ErrValidation.WithMessage("验证码错误，请重新输入")
 	}
 	return nil
 }
 
 func (s *AdminAuthService) loginFailureRedisKey(identifier string, clientIP string) string {
-	return s.redis.Key("admin", "login_fail", hashText(clientIP), hashText(identifier))
+	return s.redis.Key("admin", "login_fail", sharedcaptcha.HashText(clientIP), sharedcaptcha.HashText(identifier))
 }
 
 func (s *AdminAuthService) loginCaptchaRedisKey(captchaID string) string {
@@ -482,49 +477,13 @@ func (s *AdminAuthService) recordAudit(ctx context.Context, db *gorm.DB, adminID
 }
 
 func newAdminSessionID() (string, error) {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "adm_" + hex.EncodeToString(bytes[:]), nil
+	return sharedcaptcha.NewID("adm_")
 }
 
 func newAdminCaptchaID() (string, error) {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "adm_captcha_" + hex.EncodeToString(bytes[:]), nil
-}
-
-func randomCaptchaCode(length int) (string, error) {
-	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	var builder strings.Builder
-	builder.Grow(length)
-	max := big.NewInt(int64(len(alphabet)))
-	for i := 0; i < length; i++ {
-		index, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			return "", err
-		}
-		builder.WriteByte(alphabet[index.Int64()])
-	}
-	return builder.String(), nil
-}
-
-func captchaImageDataURL(code string) string {
-	svg := fmt.Sprintf(
-		`<svg xmlns="http://www.w3.org/2000/svg" width="132" height="44" viewBox="0 0 132 44"><rect width="132" height="44" rx="8" fill="#f4f7ff"/><path d="M8 32 C30 10, 52 40, 76 18 S110 36, 124 12" fill="none" stroke="#9db6ff" stroke-width="2" opacity=".65"/><path d="M15 12 L118 35" stroke="#d2dcff" stroke-width="2" opacity=".75"/><text x="66" y="29" text-anchor="middle" font-family="Consolas, Menlo, monospace" font-size="24" font-weight="700" letter-spacing="5" fill="#2458d9">%s</text></svg>`,
-		code,
-	)
-	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg))
+	return sharedcaptcha.NewID("adm_captcha_")
 }
 
 func loginThrottleObjectID(identifier string) string {
-	return "login_" + hashText(identifier)[:32]
-}
-
-func hashText(value string) string {
-	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(value))))
-	return hex.EncodeToString(sum[:])
+	return "login_" + sharedcaptcha.HashText(identifier)[:32]
 }

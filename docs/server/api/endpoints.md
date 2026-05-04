@@ -191,9 +191,53 @@
 - 返回字段：
   - `site_name`：站点显示名称，来自 `site.name`，为空时服务端返回默认值 `pveCloud`
   - `logo_url`：站点 Logo 图片 URL，来自 `site.logo_url`，为空时返回空字符串
+  - `login_captcha_enabled`：登录页验证码开关，来自 `web.auth.login_captcha_enabled`
+  - `register_captcha_enabled`：注册页验证码开关，来自 `web.auth.register_captcha_enabled`
+  - `password_reset_request_captcha_enabled`：忘记密码申请页验证码开关，来自 `web.auth.password_reset_request_captcha_enabled`
+  - `password_reset_confirm_captcha_enabled`：重置密码确认页验证码开关，来自 `web.auth.password_reset_confirm_captcha_enabled`
 - 约束：不得返回 `is_secret=1` 的配置项，不得返回任意配置键列表
 
 ## 用户端认证域
+
+### `GET /api/auth/login-captcha`
+
+- 鉴权：公开接口，无需登录
+- 作用：获取登录页图形验证码
+- 成功数据包含：`captcha_id`、`image`、`expires_in`
+- 约束：
+  - 仅当 `web.auth.login_captcha_enabled=true` 时开放
+  - 验证码按登录场景单独生成，不能用于其它认证流程
+  - 服务端对 `IP + scene` 独立限流
+
+### `GET /api/auth/register-captcha`
+
+- 鉴权：公开接口，无需登录
+- 作用：获取注册页图形验证码
+- 成功数据包含：`captcha_id`、`image`、`expires_in`
+- 约束：
+  - 仅当 `web.auth.register_captcha_enabled=true` 时开放
+  - 验证码按注册场景单独生成，不能用于其它认证流程
+  - 服务端对 `IP + scene` 独立限流
+
+### `GET /api/auth/password-reset-request-captcha`
+
+- 鉴权：公开接口，无需登录
+- 作用：获取忘记密码申请页图形验证码
+- 成功数据包含：`captcha_id`、`image`、`expires_in`
+- 约束：
+  - 仅当 `web.auth.password_reset_request_captcha_enabled=true` 时开放
+  - 验证码按忘记密码申请场景单独生成，不能用于其它认证流程
+  - 服务端对 `IP + scene` 独立限流
+
+### `GET /api/auth/password-reset-confirm-captcha`
+
+- 鉴权：公开接口，无需登录
+- 作用：获取重置密码确认页图形验证码
+- 成功数据包含：`captcha_id`、`image`、`expires_in`
+- 约束：
+  - 仅当 `web.auth.password_reset_confirm_captcha_enabled=true` 时开放
+  - 验证码按重置密码确认场景单独生成，不能用于其它认证流程
+  - 服务端对 `IP + scene` 独立限流
 
 ### `POST /api/auth/login`
 
@@ -202,13 +246,19 @@
 - 请求字段：
   - `account`：用户名或邮箱
   - `password`：密码
+  - `captcha_id`：可选；当 `web.auth.login_captcha_enabled=true` 时必填
+  - `captcha_code`：可选；当 `web.auth.login_captcha_enabled=true` 时必填
 - 成功数据包含：
   - `access_token`
   - `token_type`：固定 `Bearer`
   - `expires_in`：有效期秒数
   - `user`：用户摘要，包含 `id`、`username`、`email`、`display_name`、`status`
   - `session`：当前会话摘要，包含 `session_id`、`issued_at`、`expires_at`
-- 约束：仅 `status=active` 的用户允许登录；账号不存在或密码错误时返回未登录错误，用户被禁用时返回明确禁用错误
+- 约束：
+  - 当 `web.auth.login_captcha_enabled=true` 时，验证码字段必须存在且校验通过
+  - 当 `web.auth.login_captcha_enabled=false` 时，验证码字段忽略
+  - 验证码错误、过期、缺失时返回明确错误
+  - 仅 `status=active` 的用户允许登录；账号不存在或密码错误时返回未登录错误，用户被禁用时返回明确禁用错误
 
 ### `POST /api/auth/register`
 
@@ -219,8 +269,13 @@
   - `email`：邮箱，必须唯一
   - `password`：密码
   - `display_name`：显示名称，可为空
+  - `captcha_id`：可选；当 `web.auth.register_captcha_enabled=true` 时必填
+  - `captcha_code`：可选；当 `web.auth.register_captcha_enabled=true` 时必填
 - 成功数据同登录接口
 - 约束：
+  - 当 `web.auth.register_captcha_enabled=true` 时，验证码字段必须存在且校验通过
+  - 当 `web.auth.register_captcha_enabled=false` 时，验证码字段忽略
+  - 验证码错误、过期、缺失时返回明确错误
   - 注册成功后 `users.status` 默认为 `active`
   - `username` 和 `email` 必须唯一；重复时返回状态冲突错误
   - 密码只保存 bcrypt 哈希，不返回明文或哈希
@@ -255,8 +310,13 @@
 - 作用：申请密码重置邮件
 - 请求字段：
   - `email`：用户邮箱
+  - `captcha_id`：可选；当 `web.auth.password_reset_request_captcha_enabled=true` 时必填
+  - `captcha_code`：可选；当 `web.auth.password_reset_request_captcha_enabled=true` 时必填
 - 成功数据：空对象
 - 约束：
+  - 当 `web.auth.password_reset_request_captcha_enabled=true` 时，验证码字段必须存在且校验通过
+  - 当 `web.auth.password_reset_request_captcha_enabled=false` 时，验证码字段忽略
+  - 验证码错误、过期、缺失时返回明确错误
   - 无论邮箱是否存在，都返回统一成功响应，避免暴露账号存在性
   - 仅当邮箱对应 `status=active` 用户时，服务端创建一次性密码重置 token 并发送重置链接
   - token 原文只出现在邮件链接中，数据库只保存 token 哈希
@@ -270,8 +330,13 @@
 - 请求字段：
   - `token`：密码重置 token 原文
   - `password`：新密码
+  - `captcha_id`：可选；当 `web.auth.password_reset_confirm_captcha_enabled=true` 时必填
+  - `captcha_code`：可选；当 `web.auth.password_reset_confirm_captcha_enabled=true` 时必填
 - 成功数据：空对象
 - 约束：
+  - 当 `web.auth.password_reset_confirm_captcha_enabled=true` 时，验证码字段必须存在且校验通过
+  - 当 `web.auth.password_reset_confirm_captcha_enabled=false` 时，验证码字段忽略
+  - 验证码错误、过期、缺失时返回明确错误
   - token 必须存在、未过期、未使用且状态为 `active`
   - token 对应用户必须仍为 `status=active`；用户已被禁用时拒绝重置并吊销该 token
   - 密码只保存 bcrypt 哈希，不返回明文或哈希

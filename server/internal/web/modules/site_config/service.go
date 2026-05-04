@@ -11,9 +11,13 @@ import (
 )
 
 const (
-	defaultSiteName = "pveCloud"
-	siteNameKey     = "site.name"
-	siteLogoURLKey  = "site.logo_url"
+	defaultSiteName                = "pveCloud"
+	siteNameKey                    = "site.name"
+	siteLogoURLKey                 = "site.logo_url"
+	loginCaptchaEnabledKey         = "web.auth.login_captcha_enabled"
+	registerCaptchaEnabledKey      = "web.auth.register_captcha_enabled"
+	passwordResetRequestCaptchaKey = "web.auth.password_reset_request_captcha_enabled"
+	passwordResetConfirmCaptchaKey = "web.auth.password_reset_confirm_captcha_enabled"
 )
 
 /**
@@ -36,7 +40,17 @@ func NewSiteConfigService(db *gorm.DB) *SiteConfigService {
 func (s *SiteConfigService) Show(ctx context.Context) (webdto.SiteConfigResponse, error) {
 	var configs []models.SystemConfig
 	if err := s.db.WithContext(ctx).
-		Where("config_key IN ? AND is_secret = 0", []string{siteNameKey, siteLogoURLKey}).
+		Where(
+			"config_key IN ? AND is_secret = 0",
+			[]string{
+				siteNameKey,
+				siteLogoURLKey,
+				loginCaptchaEnabledKey,
+				registerCaptchaEnabledKey,
+				passwordResetRequestCaptchaKey,
+				passwordResetConfirmCaptchaKey,
+			},
+		).
 		Find(&configs).Error; err != nil {
 		return webdto.SiteConfigResponse{}, err
 	}
@@ -54,8 +68,23 @@ func (s *SiteConfigService) Show(ctx context.Context) (webdto.SiteConfigResponse
 			}
 		case siteLogoURLKey:
 			result.LogoURL = value
+		case loginCaptchaEnabledKey:
+			result.LoginCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
+		case registerCaptchaEnabledKey:
+			result.RegisterCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
+		case passwordResetRequestCaptchaKey:
+			result.PasswordResetRequestCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
+		case passwordResetConfirmCaptchaKey:
+			result.PasswordResetConfirmCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
 		}
 	}
 
 	return result, nil
+}
+
+func parseBoolConfigValue(value *string) bool {
+	if value == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(*value), "true")
 }

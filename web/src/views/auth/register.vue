@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 
+import { getRegisterCaptcha } from '../../api/auth'
+import { useAuthCaptcha } from '../../composables/use-auth-captcha'
+import { useWebAppStore } from '../../store/modules/app'
 import { useWebAuthStore } from '../../store/modules/auth'
 
 const router = useRouter()
 const authStore = useWebAuthStore()
+const appStore = useWebAppStore()
+const { registerCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
 
 const username = ref('')
 const email = ref('')
@@ -15,19 +21,32 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
+const {
+  captchaCode,
+  captchaError,
+  captchaId,
+  captchaImage,
+  captchaLoading,
+  captchaReady,
+  refreshCaptcha,
+} = useAuthCaptcha(registerCaptchaEnabled, getRegisterCaptcha)
+
 const canSubmit = computed(() => {
   return (
+    siteConfigLoaded.value &&
     username.value.trim().length >= 3 &&
     email.value.trim() !== '' &&
     password.value.length >= 6 &&
     password.value === confirmPassword.value &&
+    (!registerCaptchaEnabled.value || captchaCode.value.trim().length >= 4) &&
+    captchaReady.value &&
     !loading.value
   )
 })
 
 function errorText(error: unknown) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
-    const response = (error as { response?: { status?: number; data?: { message?: string } } }).response
+    const response = (error as { response?: { data?: { message?: string } } }).response
     if (response?.data?.message) return response.data.message
   }
   if (typeof error === 'object' && error !== null && 'request' in error) {
@@ -46,14 +65,23 @@ async function handleRegister() {
       email: email.value.trim(),
       password: password.value,
       display_name: displayName.value.trim() || null,
+      captcha_id: registerCaptchaEnabled.value ? captchaId.value : undefined,
+      captcha_code: registerCaptchaEnabled.value ? captchaCode.value.trim() : undefined,
     })
     await router.replace('/user')
   } catch (error) {
     errorMessage.value = errorText(error)
+    if (registerCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  void appStore.loadSiteConfig()
+})
 </script>
 
 <template>
@@ -89,7 +117,23 @@ async function handleRegister() {
           <span>确认密码</span>
           <input v-model="confirmPassword" type="password" placeholder="再次输入密码" autocomplete="new-password" />
         </label>
+        <div v-if="registerCaptchaEnabled" class="captcha-field">
+          <label>
+            <span>验证码</span>
+            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
+          </label>
+          <div class="captcha-row">
+            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="注册验证码" />
+            <div v-else class="captcha-image captcha-image--placeholder">
+              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+            </div>
+            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+              {{ captchaLoading ? '刷新中...' : '换一张' }}
+            </button>
+          </div>
+        </div>
         <p v-if="password && confirmPassword && password !== confirmPassword" class="hint error-text">两次输入的密码不一致</p>
+        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
         <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
         <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
           {{ loading ? '注册中...' : '注册并进入控制台' }}

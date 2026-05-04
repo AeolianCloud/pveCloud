@@ -1,18 +1,34 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
+import { getLoginCaptcha } from '../../api/auth'
+import { useAuthCaptcha } from '../../composables/use-auth-captcha'
+import { useWebAppStore } from '../../store/modules/app'
 import { useWebAuthStore } from '../../store/modules/auth'
 import { resolveWebRedirect } from '../../utils/web-auth'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useWebAuthStore()
+const appStore = useWebAppStore()
+const { loginCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
 
 const account = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
+
+const {
+  captchaCode,
+  captchaError,
+  captchaId,
+  captchaImage,
+  captchaLoading,
+  captchaReady,
+  refreshCaptcha,
+} = useAuthCaptcha(loginCaptchaEnabled, getLoginCaptcha)
 
 const highlights = [
   '登录和控制台使用同一套入口',
@@ -20,7 +36,16 @@ const highlights = [
   '退出后会清理本地登录信息',
 ]
 
-const canSubmit = computed(() => account.value.trim() !== '' && password.value.length >= 6 && !loading.value)
+const canSubmit = computed(() => {
+  return (
+    siteConfigLoaded.value &&
+    account.value.trim() !== '' &&
+    password.value.length >= 6 &&
+    (!loginCaptchaEnabled.value || captchaCode.value.trim().length >= 4) &&
+    captchaReady.value &&
+    !loading.value
+  )
+})
 
 function loginErrorMessage(error: unknown) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
@@ -52,14 +77,26 @@ async function handleLogin() {
   loading.value = true
   errorMessage.value = ''
   try {
-    await authStore.login({ account: account.value.trim(), password: password.value })
+    await authStore.login({
+      account: account.value.trim(),
+      password: password.value,
+      captcha_id: loginCaptchaEnabled.value ? captchaId.value : undefined,
+      captcha_code: loginCaptchaEnabled.value ? captchaCode.value.trim() : undefined,
+    })
     await router.replace(resolveWebRedirect(route.query.redirect))
   } catch (error) {
     errorMessage.value = loginErrorMessage(error)
+    if (loginCaptchaEnabled.value) {
+      void refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  void appStore.loadSiteConfig()
+})
 </script>
 
 <template>
@@ -95,6 +132,22 @@ async function handleLogin() {
           <span>密码</span>
           <input v-model="password" type="password" placeholder="请输入密码" autocomplete="current-password" />
         </label>
+        <div v-if="loginCaptchaEnabled" class="captcha-field">
+          <label>
+            <span>验证码</span>
+            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
+          </label>
+          <div class="captcha-row">
+            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="登录验证码" />
+            <div v-else class="captcha-image captcha-image--placeholder">
+              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+            </div>
+            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+              {{ captchaLoading ? '刷新中...' : '换一张' }}
+            </button>
+          </div>
+        </div>
+        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
         <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
         <button class="btn btn-primary" type="submit" :disabled="!canSubmit" style="width:100%">
           {{ loading ? '登录中...' : '登录' }}
