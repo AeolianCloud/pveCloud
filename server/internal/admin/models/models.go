@@ -234,18 +234,19 @@ func (AdminAuditLog) TableName() string {
  * FileAttachment 映射 file_attachments 文件附件表。
  */
 type FileAttachment struct {
-	ID            uint64    `gorm:"column:id;primaryKey"`
-	OriginalName  string    `gorm:"column:original_name"`
-	StoredName    string    `gorm:"column:stored_name"`
-	MimeType      string    `gorm:"column:mime_type"`
-	Extension     string    `gorm:"column:extension"`
-	Size          uint64    `gorm:"column:size"`
-	StoragePath   string    `gorm:"column:storage_path"`
-	StorageDriver string    `gorm:"column:storage_driver"`
-	Checksum      string    `gorm:"column:checksum"`
-	UploaderID    uint64    `gorm:"column:uploader_id"`
-	Status        string    `gorm:"column:status"`
-	CreatedAt     time.Time `gorm:"column:created_at"`
+	ID             uint64    `gorm:"column:id;primaryKey"`
+	OriginalName   string    `gorm:"column:original_name"`
+	StoredName     string    `gorm:"column:stored_name"`
+	MimeType       string    `gorm:"column:mime_type"`
+	Extension      string    `gorm:"column:extension"`
+	Size           uint64    `gorm:"column:size"`
+	StoragePath    string    `gorm:"column:storage_path"`
+	StorageDriver  string    `gorm:"column:storage_driver"`
+	Checksum       string    `gorm:"column:checksum"`
+	UploaderID     uint64    `gorm:"column:uploader_id"`
+	UploaderUserID *uint64   `gorm:"column:uploader_user_id"`
+	Status         string    `gorm:"column:status"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
 }
 
 /**
@@ -273,6 +274,33 @@ type FileAttachmentReference struct {
  */
 func (FileAttachmentReference) TableName() string {
 	return "file_attachment_references"
+}
+
+/**
+ * UserRealNameApplication 映射用户实名申请表。
+ */
+type UserRealNameApplication struct {
+	ID                uint64     `gorm:"column:id;primaryKey"`
+	ApplicationNo     string     `gorm:"column:application_no"`
+	UserID            uint64     `gorm:"column:user_id"`
+	RealName          string     `gorm:"column:real_name"`
+	IDType            string     `gorm:"column:id_type"`
+	IDNumberDigest    string     `gorm:"column:id_number_digest"`
+	IDNumberMasked    string     `gorm:"column:id_number_masked"`
+	IDCardFrontFileID *uint64    `gorm:"column:id_card_front_file_id"`
+	IDCardBackFileID  *uint64    `gorm:"column:id_card_back_file_id"`
+	HoldCardFileID    *uint64    `gorm:"column:hold_card_file_id"`
+	Status            string     `gorm:"column:status"`
+	ReviewAdminID     *uint64    `gorm:"column:review_admin_id"`
+	ReviewedAt        *time.Time `gorm:"column:reviewed_at"`
+	RejectReason      *string    `gorm:"column:reject_reason"`
+	SubmitAttempt     uint       `gorm:"column:submit_attempt"`
+	CreatedAt         time.Time  `gorm:"column:created_at"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+}
+
+func (UserRealNameApplication) TableName() string {
+	return "user_real_name_applications"
 }
 
 /**

@@ -42,6 +42,7 @@
 - `site.logo_url` 可为空；为空时 Web 使用前端默认标识。
 - 站点品牌配置在后台系统配置中按中文分组“站点设置”展示。
 - Web 用户认证验证码开关在后台系统配置中按中文分组“用户认证”展示。
+- 用户实名业务开关和审核要求在后台系统配置中按中文分组“实名设置”展示。
 - `value_type=bool` 的配置项必须使用明确布尔编辑控件，不使用自由文本输入。
 - 保存布尔配置时始终提交字符串 `true` / `false`。
 
@@ -51,6 +52,20 @@
 - `web.auth.register_captcha_enabled`
 - `web.auth.password_reset_request_captcha_enabled`
 - `web.auth.password_reset_confirm_captcha_enabled`
+
+当前阶段系统配置至少包含以下实名配置：
+
+- `real_name.enabled`
+- `real_name.required_for_order`
+- `real_name.manual_review_enabled`
+- `real_name.resubmit_enabled`
+- `real_name.max_submit_attempts`
+- `real_name.id_card_front_required`
+- `real_name.id_card_back_required`
+- `real_name.hold_card_required`
+- `real_name.image_max_size_mb`
+- `real_name.allowed_image_types`
+- `real_name.review_notice`
 
 权限建议：
 

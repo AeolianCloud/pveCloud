@@ -58,6 +58,12 @@ export const publicRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
         component: () => import('../views/user-profile/index.vue'),
       },
+      {
+        path: 'user/real-name',
+        name: 'user-real-name',
+        meta: { requiresAuth: true },
+        component: () => import('../views/real-name/index.vue'),
+      },
     ],
   },
   {

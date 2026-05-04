@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 
 import { getServerCatalog, type ServerCatalogPlan } from '../../api/product-catalog'
+import { useWebAuthStore } from '../../store/modules/auth'
 
 const loading = ref(false)
 const plans = ref<ServerCatalogPlan[]>([])
+const authStore = useWebAuthStore()
+const { isLoggedIn } = storeToRefs(authStore)
 
 const billingCycle = ref<'monthly' | 'yearly'>('monthly')
 
@@ -104,7 +108,7 @@ const displayPlans = computed(() => {
             </div>
 
             <div class="pc-action">
-              <RouterLink to="/login" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">登录后查看购买入口</RouterLink>
+              <RouterLink :to="isLoggedIn ? '/user/real-name' : '/login'" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">{{ isLoggedIn ? '先实名再购买' : '登录后实名购买' }}</RouterLink>
             </div>
 
             <ul class="pc-specs">

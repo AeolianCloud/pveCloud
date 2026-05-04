@@ -116,8 +116,8 @@ onMounted(() => {
 <template>
   <section class="page auth-page">
     <div class="auth-left">
-      <div class="hero-badge" style="color:var(--c-green); background:var(--c-green-soft);">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--c-green);display:inline-block;"></span>
+      <div class="hero-badge">
+        <span></span>
         重置密码
       </div>
       <h1>设置新密码</h1>
@@ -166,3 +166,207 @@ onMounted(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.auth-page {
+  min-height: calc(100vh - 80px);
+  display: grid;
+  grid-template-columns: minmax(320px, 0.92fr) minmax(420px, 1.08fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: stretch;
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 70px) 0;
+}
+
+.auth-left,
+.auth-right {
+  border: 1px solid var(--c-border);
+  border-radius: 32px;
+  box-shadow: var(--shadow);
+}
+
+.auth-left {
+  position: relative;
+  display: grid;
+  align-content: end;
+  gap: 18px;
+  min-height: 560px;
+  padding: clamp(28px, 4vw, 46px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(16, 185, 129, 0.26), transparent 30%),
+    radial-gradient(circle at 90% 0%, rgba(59, 130, 246, 0.2), transparent 34%),
+    linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(19, 21, 31, 0.74));
+}
+
+[data-theme='light'] .auth-left {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(16, 185, 129, 0.18), transparent 30%),
+    radial-gradient(circle at 90% 0%, rgba(37, 99, 235, 0.14), transparent 34%),
+    #fff;
+}
+
+.auth-left::after {
+  content: '';
+  position: absolute;
+  right: -70px;
+  top: -70px;
+  width: 230px;
+  height: 230px;
+  border-radius: 56px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transform: rotate(18deg);
+}
+
+.hero-badge {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--c-success);
+  background: var(--c-success-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.hero-badge span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-success);
+}
+
+.auth-left h1 {
+  max-width: 460px;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.065em;
+}
+
+.auth-left p {
+  max-width: 460px;
+  color: var(--c-text-2);
+  font-size: 1.06rem;
+  line-height: 1.8;
+}
+
+.auth-right {
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 4vw, 48px);
+  background: var(--c-card);
+}
+
+.auth-form {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 16px;
+}
+
+.auth-form h2 {
+  margin-bottom: 6px;
+  font-size: 2rem;
+  letter-spacing: -0.05em;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 8px;
+  color: var(--c-text-2);
+  font-weight: 700;
+}
+
+.auth-form input {
+  min-height: 50px;
+  padding: 0 15px;
+  border: 1px solid var(--c-border);
+  border-radius: 15px;
+  color: var(--c-text);
+  background: var(--c-surface-dim);
+}
+
+.captcha-field {
+  display: grid;
+  gap: 12px;
+}
+
+.captcha-row {
+  display: grid;
+  grid-template-columns: 1fr 104px;
+  gap: 10px;
+  align-items: center;
+}
+
+.captcha-image {
+  width: 100%;
+  height: 52px;
+  object-fit: cover;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  background: var(--c-surface-dim);
+}
+
+.captcha-image--placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--c-text-3);
+}
+
+.captcha-refresh {
+  height: 52px;
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  color: var(--c-text);
+  background: var(--c-surface-dim);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.hint {
+  margin: 0;
+  color: var(--c-text-2);
+  line-height: 1.7;
+}
+
+.success-text {
+  color: var(--c-success);
+}
+
+.error-text {
+  color: var(--c-error);
+}
+
+.link {
+  color: var(--c-primary-h);
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-left {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 620px) {
+  .auth-page {
+    width: min(100% - 28px, 1120px);
+    padding: 22px 0 44px;
+  }
+
+  .auth-left,
+  .auth-right {
+    border-radius: 24px;
+  }
+
+  .captcha-row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

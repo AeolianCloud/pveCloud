@@ -1,12 +1,12 @@
 # 后端架构
 
-`pveCloud` 后端当前以 Go 基础后台为主，现行契约范围聚焦管理端 API，并开放最小 Web 公开站点配置、用户账号自助接口和服务器产品目录展示接口。
+`pveCloud` 后端当前以 Go 基础后台为主，现行契约范围聚焦管理端 API，并开放最小 Web 公开站点配置、用户账号自助接口、用户实名接口和服务器产品目录展示接口。
 
 ## 进程职责
 
-- API：提供管理端 HTTP 接口、Web 公开站点配置接口、用户账号自助接口、服务器产品目录展示接口和健康检查
+- API：提供管理端 HTTP 接口、Web 公开站点配置接口、用户账号自助接口、用户实名接口、服务器产品目录展示接口和健康检查
 
-当前契约重新开放用户账号自助和服务器产品目录；订单、支付、实例、Worker、工单和其他用户端业务流仍不纳入现阶段交付范围。
+当前契约重新开放用户账号自助、用户实名和服务器产品目录；订单、支付、实例、Worker、工单和其他用户端业务流仍不纳入现阶段交付范围。
 
 ## 路由边界
 
@@ -14,10 +14,10 @@
 - 管理端 API：`/admin-api/*`
 - Web 公开配置 API：`GET /api/site-config`
 - Web 用户认证 API：`/api/auth/*`
-- Web 用户资料 API：`/api/user/*`
+- Web 用户资料和实名 API：`/api/user/*`
 - Web 服务器产品目录 API：`GET /api/server-catalog`
 
-当前仓库除站点配置、用户账号自助和服务器产品目录外，不再把其它 `/api/*` 作为现行后端契约。
+当前仓库除站点配置、用户账号自助、用户实名和服务器产品目录外，不再把其它 `/api/*` 作为现行后端契约。
 
 ## 事实来源
 
@@ -54,10 +54,12 @@ server/
         system_config/
         audit/
         file_attachment/
+        real_name/
     web/
       routes/
       modules/
         site_config/
+        real_name/
         product_catalog/
     platform/
       bootstrap/
@@ -85,12 +87,13 @@ server/
 
 ### `internal/web`
 
-用户端公开 API 边界，当前承载 `GET /api/site-config`、用户账号自助接口和 `GET /api/server-catalog`。
+用户端公开 API 边界，当前承载 `GET /api/site-config`、用户账号自助接口、用户实名接口和 `GET /api/server-catalog`。
 
 - `routes/`：Web 公开路由注册
 - `modules/site_config`：读取公开站点基础展示配置
 - `modules/auth`：用户注册、登录、登录态恢复、退出、自动刷新和密码找回
 - `modules/user_profile`：当前登录用户资料和密码编辑
+- `modules/real_name`：当前登录用户提交个人实名资料和查看实名状态
 - `modules/product_catalog`：读取公开服务器产品目录，只展示产品、套餐、价格、销售地域和服务器系统模板，不创建订单或实例
 
 ### `internal/platform`
@@ -131,7 +134,7 @@ server/
 - 审计写入
 - 文件管理
 
-用户账号自助和服务器产品目录已经重新纳入当前阶段契约。订单、支付、实例、工单、异步任务和其它用户端业务流仍从当前阶段契约中收口。后续如需恢复，必须先更新文档与迁移。
+用户账号自助、用户实名和服务器产品目录已经重新纳入当前阶段契约。订单、支付、实例、工单、异步任务和其它用户端业务流仍从当前阶段契约中收口。后续如需恢复，必须先更新文档与迁移。
 
 ## 鉴权与权限
 
@@ -169,11 +172,12 @@ server/
 - `Dashboard`
 - `System Settings`
 - `File Management`
+- `Real Name Management`
 - `403`
 
 `System Settings` 当前包含系统配置、管理员账号、管理员组权限和管理员会话。
 `System Settings` 下同时开放操作日志页面，用于查看普通后台操作日志。
-当前仅重新开放服务器产品目录相关数据库契约；订单、支付、实例、工单、异步任务等业务域仍不属于当前阶段。
+当前重新开放服务器产品目录和用户实名相关数据库契约；订单、支付、实例、工单、异步任务等业务域仍不属于当前阶段。
 
 ## 审计日志
 

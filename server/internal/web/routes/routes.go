@@ -7,6 +7,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/web/middleware"
 	webauth "github.com/AeolianCloud/pveCloud/server/internal/web/modules/auth"
 	productcatalog "github.com/AeolianCloud/pveCloud/server/internal/web/modules/product_catalog"
+	realname "github.com/AeolianCloud/pveCloud/server/internal/web/modules/real_name"
 	siteconfig "github.com/AeolianCloud/pveCloud/server/internal/web/modules/site_config"
 	userprofile "github.com/AeolianCloud/pveCloud/server/internal/web/modules/user_profile"
 )
@@ -23,6 +24,8 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	userProfileHandler := userprofile.NewUserProfileHandler(userProfileService)
 	productCatalogService := productcatalog.NewProductCatalogService(app.DB)
 	productCatalogHandler := productcatalog.NewProductCatalogHandler(productCatalogService)
+	realNameService := realname.NewRealNameService(app.DB, app.Config.Storage)
+	realNameHandler := realname.NewRealNameHandler(realNameService)
 
 	group.GET("/site-config", siteConfigHandler.Show)
 	group.GET("/server-catalog", productCatalogHandler.Show)
@@ -42,4 +45,7 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.POST("/auth/refresh", authHandler.Refresh)
 	protected.PATCH("/user/profile", userProfileHandler.UpdateProfile)
 	protected.POST("/user/password", userProfileHandler.ChangePassword)
+	protected.POST("/user/real-name/files", realNameHandler.UploadFile)
+	protected.GET("/user/real-name", realNameHandler.Status)
+	protected.POST("/user/real-name", realNameHandler.Submit)
 }

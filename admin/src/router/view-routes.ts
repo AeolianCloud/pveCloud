@@ -87,6 +87,17 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.realNames,
+    name: ADMIN_ROUTE_NAME.realNames,
+    component: () => import('../views/real-names/index.vue'),
+    meta: {
+      title: '实名管理',
+      icon: 'Checked',
+      requiresAuth: true,
+      permission: ['page.real-name-management'],
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.products,
     name: ADMIN_ROUTE_NAME.products,
     component: () => import('../views/products/index.vue'),

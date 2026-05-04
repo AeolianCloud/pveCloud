@@ -5,7 +5,7 @@
 ## 当前状态
 
 - Web 基础前台阶段已经落地用户端前端壳、路由、静态页面、站点基础展示配置和请求边界准备。
-- 当前进入用户账号自助阶段，在服务器产品目录能力之上开放用户注册、密码找回、自动刷新和用户资料编辑；订单、支付、实例或工单等业务 API 仍不开放。
+- 当前进入用户账号自助和实名准备阶段，在服务器产品目录能力之上开放用户注册、密码找回、自动刷新、用户资料编辑和个人实名；订单、支付、实例或工单等业务 API 仍不开放。
 
 ## 文档入口
 
@@ -13,6 +13,7 @@
 - Web 忘记密码页契约：`docs/web/pages/forgot-password.md`
 - Web 重置密码页契约：`docs/web/pages/reset-password.md`
 - Web 用户资料页契约：`docs/web/pages/account-profile.md`
+- Web 实名页契约：`docs/web/pages/real-name.md`
 
 ## 定位
 
@@ -37,6 +38,7 @@
 - Login / Register / Forgot Password / Reset Password 用户认证页
 - User Center 控制台入口页
 - Account Profile 用户资料页
+- Real Name 个人实名页
 - 404
 
 这些页面承载信息架构、服务器产品目录展示、用户登录态、账号自助和未来接入点，不承载下单、支付、实例或工单流程。
@@ -104,9 +106,10 @@ web/src/
 | `/reset-password` | Reset Password | 通过一次性 token 重置密码 |
 | `/user` | User Center | 控制台入口，要求用户登录态，未登录跳转 `/login` |
 | `/user/profile` | Account Profile | 用户资料编辑页，要求用户登录态 |
+| `/user/real-name` | Real Name | 个人实名页，要求用户登录态 |
 | `/:pathMatch(.*)*` | 404 | 未匹配路由 |
 
-本阶段 `/user` 和 `/user/profile` 为用户登录保护路由，未登录跳转 `/login`；其它路由公开访问。本阶段不做用户权限判断。
+本阶段 `/user`、`/user/profile` 和 `/user/real-name` 为用户登录保护路由，未登录跳转 `/login`；其它路由公开访问。本阶段不做用户权限判断。
 
 未登录访问 `/user` 时可以携带站内 `redirect` 参数；登录成功后仅允许跳转合法站内路径，非法或缺失时回退 `/user`。
 
@@ -120,6 +123,7 @@ Web 左上角品牌区域由后台系统配置驱动：
 - `web.auth.register_captcha_enabled`：是否为注册页开启图形验证码，默认 `false`。
 - `web.auth.password_reset_request_captcha_enabled`：是否为忘记密码申请页开启图形验证码，默认 `false`。
 - `web.auth.password_reset_confirm_captcha_enabled`：是否为重置密码确认页开启图形验证码，默认 `false`。
+- `real_name.*`：用户实名开关、提交要求和说明文案，全部由后台系统配置维护。
 
 展示规则：
 
@@ -127,6 +131,7 @@ Web 左上角品牌区域由后台系统配置驱动：
 - 文字来自 `site.name`，为空时回退为 `pveCloud`。
 - 图片来自 `site.logo_url`，为空时展示前端默认标识。
 - 4 个用户认证验证码开关由 `GET /api/site-config` 暴露为布尔字段，前端按页面独立决定是否显示验证码区域。
+- 用户实名公开配置由 `GET /api/site-config` 暴露为 `real_name` 对象，用于控制实名入口、图片要求和说明文案。
 - 该配置为公开展示信息，不包含敏感配置。
 
 ## 请求边界
@@ -135,9 +140,10 @@ Web 左上角品牌区域由后台系统配置驱动：
 - 本阶段允许 Web 调用 `GET /api/site-config` 获取公开站点基础展示配置。
 - 本阶段允许 Web 调用用户认证验证码接口：`GET /api/auth/login-captcha`、`GET /api/auth/register-captcha`、`GET /api/auth/password-reset-request-captcha`、`GET /api/auth/password-reset-confirm-captcha`。
 - 本阶段允许 Web 调用用户账号自助接口：`POST /api/auth/login`、`POST /api/auth/register`、`GET /api/auth/me`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password-reset/request`、`POST /api/auth/password-reset/confirm`、`PATCH /api/user/profile`、`POST /api/user/password`。
+- 本阶段允许 Web 调用用户实名接口：`GET /api/user/real-name`、`POST /api/user/real-name`。
 - 本阶段允许 Web 调用 `GET /api/server-catalog` 获取公开服务器产品目录。
 - 本阶段可以创建用户端请求封装骨架，但不得调用 `/admin-api/*`。
-- 本阶段不新增站点配置、用户账号自助和服务器产品目录以外的用户端业务接口契约。
+- 本阶段不新增站点配置、用户账号自助、用户实名和服务器产品目录以外的用户端业务接口契约。
 - 后续接入真实业务接口时，必须先更新 `docs/server/api/` 和必要的数据库契约。
 
 ## 状态边界
@@ -155,6 +161,10 @@ Web 左上角品牌区域由后台系统配置驱动：
 - 当 `password_reset_confirm_captcha_enabled=true` 时，重置密码页首屏拉取 `GET /api/auth/password-reset-confirm-captcha` 并在提交 `POST /api/auth/password-reset/confirm` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
 - 4 个认证流程的验证码互不通用，场景关闭时前端不得请求对应验证码接口。
 - 用户资料编辑仅允许当前登录用户修改邮箱、显示名称和密码，不开放用户名修改。
+- 用户实名仅允许当前登录用户提交个人实名资料和查看自己的实名状态；实名状态不作为用户端权限码。
+- `real_name.enabled=false` 时用户端不得提交实名申请。
+- `pending` 和 `approved` 状态不得重复提交；`rejected` 状态是否允许重提由后台配置决定。
+- `real_name.required_for_order=true` 时，用户购买机器前必须实名通过；未实名、审核中或被拒绝时引导到 `/user/real-name`。
 - 已登录用户访问 `/login` 时跳转 `/user`。
 - `401xx` 按未登录、token 无效、token 过期或会话失效处理，前端必须清理本地登录态；受保护路由访问失败时回到 `/login`。
 - `403xx` 不作为未登录处理；当前阶段用户端不引入权限码。
@@ -206,11 +216,12 @@ Web 通过 `GET /api/server-catalog` 展示服务器产品目录。
 
 - `web/` 与 `admin/` 独立，不共享运行时代码
 - `web/` 不调用 `/admin-api/*`
-- 本阶段只新增公开站点配置、用户账号自助和服务器产品目录接口，不新增订单、支付、实例或工单接口
+- 本阶段只新增公开站点配置、用户账号自助、用户实名和服务器产品目录接口，不新增订单、支付、实例或工单接口
 - Home、Products 和 Pricing 通过公开服务器产品目录展示产品、套餐、价格、销售地域、服务器系统模板、简介和状态
 - Web 左上角品牌区域可展示后台配置的站点名称和 Logo 图片，配置为空时有默认回退
 - 顶部导航“登录”和“控制台”指向同一用户登录体系；未登录访问控制台进入 `/login`，登录成功进入 `/user`
 - 登录、注册、密码找回、重置密码、自动刷新和用户资料编辑流程可用，且不调用 `/admin-api/*`
+- 用户实名页可按后台配置展示实名要求、提交申请和查看状态，且不调用 `/admin-api/*`
 - 4 个认证页面根据 `GET /api/site-config` 返回的布尔开关独立显示或隐藏验证码区域；开关关闭时不请求验证码接口
 - 基础路由和 404 可访问
 - 用户端静态页面在桌面和移动端可用

@@ -2,6 +2,7 @@ package siteconfig
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -18,6 +19,16 @@ const (
 	registerCaptchaEnabledKey      = "web.auth.register_captcha_enabled"
 	passwordResetRequestCaptchaKey = "web.auth.password_reset_request_captcha_enabled"
 	passwordResetConfirmCaptchaKey = "web.auth.password_reset_confirm_captcha_enabled"
+	realNameEnabledKey             = "real_name.enabled"
+	realNameRequiredForOrderKey    = "real_name.required_for_order"
+	realNameResubmitEnabledKey     = "real_name.resubmit_enabled"
+	realNameMaxSubmitAttemptsKey   = "real_name.max_submit_attempts"
+	realNameFrontRequiredKey       = "real_name.id_card_front_required"
+	realNameBackRequiredKey        = "real_name.id_card_back_required"
+	realNameHoldRequiredKey        = "real_name.hold_card_required"
+	realNameImageMaxSizeMBKey      = "real_name.image_max_size_mb"
+	realNameAllowedImageTypesKey   = "real_name.allowed_image_types"
+	realNameReviewNoticeKey        = "real_name.review_notice"
 )
 
 /**
@@ -49,13 +60,23 @@ func (s *SiteConfigService) Show(ctx context.Context) (webdto.SiteConfigResponse
 				registerCaptchaEnabledKey,
 				passwordResetRequestCaptchaKey,
 				passwordResetConfirmCaptchaKey,
+				realNameEnabledKey,
+				realNameRequiredForOrderKey,
+				realNameResubmitEnabledKey,
+				realNameMaxSubmitAttemptsKey,
+				realNameFrontRequiredKey,
+				realNameBackRequiredKey,
+				realNameHoldRequiredKey,
+				realNameImageMaxSizeMBKey,
+				realNameAllowedImageTypesKey,
+				realNameReviewNoticeKey,
 			},
 		).
 		Find(&configs).Error; err != nil {
 		return webdto.SiteConfigResponse{}, err
 	}
 
-	result := webdto.SiteConfigResponse{SiteName: defaultSiteName}
+	result := webdto.SiteConfigResponse{SiteName: defaultSiteName, RealName: defaultRealNameConfig()}
 	for _, config := range configs {
 		value := ""
 		if config.ConfigValue != nil {
@@ -76,10 +97,42 @@ func (s *SiteConfigService) Show(ctx context.Context) (webdto.SiteConfigResponse
 			result.PasswordResetRequestCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
 		case passwordResetConfirmCaptchaKey:
 			result.PasswordResetConfirmCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
+		case realNameEnabledKey:
+			result.RealName.Enabled = parseBoolConfigValue(config.ConfigValue)
+		case realNameRequiredForOrderKey:
+			result.RealName.RequiredForOrder = parseBoolConfigValue(config.ConfigValue)
+		case realNameResubmitEnabledKey:
+			result.RealName.ResubmitEnabled = parseBoolConfigValue(config.ConfigValue)
+		case realNameMaxSubmitAttemptsKey:
+			result.RealName.MaxSubmitAttempts = parseIntConfigValue(config.ConfigValue, result.RealName.MaxSubmitAttempts)
+		case realNameFrontRequiredKey:
+			result.RealName.IDCardFrontRequired = parseBoolConfigValue(config.ConfigValue)
+		case realNameBackRequiredKey:
+			result.RealName.IDCardBackRequired = parseBoolConfigValue(config.ConfigValue)
+		case realNameHoldRequiredKey:
+			result.RealName.HoldCardRequired = parseBoolConfigValue(config.ConfigValue)
+		case realNameImageMaxSizeMBKey:
+			result.RealName.ImageMaxSizeMB = parseIntConfigValue(config.ConfigValue, result.RealName.ImageMaxSizeMB)
+		case realNameAllowedImageTypesKey:
+			result.RealName.AllowedImageTypes = parseCSVConfigValue(config.ConfigValue, result.RealName.AllowedImageTypes)
+		case realNameReviewNoticeKey:
+			result.RealName.ReviewNotice = value
 		}
 	}
 
 	return result, nil
+}
+
+func defaultRealNameConfig() webdto.RealNameConfig {
+	return webdto.RealNameConfig{
+		RequiredForOrder:    true,
+		ResubmitEnabled:     true,
+		MaxSubmitAttempts:   3,
+		IDCardFrontRequired: true,
+		IDCardBackRequired:  true,
+		ImageMaxSizeMB:      5,
+		AllowedImageTypes:   []string{"image/jpeg", "image/png", "image/webp"},
+	}
 }
 
 func parseBoolConfigValue(value *string) bool {
@@ -87,4 +140,33 @@ func parseBoolConfigValue(value *string) bool {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(*value), "true")
+}
+
+func parseIntConfigValue(value *string, fallback int) int {
+	if value == nil {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(*value))
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func parseCSVConfigValue(value *string, fallback []string) []string {
+	if value == nil || strings.TrimSpace(*value) == "" {
+		return fallback
+	}
+	parts := strings.Split(*value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			result = append(result, item)
+		}
+	}
+	if len(result) == 0 {
+		return fallback
+	}
+	return result
 }

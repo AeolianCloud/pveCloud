@@ -33,6 +33,18 @@ export const useWebAppStore = defineStore('web-app', {
     registerCaptchaEnabled: false,
     passwordResetRequestCaptchaEnabled: false,
     passwordResetConfirmCaptchaEnabled: false,
+    realNameConfig: {
+      enabled: false,
+      required_for_order: true,
+      resubmit_enabled: true,
+      max_submit_attempts: 3,
+      id_card_front_required: true,
+      id_card_back_required: true,
+      hold_card_required: false,
+      image_max_size_mb: 5,
+      allowed_image_types: ['image/jpeg', 'image/png', 'image/webp'],
+      review_notice: '',
+    },
   }),
   actions: {
     async loadSiteConfig(force = false) {
@@ -50,6 +62,7 @@ export const useWebAppStore = defineStore('web-app', {
           this.registerCaptchaEnabled = config.register_captcha_enabled
           this.passwordResetRequestCaptchaEnabled = config.password_reset_request_captcha_enabled
           this.passwordResetConfirmCaptchaEnabled = config.password_reset_confirm_captcha_enabled
+          this.realNameConfig = config.real_name || this.realNameConfig
         } catch {
           this.siteName = 'pveCloud'
           this.logoUrl = ''

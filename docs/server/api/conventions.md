@@ -64,6 +64,8 @@
 - 受保护用户端接口需要同时校验 token 和当前用户会话状态
 - 当前阶段用户端不引入权限码；登录后即可访问 `/user` 控制台入口
 - `GET /api/server-catalog` 是公开产品目录接口，不要求用户登录，但不得返回订单、支付、实例或 PVE 节点信息
+- 用户实名接口属于用户端受保护接口，实名状态只作为业务状态，不引入用户端权限码
+- 当 `real_name.required_for_order=true` 时，任何机器购买或订单创建接口都必须要求当前用户实名状态为 `approved`
 
 ## 管理端权限目录
 
@@ -91,6 +93,7 @@ page.<menu>.<feature>
 - `page.file-management`
 - `page.web-users`
 - `page.web-user-sessions`
+- `page.real-name-management`
 - `page.products`
 
 菜单权限在权限目录中使用 `type=menu`。`/admin-api/auth/me`、登录恢复和 Dashboard 响应中的 `menus` 必须按当前管理员拥有的菜单权限生成。
@@ -136,6 +139,8 @@ resource:action
 - `web-user:password-reset`
 - `web-user-session:view`
 - `web-user-session:revoke`
+- `real-name:view`
+- `real-name:review`
 - `product:view`
 - `product:create`
 - `product:update`
@@ -170,7 +175,7 @@ resource:action
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户账号自助和服务器产品目录接口除外）
+- 用户端业务 API（公开站点配置、用户账号自助、用户实名和服务器产品目录接口除外）
 - 订单
 - 支付
 - 实例

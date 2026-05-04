@@ -12,6 +12,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/dashboard"
 	fileattachment "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/file_attachment"
 	productcatalog "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/product_catalog"
+	realname "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/real_name"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system"
 	systemconfig "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/system_config"
 	webuser "github.com/AeolianCloud/pveCloud/server/internal/admin/modules/web_user"
@@ -46,6 +47,8 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	fileAttachmentHandler := fileattachment.NewFileAttachmentHandler(fileAttachmentService)
 	productCatalogService := productcatalog.NewProductCatalogService(app.DB, auditService)
 	productCatalogHandler := productcatalog.NewProductCatalogHandler(productCatalogService)
+	realNameService := realname.NewRealNameService(app.DB, auditService)
+	realNameHandler := realname.NewRealNameHandler(realNameService)
 
 	admin := group.Group("")
 	admin.Use(middleware.AdminAuditContext())
@@ -81,6 +84,9 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.POST("/users/:id/password", middleware.AdminPermission("web-user:password-reset"), webUserHandler.ResetPassword)
 	protected.GET("/user-sessions", middleware.AdminPermission("page.web-user-sessions"), webUserHandler.Sessions)
 	protected.PATCH("/user-sessions/:session_id", middleware.AdminPermission("web-user-session:revoke"), webUserHandler.RevokeSession)
+	protected.GET("/real-name-applications", middleware.AdminPermission("page.real-name-management"), realNameHandler.Applications)
+	protected.GET("/real-name-applications/:id", middleware.AdminPermission("page.real-name-management"), realNameHandler.Detail)
+	protected.POST("/real-name-applications/:id/review", middleware.AdminPermission("real-name:review"), realNameHandler.Review)
 	protected.GET("/products", middleware.AdminPermission("page.products"), productCatalogHandler.Products)
 	protected.POST("/products", middleware.AdminPermission("product:create"), productCatalogHandler.CreateProduct)
 	protected.PUT("/products/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateProduct)

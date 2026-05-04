@@ -10,6 +10,8 @@
 - `Dashboard`：`docs/admin/pages/dashboard.md`
 - `System Settings`：`docs/admin/pages/system-settings.md`
 - `File Management`：`docs/admin/pages/file-management.md`
+- `Web User Management`：`docs/admin/pages/web-user-management.md`
+- `Real Name Management`：`docs/admin/pages/real-name-management.md`
 - `Product Management`：`docs/admin/pages/product-management.md`
 - `403`：`docs/admin/pages/403.md`
 

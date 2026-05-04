@@ -7,6 +7,7 @@
 接口契约按访问边界区分：
 
 - `/admin-api/*`：对应管理端后端实现边界 `server/internal/admin/*`
+- `/api/*`：对应用户端后端实现边界 `server/internal/web/*`
 
 这里描述的是 API 契约，不直接替代具体代码结构；但当接口重新开放、迁移或新增时，路由注册、权限校验和实现目录应与上述边界保持一致。
 
@@ -195,6 +196,7 @@
   - `register_captcha_enabled`：注册页验证码开关，来自 `web.auth.register_captcha_enabled`
   - `password_reset_request_captcha_enabled`：忘记密码申请页验证码开关，来自 `web.auth.password_reset_request_captcha_enabled`
   - `password_reset_confirm_captcha_enabled`：重置密码确认页验证码开关，来自 `web.auth.password_reset_confirm_captcha_enabled`
+  - `real_name`：实名公开配置对象，来自 `real_name.*` 非敏感后台配置，包含 `enabled`、`required_for_order`、`resubmit_enabled`、`max_submit_attempts`、`id_card_front_required`、`id_card_back_required`、`hold_card_required`、`image_max_size_mb`、`allowed_image_types`、`review_notice`
 - 约束：不得返回 `is_secret=1` 的配置项，不得返回任意配置键列表
 
 ## 用户端认证域
@@ -373,6 +375,54 @@
   - 修改成功后吊销该用户除当前会话外的其它 active 用户端会话，`revoke_reason=password_change`
   - 当前会话保持有效，避免用户修改密码后被立即踢出
 
+## 用户端实名域
+
+### `POST /api/user/real-name/files`
+
+- 鉴权：用户端 Bearer Token
+- 作用：上传当前用户实名图片，返回附件 ID 供实名提交使用
+- 请求格式：`multipart/form-data`
+- 请求字段：`file`（图片文件）
+- 成功数据包含：`id`、`original_name`、`mime_type`、`size`、`created_at`
+- 约束：
+  - 仅当 `real_name.enabled=true` 时允许上传
+  - 文件类型必须在 `real_name.allowed_image_types` 内，并不得突破全局文件安全白名单
+  - 文件大小不得超过 `real_name.image_max_size_mb`
+  - 上传文件只允许当前用户后续实名申请引用
+
+### `GET /api/user/real-name`
+
+- 鉴权：用户端 Bearer Token
+- 作用：读取当前登录用户的实名状态和最新实名申请摘要
+- 成功数据包含：
+  - `status`：`unverified`、`pending`、`approved`、`rejected`
+  - `application`：最新实名申请摘要；无申请时为空
+  - `config`：实名提交相关公开配置快照
+- 申请摘要包含：申请编号、真实姓名、证件类型、脱敏证件号码、状态、拒绝原因、提交次数、提交时间、审核时间
+- 约束：不得返回证件号码明文、证件图片物理路径或后台敏感信息
+
+### `POST /api/user/real-name`
+
+- 鉴权：用户端 Bearer Token
+- 作用：当前登录用户提交个人实名申请
+- 请求字段：
+  - `real_name`：真实姓名
+  - `id_type`：证件类型，当前仅允许 `id_card`
+  - `id_number`：证件号码
+  - `id_card_front_file_id`：身份证人像面附件 ID；是否必填由 `real_name.id_card_front_required` 决定
+  - `id_card_back_file_id`：身份证国徽面附件 ID；是否必填由 `real_name.id_card_back_required` 决定
+  - `hold_card_file_id`：手持证件附件 ID；是否必填由 `real_name.hold_card_required` 决定
+- 成功数据包含最新实名申请摘要
+- 约束：
+  - 仅当 `real_name.enabled=true` 时允许提交
+  - 当前用户存在 `pending` 申请时拒绝重复提交
+  - 当前用户已 `approved` 时拒绝用户端覆盖实名资料
+  - 拒绝后是否允许重新提交由 `real_name.resubmit_enabled` 和 `real_name.max_submit_attempts` 决定
+  - 证件号码必须通过格式校验，且不得与其它已通过实名用户重复
+  - 证件号码不得明文落库，只保存查询摘要和脱敏展示值，接口不得返回明文
+  - 附件必须属于当前用户本次实名场景，并满足实名图片类型和尺寸配置
+  - 服务端必须写入文件引用关系，防止实名图片被误删
+
 ## Web 用户管理域
 
 ### `GET /admin-api/users`
@@ -442,6 +492,41 @@
 - 作用：吊销指定用户端登录会话
 - 请求字段：`status`，当前固定为 `revoked`
 - 约束：仅 active 状态会话可吊销；吊销后对应 Web token 后续访问必须失效
+
+## 实名管理域
+
+### `GET /admin-api/real-name-applications`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.real-name-management`
+- 作用：分页查询用户实名申请
+- 查询参数支持：`page`、`per_page`、`keyword`、`status`、`id_type`、`date_from`、`date_to`
+- 成功数据包含：`list`、`total`、`page`、`per_page`、`last_page`
+- 列表项包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、状态、提交次数、提交时间、审核管理员摘要、审核时间、拒绝原因
+- 约束：不得返回证件号码明文或证件图片物理路径
+
+### `GET /admin-api/real-name-applications/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.real-name-management`
+- 作用：查看用户实名申请详情
+- 成功数据包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、状态、提交次数、证件图片附件摘要、审核管理员摘要、审核时间、拒绝原因、创建时间、更新时间
+- 约束：证件图片只返回受控附件摘要或预览入口，不返回物理存储路径
+
+### `POST /admin-api/real-name-applications/{id}/review`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`real-name:review` 或 `real-name:*`
+- 作用：审核通过或拒绝实名申请
+- 请求字段：
+  - `status`：审核结果，仅允许 `approved` 或 `rejected`
+  - `reject_reason`：拒绝原因；`status=rejected` 时必填
+- 成功数据包含最新实名申请详情
+- 约束：
+  - 仅 `pending` 状态申请允许审核
+  - 审核通过时，同一证件号码不得已被其它用户通过实名
+  - 审核拒绝时必须填写拒绝原因
+  - 审核操作必须写入 `admin_audit_logs`，动作使用 `real_name.review`
 
 ## 日志管理域
 
@@ -702,7 +787,7 @@
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户账号自助和服务器产品目录接口除外）
+- 用户端业务 API（公开站点配置、用户账号自助、用户实名和服务器产品目录接口除外）
 - 订单
 - 支付
 - 实例
