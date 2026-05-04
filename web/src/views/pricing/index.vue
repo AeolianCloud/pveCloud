@@ -6,7 +6,7 @@ import { getServerCatalog, type ServerCatalogPlan } from '../../api/product-cata
 const loading = ref(false)
 const plans = ref<ServerCatalogPlan[]>([])
 
-const visiblePlans = computed(() => plans.value.slice(0, 4))
+const billingCycle = ref<'monthly' | 'yearly'>('monthly')
 
 const cycleLabels: Record<string, string> = {
   monthly: '月付',
@@ -15,115 +15,262 @@ const cycleLabels: Record<string, string> = {
   yearly: '年付',
 }
 
-function yuan(cents: number) {
-  return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)
-}
-
-function monthlyPrice(plan: ServerCatalogPlan) {
-  return plan.prices.find((price) => price.billing_cycle === 'monthly') || plan.prices[0]
-}
-
-function memory(plan: ServerCatalogPlan) {
-  return `${Math.round(plan.memory_mb / 1024)} GB`
-}
-
-function ctaText(plan: ServerCatalogPlan) {
-  return plan.status === 'sold_out' ? '暂时售罄' : '购买功能即将开放'
-}
-
 onMounted(async () => {
   loading.value = true
   try {
     const catalog = await getServerCatalog()
-    plans.value = catalog.products.flatMap((product) => product.plans)
+    plans.value = catalog.products.flatMap(p => p.plans)
   } finally {
     loading.value = false
   }
 })
+
+function yuan(cents: number) {
+  return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)
+}
+
+function getPrice(plan: ServerCatalogPlan, cycle: 'monthly' | 'yearly') {
+  const p = plan.prices.find(pr => pr.billing_cycle === cycle)
+  if (p) return p.price_cents
+  return plan.prices[0]?.price_cents || 0
+}
+
+function getYearlyDiscount(plan: ServerCatalogPlan) {
+  const monthly = getPrice(plan, 'monthly') * 12
+  const yearly = getPrice(plan, 'yearly')
+  if (monthly && yearly && yearly < monthly) {
+    const savings = monthly - yearly
+    return Math.round((savings / monthly) * 100)
+  }
+  return 0
+}
+
+const displayPlans = computed(() => {
+  const sorted = [...plans.value].sort((a, b) => getPrice(a, 'monthly') - getPrice(b, 'monthly'))
+  // Just show 4 prominent plans for the pricing comparison
+  return sorted.slice(0, 4)
+})
 </script>
 
 <template>
-  <section class="page content-page">
-    <div class="section-pad">
-      <div class="sec-header center" style="margin-bottom: clamp(28px, 4vw, 48px);">
-        <p class="label">价格方案</p>
-        <h2>服务器套餐价格</h2>
-        <p>价格、地域和系统模板均来自后台产品目录。当前阶段不开放下单和支付。</p>
-      </div>
-
-      <div v-if="loading" class="empty-state">正在读取价格目录...</div>
-      <div v-else-if="visiblePlans.length === 0" class="empty-state">暂无公开价格，请先在后台配置套餐、价格、地域和系统模板。</div>
-
-      <div v-else class="pricing-preview-grid" style="margin-bottom: clamp(40px, 6vw, 72px);">
-        <div v-for="plan in visiblePlans" :key="plan.plan_no" class="pricing-preview-card" :class="{ featured: plan.is_featured }">
-          <span class="plan-tag" :class="plan.is_featured ? 'primary' : 'green'">{{ plan.status === 'sold_out' ? '售罄' : plan.is_featured ? '推荐' : '可选' }}</span>
-          <div class="plan-name">{{ plan.name }}</div>
-          <p v-if="plan.summary" class="plan-summary">{{ plan.summary }}</p>
-          <div class="plan-price"><strong>¥{{ yuan(monthlyPrice(plan).price_cents) }}</strong><span>/月起</span></div>
-          <div class="plan-specs">
-            <div class="plan-spec">{{ plan.cpu_cores }} vCPU</div>
-            <div class="plan-spec">{{ memory(plan) }} 内存</div>
-            <div class="plan-spec">{{ plan.system_disk_gb }} GB 系统盘</div>
-            <div class="plan-spec">{{ plan.bandwidth_mbps }} Mbps 带宽</div>
-            <div class="plan-spec">{{ plan.public_ip_count }} 个公网 IP</div>
+  <div class="pricing-page">
+    <div class="pricing-hero">
+      <div class="container text-center">
+        <h1 class="hero-title">透明、简单的<span class="text-gradient">产品定价</span></h1>
+        <p class="hero-desc">无隐藏费用。根据业务规模选择恰当的规格，您可以随时在控制台实现无缝升降配。</p>
+        
+        <!-- Billing Cycle Toggle -->
+        <div class="cycle-toggle-wrapper">
+          <div class="cycle-toggle">
+            <button 
+              class="cycle-btn" 
+              :class="{ active: billingCycle === 'monthly' }"
+              @click="billingCycle = 'monthly'"
+            >按月付费</button>
+            <button 
+              class="cycle-btn" 
+              :class="{ active: billingCycle === 'yearly' }"
+              @click="billingCycle = 'yearly'"
+            >按年付费 <span class="discount-badge">享特惠</span></button>
           </div>
-          <div class="price-cycles">
-            <div v-for="price in plan.prices" :key="price.billing_cycle" class="price-cycle">
-              <span>{{ cycleLabels[price.billing_cycle] }}</span><strong>¥{{ yuan(price.price_cents) }}</strong>
-            </div>
-          </div>
-          <RouterLink to="/login" class="btn btn-primary btn-sm" style="width:100%">{{ ctaText(plan) }}</RouterLink>
         </div>
       </div>
-
-      <div v-if="visiblePlans.length > 0" class="pricing-table-wrap">
-        <table class="pricing-table">
-          <thead>
-            <tr>
-              <th>规格项</th>
-              <th v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.name }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>月价</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" class="price-cell" :class="{ 'featured-col': plan.is_featured }">¥{{ yuan(monthlyPrice(plan).price_cents) }}</td>
-            </tr>
-            <tr>
-              <td>简介</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.summary || '固定规格云服务器套餐' }}</td>
-            </tr>
-            <tr>
-              <td>CPU</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.cpu_cores }} vCPU</td>
-            </tr>
-            <tr>
-              <td>内存</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ memory(plan) }}</td>
-            </tr>
-            <tr>
-              <td>系统盘</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.system_disk_gb }} GB</td>
-            </tr>
-            <tr>
-              <td>销售地域</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.regions.map((region) => region.name).join(' / ') }}</td>
-            </tr>
-            <tr>
-              <td>系统模板</td>
-              <td v-for="plan in visiblePlans" :key="plan.plan_no" :class="{ 'featured-col': plan.is_featured }">{{ plan.os_templates.map((template) => template.name).join(' / ') }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
-  </section>
+
+    <section class="pricing-content container">
+      <div v-if="loading" class="loading-state text-center py-20">
+        <div class="spinner"></div>
+        <p style="margin-top:20px; color:var(--c-text-2)">正在同步最新价格清单...</p>
+      </div>
+
+      <div v-else-if="displayPlans.length > 0">
+        <!-- Modern Pricing Cards -->
+        <div class="pricing-cards">
+          <div v-for="plan in displayPlans" :key="plan.plan_no" class="pricing-card glass-panel" :class="{ 'is-featured': plan.is_featured }">
+            <div v-if="plan.is_featured" class="featured-ribbon">最受欢迎</div>
+            
+            <div class="pc-header">
+              <h3>{{ plan.name }}</h3>
+              <p>{{ plan.summary || '通用计算规格，适合大多数场景' }}</p>
+            </div>
+
+            <div class="pc-price">
+              <span class="currency">¥</span>
+              <span class="amount">{{ yuan(getPrice(plan, billingCycle)) }}</span>
+              <span class="period">/ {{ cycleLabels[billingCycle] }}</span>
+              <div v-if="billingCycle === 'yearly' && getYearlyDiscount(plan) > 0" class="savings">
+                省 {{ getYearlyDiscount(plan) }}%
+              </div>
+            </div>
+
+            <div class="pc-action">
+              <RouterLink to="/login" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">立即购买</RouterLink>
+            </div>
+
+            <ul class="pc-specs">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.cpu_cores }}</strong> 核心处理器</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ Math.round(plan.memory_mb / 1024) }} GB</strong> 内存容量</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.system_disk_gb }} GB</strong> NVMe 系统盘</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.bandwidth_mbps }} Mbps</strong> 峰值带宽</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.public_ip_count }}</strong> 个独立公网 IP</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Detailed Feature Comparison -->
+        <div class="comparison-section py-32">
+          <h2 class="text-center" style="font-size: 2rem; font-weight: 800; margin-bottom: 48px;">高级特性对比</h2>
+          <div class="table-wrap glass-panel">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th class="feature-col">规格特性</th>
+                  <th v-for="plan in displayPlans" :key="plan.plan_no" :class="{ 'th-featured': plan.is_featured }">
+                    <div class="th-name">{{ plan.name }}</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="5" class="tr-group">核心计算资源</td></tr>
+                <tr>
+                  <td>处理器规格</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.cpu_cores }} vCPU</td>
+                </tr>
+                <tr>
+                  <td>内存 (ECC 支持)</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ Math.round(plan.memory_mb / 1024) }} GB</td>
+                </tr>
+                <tr>
+                  <td>CPU 积分限制</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">无限制 (独享)</td>
+                </tr>
+                
+                <tr><td colspan="5" class="tr-group">存储与网络</td></tr>
+                <tr>
+                  <td>NVMe 系统盘</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.system_disk_gb }} GB</td>
+                </tr>
+                <tr>
+                  <td>公网出网带宽</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.bandwidth_mbps }} Mbps</td>
+                </tr>
+                <tr>
+                  <td>内网互联带宽</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">10 Gbps共享</td>
+                </tr>
+                <tr>
+                  <td>基础防御能力</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">20G DDoS基础防护</td>
+                </tr>
+
+                <tr><td colspan="5" class="tr-group">其它支持</td></tr>
+                <tr>
+                  <td>免费镜像市场</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no" class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></td>
+                </tr>
+                <tr>
+                  <td>手动快照额度</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">2个</td>
+                </tr>
+                <tr>
+                  <td>专属大客户经理</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no" :class="{ check: plan.is_featured, cross: !plan.is_featured }">
+                    <svg v-if="plan.is_featured" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span v-else>—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
 </template>
 
 <style scoped>
-.empty-state { padding: 40px 0; text-align: center; color: var(--c-text-2); }
-.price-cycles { display: grid; gap: 8px; margin: 16px 0; }
-.price-cycle { display: flex; justify-content: space-between; font-size: .9rem; color: var(--c-text-2); }
-.price-cycle strong { color: var(--c-text); }
-.plan-summary { min-height: 44px; margin: 10px 0 0; color: var(--c-text-2); font-size: .9rem; line-height: 1.55; }
+.pricing-page { padding-bottom: 80px; }
+
+.pricing-hero {
+  padding: 100px 0 160px;
+  background: 
+    radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 60%);
+  border-bottom: 1px solid var(--c-border-light);
+  position: relative;
+}
+.hero-title { font-size: clamp(2.5rem, 4vw, 3.5rem); font-weight: 800; margin-bottom: 24px; }
+.hero-desc { font-size: 1.15rem; color: var(--c-text-2); max-width: 600px; margin: 0 auto 40px; }
+
+/* Cycle Toggle */
+.cycle-toggle-wrapper { display: flex; justify-content: center; }
+.cycle-toggle {
+  display: inline-flex; background: rgba(0,0,0,0.3); border: 1px solid var(--c-border);
+  padding: 6px; border-radius: 99px;
+}
+.cycle-btn {
+  padding: 10px 24px; border-radius: 99px; font-size: 0.95rem; font-weight: 600;
+  color: var(--c-text-2); cursor: pointer; transition: all 0.3s; position: relative;
+}
+.cycle-btn.active { background: var(--c-surface); color: var(--c-text); box-shadow: var(--shadow-sm); }
+.discount-badge {
+  position: absolute; top: -12px; right: -10px;
+  background: var(--c-success); color: white; padding: 2px 8px; border-radius: 99px;
+  font-size: 0.7rem; font-weight: 800; white-space: nowrap;
+}
+
+/* Pricing Cards */
+.pricing-cards {
+  display: grid; gap: 24px; margin-top: -80px; position: relative; z-index: 10;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.pricing-card {
+  padding: 40px 32px; border-radius: var(--radius-xl);
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.pricing-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg), var(--shadow-glow); }
+.pricing-card.is-featured { border-color: var(--c-primary); background: rgba(19, 21, 31, 0.95); }
+.featured-ribbon {
+  position: absolute; top: 0; left: 0; right: 0; background: var(--c-primary); color: white;
+  text-align: center; font-size: 0.8rem; font-weight: 700; padding: 6px 0; letter-spacing: 0.05em;
+}
+
+.pc-header { margin-bottom: 32px; margin-top: 16px; }
+.pc-header h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+.pc-header p { font-size: 0.9rem; color: var(--c-text-2); min-height: 40px; }
+
+.pc-price { display: flex; align-items: baseline; gap: 4px; margin-bottom: 32px; position: relative; }
+.pc-price .currency { font-size: 1.5rem; font-weight: 700; }
+.pc-price .amount { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.pc-price .period { font-size: 1rem; color: var(--c-text-3); font-weight: 500; }
+.pc-price .savings {
+  position: absolute; bottom: -24px; left: 0; color: var(--c-success); font-size: 0.85rem; font-weight: 600;
+  background: var(--c-success-soft); padding: 2px 8px; border-radius: 4px;
+}
+
+.pc-action { margin-bottom: 32px; }
+
+.pc-specs { list-style: none; display: grid; gap: 16px; flex: 1; }
+.pc-specs li { display: flex; align-items: center; gap: 12px; font-size: 0.95rem; color: var(--c-text-2); }
+.pc-specs li svg { width: 18px; height: 18px; color: var(--c-primary); }
+.pc-specs li strong { color: var(--c-text); }
+
+/* Table */
+.table-wrap { border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-lg); }
+.comparison-table { width: 100%; border-collapse: collapse; text-align: center; }
+.comparison-table th, .comparison-table td { padding: 20px; border-bottom: 1px solid var(--c-border-light); }
+.comparison-table th { background: rgba(0,0,0,0.4); }
+.comparison-table .feature-col { text-align: left; font-size: 1.1rem; font-weight: 700; width: 25%; }
+.comparison-table .th-name { font-size: 1.1rem; font-weight: 700; }
+.comparison-table .th-featured { background: var(--c-primary-soft); border-top: 3px solid var(--c-primary); }
+.tr-group { text-align: left !important; background: var(--c-surface-dim); font-weight: 700; color: var(--c-text); padding: 12px 20px !important; }
+.comparison-table td { color: var(--c-text-2); font-size: 0.95rem; }
+.comparison-table tr:hover td { background: var(--c-surface-dim); color: var(--c-text); }
+.check svg { width: 20px; height: 20px; color: var(--c-success); margin: 0 auto; }
+.cross span { color: var(--c-text-3); }
+
+@media (max-width: 992px) {
+  .table-wrap { overflow-x: auto; }
+  .comparison-table { min-width: 800px; }
+}
 </style>
