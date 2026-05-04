@@ -13,7 +13,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useWebAuthStore()
 const appStore = useWebAppStore()
-const { loginCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
+const { loginCaptchaEnabled, siteConfigError, siteConfigLoaded, siteConfigLoading } = storeToRefs(appStore)
 
 const account = ref('')
 const password = ref('')
@@ -30,12 +30,6 @@ const {
   refreshCaptcha,
 } = useAuthCaptcha(loginCaptchaEnabled, getLoginCaptcha)
 
-const highlights = [
-  '登录和控制台使用同一套入口',
-  '刷新页面后会自动恢复登录态',
-  '退出后会清理本地登录信息',
-]
-
 const canSubmit = computed(() => {
   return (
     siteConfigLoaded.value &&
@@ -45,6 +39,34 @@ const canSubmit = computed(() => {
     captchaReady.value &&
     !loading.value
   )
+})
+
+const submitHint = computed(() => {
+  if (siteConfigLoading.value && !siteConfigLoaded.value) {
+    return '正在同步登录配置，请稍候...'
+  }
+  if (account.value.trim() === '') {
+    return '先输入邮箱或用户名'
+  }
+  if (password.value.length < 6) {
+    return '密码至少需要 6 位'
+  }
+  if (loginCaptchaEnabled.value && !captchaReady.value) {
+    return captchaError.value || '验证码正在准备中...'
+  }
+  if (loginCaptchaEnabled.value && captchaCode.value.trim().length < 4) {
+    return '请输入验证码后再继续'
+  }
+  if (siteConfigError.value) {
+    return siteConfigError.value
+  }
+  return '表单已就绪，可以登录'
+})
+
+const statusTone = computed(() => {
+  if (captchaError.value || errorMessage.value) return 'danger'
+  if (!canSubmit.value) return 'muted'
+  return 'success'
 })
 
 function loginErrorMessage(error: unknown) {
@@ -100,64 +122,79 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="page auth-page">
-    <div class="auth-left">
-      <div class="hero-badge" style="color:var(--c-primary); background:var(--c-primary-soft);">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--c-primary);display:inline-block;"></span>
-        用户登录
-      </div>
-      <h1>进入云资源控制台</h1>
-      <p>
-        登录后进入统一控制台入口。当前阶段先开放登录态、会话恢复和退出能力，实例、订单和工单仍按占位展示。
-      </p>
-      <div style="display:grid; gap:10px; margin-top:8px;">
-        <div
-          v-for="item in highlights"
-          :key="item"
-          style="display:flex; align-items:center; gap:8px; font-size:.92rem; color:var(--c-text-2);"
-        >
-          <span style="width:5px;height:5px;border-radius:50%;background:var(--c-primary);flex-shrink:0;"></span>
-          {{ item }}
-        </div>
-      </div>
-    </div>
-    <div class="auth-right">
-      <form class="auth-form" @submit.prevent="handleLogin">
-        <h2>登录</h2>
-        <label>
-          <span>邮箱或用户名</span>
-          <input v-model="account" type="text" placeholder="请输入邮箱或用户名" autocomplete="username" />
-        </label>
-        <label>
-          <span>密码</span>
-          <input v-model="password" type="password" placeholder="请输入密码" autocomplete="current-password" />
-        </label>
-        <div v-if="loginCaptchaEnabled" class="captcha-field">
-          <label>
-            <span>验证码</span>
-            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
-          </label>
-          <div class="captcha-row">
-            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="登录验证码" />
-            <div v-else class="captcha-image captcha-image--placeholder">
-              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
-            </div>
-            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
-              {{ captchaLoading ? '刷新中...' : '换一张' }}
-            </button>
-          </div>
-        </div>
-        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
-        <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
-        <button class="btn btn-primary" type="submit" :disabled="!canSubmit" style="width:100%">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-        <p class="hint">
-          还没有账号？<RouterLink class="link" to="/register">立即注册</RouterLink>
-          <span style="padding:0 6px;color:var(--c-text-3);">/</span>
-          <RouterLink class="link" to="/forgot-password">忘记密码</RouterLink>
+  <section class="page auth-page auth-page--login">
+    <div class="auth-ambient auth-ambient--blue"></div>
+    <div class="auth-ambient auth-ambient--violet"></div>
+
+    <div class="auth-stage">
+      <aside class="auth-panel auth-panel--story">
+        <div class="auth-kicker auth-kicker--primary">pveCloud</div>
+        <h1 class="auth-display">登录云资源控制台</h1>
+        <p class="auth-copy">
+          使用邮箱或用户名进入控制台。登录态会在刷新后自动恢复，退出后清理本地凭据。
         </p>
-      </form>
+      </aside>
+
+      <div class="auth-panel auth-panel--form-shell">
+        <div class="auth-form-card">
+          <div class="auth-form-card__header">
+            <div>
+              <p class="auth-eyebrow">Welcome back</p>
+              <h2>登录你的账号</h2>
+            </div>
+            <RouterLink class="auth-mini-link" to="/register">创建账号</RouterLink>
+          </div>
+
+          <form class="auth-form auth-form--stacked" @submit.prevent="handleLogin">
+            <label class="auth-field">
+              <span>邮箱或用户名</span>
+              <input v-model="account" type="text" placeholder="例如 demo@example.com / demo-user" autocomplete="username" />
+            </label>
+
+            <label class="auth-field">
+              <span>密码</span>
+              <input v-model="password" type="password" placeholder="输入你的登录密码" autocomplete="current-password" />
+            </label>
+
+            <div v-if="loginCaptchaEnabled" class="captcha-field auth-fieldset">
+              <div class="auth-fieldset__legend">
+                <span>安全校验</span>
+                <small>登录验证码已开启</small>
+              </div>
+              <label class="auth-field">
+                <span>验证码</span>
+                <input v-model="captchaCode" type="text" maxlength="8" placeholder="输入图中字符" autocomplete="off" />
+              </label>
+              <div class="captcha-row captcha-row--panel">
+                <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="登录验证码" />
+                <div v-else class="captcha-image captcha-image--placeholder">
+                  {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+                </div>
+                <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+                  {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="auth-status" :data-tone="statusTone">
+              <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
+              <p v-else-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
+              <p v-else class="hint">{{ submitHint }}</p>
+            </div>
+
+            <button class="btn btn-primary auth-submit" type="submit" :disabled="!canSubmit">
+              {{ loading ? '登录中...' : '进入控制台' }}
+            </button>
+
+            <div class="auth-secondary-row">
+              <span class="hint">还没有账号？</span>
+              <RouterLink class="link" to="/register">立即注册</RouterLink>
+              <span class="auth-divider"></span>
+              <RouterLink class="link" to="/forgot-password">忘记密码</RouterLink>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 </template>
