@@ -57,7 +57,7 @@ const displayPlans = computed(() => {
     <div class="pricing-hero">
       <div class="container text-center">
         <h1 class="hero-title">透明、简单的<span class="text-gradient">产品定价</span></h1>
-        <p class="hero-desc">无隐藏费用。根据业务规模选择恰当的规格，您可以随时在控制台实现无缝升降配。</p>
+        <p class="hero-desc">价格来自公开服务器产品目录。当前阶段只展示价格，不开放下单、支付或实例开通。</p>
         
         <!-- Billing Cycle Toggle -->
         <div class="cycle-toggle-wrapper">
@@ -104,13 +104,13 @@ const displayPlans = computed(() => {
             </div>
 
             <div class="pc-action">
-              <RouterLink to="/login" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">立即购买</RouterLink>
+              <RouterLink to="/login" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">登录后查看购买入口</RouterLink>
             </div>
 
             <ul class="pc-specs">
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.cpu_cores }}</strong> 核心处理器</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ Math.round(plan.memory_mb / 1024) }} GB</strong> 内存容量</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.system_disk_gb }} GB</strong> NVMe 系统盘</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.system_disk_gb }} GB</strong> 系统盘</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.bandwidth_mbps }} Mbps</strong> 峰值带宽</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>{{ plan.public_ip_count }}</strong> 个独立公网 IP</li>
             </ul>
@@ -119,7 +119,7 @@ const displayPlans = computed(() => {
 
         <!-- Detailed Feature Comparison -->
         <div class="comparison-section py-32">
-          <h2 class="text-center" style="font-size: 2rem; font-weight: 800; margin-bottom: 48px;">高级特性对比</h2>
+          <h2 class="text-center" style="font-size: 2rem; font-weight: 800; margin-bottom: 48px;">公开目录字段对比</h2>
           <div class="table-wrap glass-panel">
             <table class="comparison-table">
               <thead>
@@ -131,58 +131,62 @@ const displayPlans = computed(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="5" class="tr-group">核心计算资源</td></tr>
+                <tr><td colspan="5" class="tr-group">核心规格</td></tr>
                 <tr>
                   <td>处理器规格</td>
                   <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.cpu_cores }} vCPU</td>
                 </tr>
                 <tr>
-                  <td>内存 (ECC 支持)</td>
+                  <td>内存</td>
                   <td v-for="plan in displayPlans" :key="plan.plan_no">{{ Math.round(plan.memory_mb / 1024) }} GB</td>
                 </tr>
                 <tr>
-                  <td>CPU 积分限制</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no">无限制 (独享)</td>
+                  <td>架构</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.architecture }}</td>
                 </tr>
-                
+
                 <tr><td colspan="5" class="tr-group">存储与网络</td></tr>
                 <tr>
-                  <td>NVMe 系统盘</td>
+                  <td>系统盘</td>
                   <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.system_disk_gb }} GB</td>
                 </tr>
                 <tr>
-                  <td>公网出网带宽</td>
+                  <td>数据盘</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.data_disk_gb }} GB</td>
+                </tr>
+                <tr>
+                  <td>带宽</td>
                   <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.bandwidth_mbps }} Mbps</td>
                 </tr>
                 <tr>
-                  <td>内网互联带宽</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no">10 Gbps共享</td>
+                  <td>月流量</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.traffic_gb == null ? '未返回' : `${plan.traffic_gb} GB` }}</td>
                 </tr>
                 <tr>
-                  <td>基础防御能力</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no">20G DDoS基础防护</td>
+                  <td>公网 IP</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.public_ip_count }} 个</td>
                 </tr>
 
-                <tr><td colspan="5" class="tr-group">其它支持</td></tr>
+                <tr><td colspan="5" class="tr-group">可售约束</td></tr>
                 <tr>
-                  <td>免费镜像市场</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no" class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></td>
+                  <td>销售地域</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.regions.map((region) => region.name).join(' / ') }}</td>
                 </tr>
                 <tr>
-                  <td>手动快照额度</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no">2个</td>
+                  <td>系统模板</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.os_templates.map((template) => template.name).join(' / ') }}</td>
                 </tr>
                 <tr>
-                  <td>专属大客户经理</td>
-                  <td v-for="plan in displayPlans" :key="plan.plan_no" :class="{ check: plan.is_featured, cross: !plan.is_featured }">
-                    <svg v-if="plan.is_featured" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span v-else>—</span>
-                  </td>
+                  <td>状态</td>
+                  <td v-for="plan in displayPlans" :key="plan.plan_no">{{ plan.status === 'sold_out' ? '暂时售罄' : '可展示' }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
+      </div>
+      <div v-else class="loading-state text-center py-20">
+        暂无公开价格，请先在后台配置可展示套餐、价格、地域和系统模板。
       </div>
     </section>
   </div>

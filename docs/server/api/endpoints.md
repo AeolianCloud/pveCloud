@@ -268,7 +268,6 @@
   - `username`：用户名，必须唯一
   - `email`：邮箱，必须唯一
   - `password`：密码
-  - `display_name`：显示名称，可为空
   - `captcha_id`：可选；当 `web.auth.register_captcha_enabled=true` 时必填
   - `captcha_code`：可选；当 `web.auth.register_captcha_enabled=true` 时必填
 - 成功数据同登录接口

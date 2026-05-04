@@ -45,12 +45,12 @@ function getMinPrice(product: ServerCatalogProduct) {
     <section class="page-hero">
       <div class="container hero-container text-center">
         <h1 class="hero-title">为每一个业务场景<br/><span class="text-gradient">提供最佳算力支撑</span></h1>
-        <p class="hero-desc">无论您是个人开发者还是大型企业团队，我们提供丰富多样的实例规格，从经济型通用计算到极速内存优化型，总有一款适合您的业务需求。</p>
+        <p class="hero-desc">当前页面通过公开服务器产品目录展示已开放的产品、套餐、周期价格、销售地域和系统模板。</p>
         
         <div class="hero-features">
-          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 灵活扩展，秒级部署</div>
-          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 99.99% SLA 保障</div>
-          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 全系配备 NVMe 固态硬盘</div>
+          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 固定规格，清晰展示</div>
+          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 价格地域后端返回</div>
+          <div class="hf-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> 不包含订单和实例</div>
         </div>
       </div>
     </section>
@@ -88,7 +88,7 @@ function getMinPrice(product: ServerCatalogProduct) {
             <div class="help-box glass-panel">
               <h4>选型建议</h4>
               <p>不知道该如何选择？</p>
-              <RouterLink to="/contact" class="btn btn-outline btn-sm btn-block" style="margin-top:12px;">联系架构师</RouterLink>
+              <RouterLink to="/pricing" class="btn btn-outline btn-sm btn-block" style="margin-top:12px;">查看价格</RouterLink>
             </div>
           </aside>
 
@@ -96,7 +96,7 @@ function getMinPrice(product: ServerCatalogProduct) {
           <main class="catalog-main" v-if="activeProduct">
             <div class="category-header">
               <h2>{{ activeProduct.name }}</h2>
-              <p>{{ activeProduct.summary || '满足您多维度业务需求的弹性计算实例。' }}</p>
+              <p>{{ activeProduct.summary || '服务器产品展示信息以后端公开目录为准。' }}</p>
             </div>
 
             <div class="products-list">
@@ -135,7 +135,7 @@ function getMinPrice(product: ServerCatalogProduct) {
 
                 <div class="product-actions">
                   <RouterLink to="/pricing" class="btn btn-outline">查看详细定价</RouterLink>
-                  <RouterLink to="/login" class="btn btn-primary">立即配置并购买</RouterLink>
+                  <RouterLink to="/login" class="btn btn-primary">登录后查看购买入口</RouterLink>
                 </div>
               </div>
             </div>
@@ -157,11 +157,11 @@ function getMinPrice(product: ServerCatalogProduct) {
           </div>
           <div class="infra-item glass-panel">
             <h4>存储系统</h4>
-            <p>基于分布式 Ceph 架构的纯 NVMe 闪存池，支持极速快照、无损容灾及高达百万级 IOPS 并发吞吐。</p>
+            <p>套餐展示系统盘、数据盘和价格等公开目录字段，具体可用性以后端返回为准。</p>
           </div>
           <div class="infra-item glass-panel">
             <h4>网络接入</h4>
-            <p>多线 BGP 智能路由切换，自带内网万兆隔离环境，外网接入 T 级 DDoS 流量清洗与硬防。</p>
+            <p>销售地域和系统模板来自公开目录，本阶段不展示 PVE 节点、资源池或库存扣减信息。</p>
           </div>
         </div>
       </div>

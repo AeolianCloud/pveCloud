@@ -2,14 +2,19 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 
+import { useWebAppStore } from '../store/modules/app'
 import { useWebAuthStore } from '../store/modules/auth'
 
 const route = useRoute()
 const router = useRouter()
+const appStore = useWebAppStore()
 const authStore = useWebAuthStore()
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const displayName = computed(() => authStore.displayName)
+const siteName = computed(() => appStore.siteName)
+const logoUrl = computed(() => appStore.logoUrl)
+const theme = computed(() => appStore.theme)
 
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
@@ -19,6 +24,7 @@ function handleScroll() {
 }
 
 onMounted(() => {
+  void appStore.loadSiteConfig()
   window.addEventListener('scroll', handleScroll, { passive: true })
   handleScroll()
 })
@@ -31,7 +37,6 @@ const navItems = [
   { path: '/', label: '首页' },
   { path: '/products', label: '产品服务' },
   { path: '/pricing', label: '价格方案' },
-  { path: '/about', label: '关于我们' },
 ]
 
 async function handleLogout() {
@@ -55,13 +60,14 @@ async function handleLogout() {
       <div class="container header-inner">
         <RouterLink to="/" class="logo" @click="isMobileMenuOpen = false">
           <div class="logo-mark">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <img v-if="logoUrl" :src="logoUrl" :alt="siteName" />
+            <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor" />
               <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </div>
-          <span class="logo-text">PVE<span class="text-gradient">Cloud</span></span>
+          <span class="logo-text">{{ siteName }}</span>
         </RouterLink>
 
         <!-- Desktop Nav -->
@@ -79,9 +85,13 @@ async function handleLogout() {
 
         <!-- Auth Actions -->
         <div class="auth-actions desktop-only">
+          <button class="theme-toggle" type="button" :aria-label="theme === 'dark' ? '切换浅色主题' : '切换深色主题'" @click="appStore.toggleTheme()">
+            <svg v-if="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"></path></svg>
+          </button>
           <template v-if="!isLoggedIn">
             <RouterLink to="/login" class="btn btn-text">登录</RouterLink>
-            <RouterLink to="/login" class="btn btn-primary btn-sm" style="border-radius: 99px;">免费注册</RouterLink>
+            <RouterLink to="/register" class="btn btn-primary btn-sm" style="border-radius: 99px;">注册</RouterLink>
           </template>
           <template v-else>
             <div class="user-dropdown">
@@ -122,12 +132,15 @@ async function handleLogout() {
         </RouterLink>
       </nav>
       <div class="mobile-auth">
+        <button class="btn btn-block btn-outline" type="button" @click="appStore.toggleTheme()">
+          {{ theme === 'dark' ? '切换浅色主题' : '切换深色主题' }}
+        </button>
         <template v-if="!isLoggedIn">
-          <RouterLink to="/login" class="btn btn-block btn-outline" @click="isMobileMenuOpen = false">登录</RouterLink>
-          <RouterLink to="/login" class="btn btn-block btn-primary" style="margin-top: 12px;" @click="isMobileMenuOpen = false">免费注册</RouterLink>
+          <RouterLink to="/login" class="btn btn-block btn-outline" style="margin-top: 12px;" @click="isMobileMenuOpen = false">登录</RouterLink>
+          <RouterLink to="/register" class="btn btn-block btn-primary" style="margin-top: 12px;" @click="isMobileMenuOpen = false">注册</RouterLink>
         </template>
         <template v-else>
-          <RouterLink to="/user" class="btn btn-block btn-primary" @click="isMobileMenuOpen = false">进入控制台</RouterLink>
+          <RouterLink to="/user" class="btn btn-block btn-primary" style="margin-top: 12px;" @click="isMobileMenuOpen = false">进入控制台</RouterLink>
           <button class="btn btn-block btn-outline text-error" style="margin-top: 12px;" @click="handleLogout(); isMobileMenuOpen = false">退出登录</button>
         </template>
       </div>
@@ -144,10 +157,13 @@ async function handleLogout() {
         <div class="footer-grid grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div class="footer-brand">
             <RouterLink to="/" class="logo">
-              <div class="logo-mark"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/></svg></div>
-              <span class="logo-text">PVE<span class="text-gradient">Cloud</span></span>
+              <div class="logo-mark">
+                <img v-if="logoUrl" :src="logoUrl" :alt="siteName" />
+                <svg v-else viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" fill="currentColor"/></svg>
+              </div>
+              <span class="logo-text">{{ siteName }}</span>
             </RouterLink>
-            <p class="footer-desc">为您提供高性能、安全、可靠的云端基础设施底座。构建未来的数字世界，从这里开始。</p>
+            <p class="footer-desc">展示当前开放的服务器产品目录、价格、销售地域和系统模板，购买能力后续开放。</p>
             <div class="social-links">
               <a href="#" class="social-link">GH</a>
               <a href="#" class="social-link">TW</a>
@@ -158,25 +174,25 @@ async function handleLogout() {
           <div class="footer-links">
             <h3>云产品</h3>
             <RouterLink to="/products">弹性云服务器</RouterLink>
-            <RouterLink to="/products">裸金属物理机</RouterLink>
-            <RouterLink to="/products">对象存储</RouterLink>
-            <RouterLink to="/products">云网络与 CDN</RouterLink>
+            <RouterLink to="/pricing">套餐价格</RouterLink>
+            <RouterLink to="/products">销售地域</RouterLink>
+            <RouterLink to="/products">系统模板</RouterLink>
           </div>
           
           <div class="footer-links">
-            <h3>解决方案</h3>
-            <a href="#">企业上云方案</a>
-            <a href="#">游戏服务器部署</a>
-            <a href="#">跨境电商加速</a>
-            <a href="#">人工智能算力</a>
+            <h3>用户入口</h3>
+            <RouterLink to="/login">登录</RouterLink>
+            <RouterLink to="/register">注册</RouterLink>
+            <RouterLink to="/forgot-password">找回密码</RouterLink>
+            <RouterLink to="/user">用户中心</RouterLink>
           </div>
           
           <div class="footer-links">
-            <h3>关于我们</h3>
-            <RouterLink to="/about">公司简介</RouterLink>
-            <RouterLink to="/about">联系我们</RouterLink>
-            <RouterLink to="/about">服务条款</RouterLink>
-            <RouterLink to="/about">隐私政策</RouterLink>
+            <h3>当前范围</h3>
+            <RouterLink to="/products">产品展示</RouterLink>
+            <RouterLink to="/pricing">价格展示</RouterLink>
+            <RouterLink to="/user/profile">账号资料</RouterLink>
+            <RouterLink to="/">返回首页</RouterLink>
           </div>
         </div>
         
@@ -266,6 +282,7 @@ async function handleLogout() {
   width: 32px; height: 32px;
   color: var(--c-primary);
 }
+.logo-mark img { width: 100%; height: 100%; object-fit: contain; }
 .logo-text {
   font-size: 1.35rem;
   font-weight: 800;
@@ -296,6 +313,26 @@ async function handleLogout() {
 /* Auth Actions */
 .auth-actions { display: none; align-items: center; gap: 8px; }
 @media (min-width: 768px) { .auth-actions { display: flex; } }
+
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  color: var(--c-text-2);
+  background: var(--c-surface-dim);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.theme-toggle:hover {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+.theme-toggle svg { width: 18px; height: 18px; }
 
 /* User Dropdown */
 .user-dropdown { position: relative; }
