@@ -10,7 +10,7 @@ import { useWebAppStore } from '../../store/modules/app'
 const route = useRoute()
 const router = useRouter()
 const appStore = useWebAppStore()
-const { passwordResetConfirmCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
+const { passwordResetConfirmCaptchaEnabled, siteConfigError, siteConfigLoaded, siteConfigLoading } = storeToRefs(appStore)
 
 const password = ref('')
 const confirmPassword = ref('')
@@ -42,6 +42,31 @@ const canSubmit = computed(() => {
     captchaReady.value &&
     !loading.value
   )
+})
+
+const submitHint = computed(() => {
+  if (siteConfigLoading.value && !siteConfigLoaded.value) {
+    return '正在加载重置密码配置，请稍候...'
+  }
+  if (token.value === '') {
+    return '重置链接缺少 token，请重新申请密码找回'
+  }
+  if (password.value.length < 6) {
+    return '请输入至少 6 位新密码'
+  }
+  if (password.value !== confirmPassword.value) {
+    return '两次输入的新密码需要保持一致'
+  }
+  if (passwordResetConfirmCaptchaEnabled.value && !captchaReady.value) {
+    return captchaError.value || '验证码加载中，请稍候...'
+  }
+  if (passwordResetConfirmCaptchaEnabled.value && captchaCode.value.trim().length < 4) {
+    return '请输入验证码后再提交'
+  }
+  if (siteConfigError.value) {
+    return siteConfigError.value
+  }
+  return ''
 })
 
 function errorText(error: unknown) {
@@ -127,6 +152,8 @@ onMounted(() => {
         </div>
         <p v-if="password && confirmPassword && password !== confirmPassword" class="hint error-text">两次输入的密码不一致</p>
         <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
+        <p v-else-if="submitHint && !canSubmit" class="hint">{{ submitHint }}</p>
+        <p v-if="siteConfigError" class="hint">{{ siteConfigError }}</p>
         <p v-if="done" class="hint success-text">密码已重置，正在返回登录页。</p>
         <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
         <button class="btn btn-primary" type="submit" :disabled="!canSubmit">

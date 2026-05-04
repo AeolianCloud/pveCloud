@@ -101,7 +101,11 @@ async function handleLogout() {
     </header>
 
     <main class="web-main">
-      <RouterView />
+      <RouterView v-slot="{ Component, route }">
+        <Transition :name="typeof route.meta.transitionName === 'string' ? route.meta.transitionName : 'page-fade'" mode="out-in">
+          <component :is="Component" :key="route.name || route.fullPath" />
+        </Transition>
+      </RouterView>
     </main>
   </div>
 </template>

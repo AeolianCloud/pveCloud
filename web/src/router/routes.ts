@@ -25,21 +25,25 @@ export const publicRoutes: RouteRecordRaw[] = [
       {
         path: 'login',
         name: 'login',
+        meta: { transitionName: 'auth-swap' },
         component: () => import('../views/auth/index.vue'),
       },
       {
         path: 'register',
         name: 'register',
+        meta: { transitionName: 'auth-swap' },
         component: () => import('../views/auth/register.vue'),
       },
       {
         path: 'forgot-password',
         name: 'forgot-password',
+        meta: { transitionName: 'auth-swap' },
         component: () => import('../views/auth/forgot-password.vue'),
       },
       {
         path: 'reset-password',
         name: 'reset-password',
+        meta: { transitionName: 'auth-swap' },
         component: () => import('../views/auth/reset-password.vue'),
       },
       {

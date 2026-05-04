@@ -27,6 +27,8 @@ export const useWebAppStore = defineStore('web-app', {
     siteName: 'pveCloud',
     logoUrl: '',
     siteConfigLoaded: false,
+    siteConfigLoading: false,
+    siteConfigError: '',
     loginCaptchaEnabled: false,
     registerCaptchaEnabled: false,
     passwordResetRequestCaptchaEnabled: false,
@@ -37,6 +39,8 @@ export const useWebAppStore = defineStore('web-app', {
       if (this.siteConfigLoaded && !force) return
       if (siteConfigPromise && !force) return siteConfigPromise
 
+      this.siteConfigLoading = true
+      this.siteConfigError = ''
       siteConfigPromise = (async () => {
         try {
           const config = await getSiteConfig()
@@ -53,8 +57,10 @@ export const useWebAppStore = defineStore('web-app', {
           this.registerCaptchaEnabled = false
           this.passwordResetRequestCaptchaEnabled = false
           this.passwordResetConfirmCaptchaEnabled = false
+          this.siteConfigError = '站点认证配置加载失败，当前已按默认关闭验证码处理。'
         } finally {
           this.siteConfigLoaded = true
+          this.siteConfigLoading = false
           siteConfigPromise = undefined
         }
       })()

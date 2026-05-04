@@ -7,7 +7,7 @@ import { useAuthCaptcha } from '../../composables/use-auth-captcha'
 import { useWebAppStore } from '../../store/modules/app'
 
 const appStore = useWebAppStore()
-const { passwordResetRequestCaptchaEnabled, siteConfigLoaded } = storeToRefs(appStore)
+const { passwordResetRequestCaptchaEnabled, siteConfigError, siteConfigLoaded, siteConfigLoading } = storeToRefs(appStore)
 
 const email = ref('')
 const loading = ref(false)
@@ -32,6 +32,32 @@ const canSubmit = computed(() => {
     captchaReady.value &&
     !loading.value
   )
+})
+
+const submitHint = computed(() => {
+  if (siteConfigLoading.value && !siteConfigLoaded.value) {
+    return '正在加载找回密码配置，请稍候...'
+  }
+  if (email.value.trim() === '') {
+    return '请输入注册邮箱'
+  }
+  if (passwordResetRequestCaptchaEnabled.value && !captchaReady.value) {
+    return captchaError.value || '验证码加载中，请稍候...'
+  }
+  if (passwordResetRequestCaptchaEnabled.value && captchaCode.value.trim().length < 4) {
+    return '请输入验证码后再发送重置链接'
+  }
+  if (siteConfigError.value) {
+    return siteConfigError.value
+  }
+  return ''
+})
+
+const statusTone = computed(() => {
+  if (captchaError.value || errorMessage.value) return 'danger'
+  if (sent.value) return 'success'
+  if (!canSubmit.value) return 'muted'
+  return 'success'
 })
 
 function errorText(error: unknown) {
@@ -76,47 +102,70 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="page auth-page">
-    <div class="auth-left">
-      <div class="hero-badge" style="color:var(--c-orange); background:var(--c-orange-soft);">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--c-orange);display:inline-block;"></span>
-        密码找回
-      </div>
-      <h1>通过邮箱重置密码</h1>
-      <p>如果邮箱对应有效账号，系统会发送一次性重置链接。为了账号安全，页面不会暴露邮箱是否已经注册。</p>
-    </div>
-    <div class="auth-right">
-      <form class="auth-form" @submit.prevent="handleSubmit">
-        <h2>找回密码</h2>
-        <label>
-          <span>注册邮箱</span>
-          <input v-model="email" type="email" placeholder="请输入邮箱" autocomplete="email" />
-        </label>
-        <div v-if="passwordResetRequestCaptchaEnabled" class="captcha-field">
-          <label>
-            <span>验证码</span>
-            <input v-model="captchaCode" type="text" maxlength="8" placeholder="请输入验证码" autocomplete="off" />
-          </label>
-          <div class="captcha-row">
-            <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="找回密码验证码" />
-            <div v-else class="captcha-image captcha-image--placeholder">
-              {{ captchaLoading ? '加载中...' : '暂无验证码' }}
-            </div>
-            <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
-              {{ captchaLoading ? '刷新中...' : '换一张' }}
-            </button>
-          </div>
-        </div>
-        <p v-if="sent" class="hint success-text">如果邮箱对应有效账号，重置链接会发送到该邮箱。</p>
-        <p v-if="captchaError" class="hint error-text">{{ captchaError }}</p>
-        <p v-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
-        <button class="btn btn-primary" type="submit" :disabled="!canSubmit">
-          {{ loading ? '发送中...' : '发送重置链接' }}
-        </button>
-        <p class="hint">
-          想起密码了？<RouterLink class="link" to="/login">返回登录</RouterLink>
+  <section class="page auth-page auth-page--forgot">
+    <div class="auth-stage auth-stage--forgot">
+      <aside class="auth-panel auth-panel--story">
+        <div class="auth-kicker auth-kicker--warning">pveCloud</div>
+        <h1 class="auth-display">通过邮箱重置密码</h1>
+        <p class="auth-copy">
+          如果邮箱对应有效账号，系统会发送一次性重置链接。为了账号安全，页面不会暴露邮箱是否已经注册。
         </p>
-      </form>
+      </aside>
+
+      <div class="auth-panel auth-panel--form-shell">
+        <div class="auth-form-card">
+          <div class="auth-form-card__header">
+            <div>
+              <p class="auth-eyebrow">Password reset</p>
+              <h2>找回密码</h2>
+            </div>
+            <RouterLink class="auth-mini-link" to="/login">返回登录</RouterLink>
+          </div>
+
+          <form class="auth-form auth-form--stacked" @submit.prevent="handleSubmit">
+            <label class="auth-field">
+              <span>注册邮箱</span>
+              <input v-model="email" type="email" placeholder="输入注册邮箱" autocomplete="email" />
+            </label>
+
+            <div v-if="passwordResetRequestCaptchaEnabled" class="captcha-field auth-fieldset">
+              <div class="auth-fieldset__legend">
+                <span>安全校验</span>
+                <small>找回密码验证码已开启</small>
+              </div>
+              <label class="auth-field">
+                <span>验证码</span>
+                <input v-model="captchaCode" type="text" maxlength="8" placeholder="输入图中字符" autocomplete="off" />
+              </label>
+              <div class="captcha-row captcha-row--panel">
+                <img v-if="captchaImage" class="captcha-image" :src="captchaImage" alt="找回密码验证码" />
+                <div v-else class="captcha-image captcha-image--placeholder">
+                  {{ captchaLoading ? '加载中...' : '暂无验证码' }}
+                </div>
+                <button class="captcha-refresh" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
+                  {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="auth-status" :data-tone="statusTone">
+              <p v-if="sent" class="hint success-text">如果邮箱对应有效账号，重置链接会发送到该邮箱。</p>
+              <p v-else-if="captchaError" class="hint error-text">{{ captchaError }}</p>
+              <p v-else-if="errorMessage" class="hint error-text">{{ errorMessage }}</p>
+              <p v-else class="hint">{{ submitHint || '确认邮箱后发送重置链接' }}</p>
+            </div>
+
+            <button class="btn btn-primary auth-submit" type="submit" :disabled="!canSubmit">
+              {{ loading ? '发送中...' : '发送重置链接' }}
+            </button>
+
+            <div class="auth-secondary-row">
+              <span class="hint">想起密码了？</span>
+              <RouterLink class="link" to="/login">返回登录</RouterLink>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </section>
 </template>

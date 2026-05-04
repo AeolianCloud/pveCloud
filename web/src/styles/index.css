@@ -228,6 +228,53 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .page { min-height: calc(100vh - 60px); background: var(--c-surface); }
 .home-page, .content-page { display: grid; gap: 0; }
 
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 160ms ease;
+}
+.page-fade-enter-from,
+.page-fade-leave-to {
+  opacity: 0;
+}
+
+.auth-swap-enter-active,
+.auth-swap-leave-active {
+  transition: opacity 220ms ease;
+}
+.auth-swap-enter-from,
+.auth-swap-leave-to {
+  opacity: 0;
+}
+.auth-swap-enter-active .auth-panel--story,
+.auth-swap-enter-active .auth-panel--form-shell,
+.auth-swap-leave-active .auth-panel--story,
+.auth-swap-leave-active .auth-panel--form-shell {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.auth-swap-enter-from .auth-panel--story,
+.auth-swap-leave-to .auth-panel--story {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+.auth-swap-enter-from .auth-panel--form-shell,
+.auth-swap-leave-to .auth-panel--form-shell {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-fade-enter-active,
+  .page-fade-leave-active,
+  .auth-swap-enter-active,
+  .auth-swap-leave-active,
+  .auth-swap-enter-active .auth-panel--story,
+  .auth-swap-enter-active .auth-panel--form-shell,
+  .auth-swap-leave-active .auth-panel--story,
+  .auth-swap-leave-active .auth-panel--form-shell {
+    transition: none;
+  }
+}
+
 /* ============================================================
    Hero
    ============================================================ */
@@ -733,6 +780,11 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
     radial-gradient(circle at 15% 20%, rgba(16, 185, 129, 0.16), transparent 28%),
     linear-gradient(135deg, #08100e 0%, #111720 100%);
 }
+.auth-page--forgot {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(245, 158, 11, 0.15), transparent 28%),
+    linear-gradient(135deg, #100c07 0%, #17131c 100%);
+}
 [data-theme="light"] .auth-page {
   background:
     radial-gradient(circle at 15% 18%, rgba(37, 99, 235, 0.12), transparent 30%),
@@ -742,6 +794,11 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   background:
     radial-gradient(circle at 15% 18%, rgba(5, 150, 105, 0.11), transparent 30%),
     linear-gradient(135deg, #f8fafc 0%, #effaf5 100%);
+}
+[data-theme="light"] .auth-page--forgot {
+  background:
+    radial-gradient(circle at 15% 18%, rgba(217, 119, 6, 0.11), transparent 30%),
+    linear-gradient(135deg, #f8fafc 0%, #fff7ed 100%);
 }
 .auth-ambient { display: none; }
 .auth-stage {
@@ -760,6 +817,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   grid-template-columns: minmax(0, 420px) minmax(420px, 560px);
   width: min(1080px, 100%);
 }
+.auth-stage--forgot { width: min(960px, 100%); }
 .auth-panel {
   position: relative;
   overflow: visible;
@@ -795,8 +853,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 }
 .auth-kicker--primary { color: #8ec5ff; }
 .auth-kicker--success { color: #7de0b5; }
+.auth-kicker--warning { color: #f6c36f; }
 [data-theme="light"] .auth-kicker--primary { color: var(--c-primary); }
 [data-theme="light"] .auth-kicker--success { color: var(--c-green); }
+[data-theme="light"] .auth-kicker--warning { color: var(--c-orange); }
 .auth-display {
   max-width: 12ch;
   font-size: clamp(2.2rem, 5vw, 4rem);
