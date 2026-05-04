@@ -11,6 +11,47 @@ type LoginRequest struct {
 }
 
 /**
+ * RegisterRequest 表示用户端注册请求。
+ */
+type RegisterRequest struct {
+	Username    string  `json:"username" validate:"required,min=3,max=64"`
+	Email       string  `json:"email" validate:"required,email,max=191"`
+	Password    string  `json:"password" validate:"required,min=6,max=72"`
+	DisplayName *string `json:"display_name" validate:"omitempty,max=64"`
+}
+
+/**
+ * PasswordResetRequest 表示用户端密码找回申请请求。
+ */
+type PasswordResetRequest struct {
+	Email string `json:"email" validate:"required,email,max=191"`
+}
+
+/**
+ * PasswordResetConfirmRequest 表示用户端密码重置确认请求。
+ */
+type PasswordResetConfirmRequest struct {
+	Token    string `json:"token" validate:"required,max=256"`
+	Password string `json:"password" validate:"required,min=6,max=72"`
+}
+
+/**
+ * UpdateProfileRequest 表示当前用户资料编辑请求。
+ */
+type UpdateProfileRequest struct {
+	Email       string  `json:"email" validate:"required,email,max=191"`
+	DisplayName *string `json:"display_name" validate:"omitempty,max=64"`
+}
+
+/**
+ * ChangePasswordRequest 表示当前用户修改密码请求。
+ */
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=6,max=72"`
+	Password        string `json:"password" validate:"required,min=6,max=72"`
+}
+
+/**
  * UserSummary 表示用户端账号摘要。
  */
 type UserSummary struct {

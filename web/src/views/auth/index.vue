@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useWebAuthStore } from '../../store/modules/auth'
+import { resolveWebRedirect } from '../../utils/web-auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,22 +14,37 @@ const password = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
 
-const canSubmit = computed(() => account.value.trim() !== '' && password.value.length >= 6 && !loading.value)
+const highlights = [
+  '登录和控制台使用同一套入口',
+  '刷新页面后会自动恢复登录态',
+  '退出后会清理本地登录信息',
+]
 
-function resolveRedirect(value: unknown) {
-  if (typeof value !== 'string') return '/user'
-  if (!value.startsWith('/') || value.startsWith('//')) return '/user'
-  return value
-}
+const canSubmit = computed(() => account.value.trim() !== '' && password.value.length >= 6 && !loading.value)
 
 function loginErrorMessage(error: unknown) {
   if (typeof error === 'object' && error !== null && 'response' in error) {
     const response = (error as { response?: { status?: number; data?: { message?: string } } }).response
-    if (response?.status === 403 && response.data?.message) {
+
+    if (response?.status === 401) {
+      return '账号或密码错误'
+    }
+    if ((response?.status === 400 || response?.status === 403 || response?.status === 429) && response.data?.message) {
+      return response.data.message
+    }
+    if (response?.status && response.status >= 500) {
+      return '登录服务暂时不可用，请稍后再试'
+    }
+    if (response?.data?.message) {
       return response.data.message
     }
   }
-  return '账号或密码错误'
+
+  if (typeof error === 'object' && error !== null && 'request' in error) {
+    return '网络连接失败，请检查后重试'
+  }
+
+  return '登录失败，请稍后再试'
 }
 
 async function handleLogin() {
@@ -37,7 +53,7 @@ async function handleLogin() {
   errorMessage.value = ''
   try {
     await authStore.login({ account: account.value.trim(), password: password.value })
-    await router.replace(resolveRedirect(route.query.redirect))
+    await router.replace(resolveWebRedirect(route.query.redirect))
   } catch (error) {
     errorMessage.value = loginErrorMessage(error)
   } finally {
@@ -58,7 +74,11 @@ async function handleLogin() {
         登录后进入统一控制台入口。当前阶段先开放登录态、会话恢复和退出能力，实例、订单和工单仍按占位展示。
       </p>
       <div style="display:grid; gap:10px; margin-top:8px;">
-        <div v-for="item in ['登录和控制台使用同一入口', '刷新页面后自动恢复登录态', '退出后清理本地登录信息']" :key="item" style="display:flex; align-items:center; gap:8px; font-size:.92rem; color:var(--c-text-2);">
+        <div
+          v-for="item in highlights"
+          :key="item"
+          style="display:flex; align-items:center; gap:8px; font-size:.92rem; color:var(--c-text-2);"
+        >
           <span style="width:5px;height:5px;border-radius:50%;background:var(--c-primary);flex-shrink:0;"></span>
           {{ item }}
         </div>
@@ -80,7 +100,9 @@ async function handleLogin() {
           {{ loading ? '登录中...' : '登录' }}
         </button>
         <p class="hint">
-          暂未开放注册，请联系管理员创建账号。
+          还没有账号？<RouterLink class="link" to="/register">立即注册</RouterLink>
+          <span style="padding:0 6px;color:var(--c-text-3);">/</span>
+          <RouterLink class="link" to="/forgot-password">忘记密码</RouterLink>
         </p>
       </form>
     </div>

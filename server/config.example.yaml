@@ -60,6 +60,27 @@ jwt:
   # 管理端 access token 有效期，单位为分钟。
   admin_expire_minutes: 480
 
+# 邮件发送配置，用于用户端密码找回重置链接。
+mail:
+  # 是否启用邮件发送；生产环境开放密码找回时必须启用。
+  enabled: false
+  # SMTP 服务器地址。
+  host: smtp.example.com
+  # SMTP 服务器端口，常见值为 465 或 587。
+  port: 587
+  # SMTP 用户名；真实配置写入 server/config.yaml。
+  username: change_me
+  # SMTP 密码；真实配置写入 server/config.yaml，并保持不提交。
+  password: change_me
+  # 发件人邮箱。
+  from_address: no-reply@example.com
+  # 发件人显示名称。
+  from_name: pveCloud
+  # 是否使用 TLS。
+  use_tls: true
+  # Web 端密码重置页面基础地址；服务端会拼接一次性 token。
+  password_reset_url_base: http://localhost:5174/reset-password
+
 # 日志配置。
 log:
   # 日志级别；本地开发可使用 debug，部署环境建议使用 info 或 warn。

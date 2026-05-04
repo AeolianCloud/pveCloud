@@ -210,6 +210,22 @@
   - `session`：当前会话摘要，包含 `session_id`、`issued_at`、`expires_at`
 - 约束：仅 `status=active` 的用户允许登录；账号不存在或密码错误时返回未登录错误，用户被禁用时返回明确禁用错误
 
+### `POST /api/auth/register`
+
+- 鉴权：公开接口，无需登录
+- 作用：注册用户端账号，创建用户端会话并签发用户端 access token
+- 请求字段：
+  - `username`：用户名，必须唯一
+  - `email`：邮箱，必须唯一
+  - `password`：密码
+  - `display_name`：显示名称，可为空
+- 成功数据同登录接口
+- 约束：
+  - 注册成功后 `users.status` 默认为 `active`
+  - `username` 和 `email` 必须唯一；重复时返回状态冲突错误
+  - 密码只保存 bcrypt 哈希，不返回明文或哈希
+  - 注册不创建订单、实例、钱包、余额或其它业务资源
+
 ### `GET /api/auth/me`
 
 - 鉴权：用户端 Bearer Token
@@ -227,7 +243,71 @@
 - 鉴权：用户端 Bearer Token
 - 作用：轮换当前用户 access token，创建新的用户端会话，并吊销旧用户端会话
 - 成功数据同登录接口
-- 约束：当前会话已过期或已吊销时返回未登录错误；用户被禁用时返回明确禁用错误
+- 约束：
+  - 当前会话已过期或已吊销时返回未登录错误
+  - 用户被禁用时返回明确禁用错误
+  - refresh 成功后旧会话状态改为 `revoked`，`revoke_reason=refresh`
+  - refresh 必须具备幂等保护；同一旧会话不能并发创建多个新 active 会话
+
+### `POST /api/auth/password-reset/request`
+
+- 鉴权：公开接口，无需登录
+- 作用：申请密码重置邮件
+- 请求字段：
+  - `email`：用户邮箱
+- 成功数据：空对象
+- 约束：
+  - 无论邮箱是否存在，都返回统一成功响应，避免暴露账号存在性
+  - 仅当邮箱对应 `status=active` 用户时，服务端创建一次性密码重置 token 并发送重置链接
+  - token 原文只出现在邮件链接中，数据库只保存 token 哈希
+  - 同一用户短时间重复申请时，应吊销旧的 active token 或复用未过期请求，不得产生多个可用 token
+  - 未配置邮件发送能力时返回服务端配置错误，不创建 token
+
+### `POST /api/auth/password-reset/confirm`
+
+- 鉴权：公开接口，无需登录
+- 作用：通过一次性 token 重置用户端账号密码
+- 请求字段：
+  - `token`：密码重置 token 原文
+  - `password`：新密码
+- 成功数据：空对象
+- 约束：
+  - token 必须存在、未过期、未使用且状态为 `active`
+  - token 对应用户必须仍为 `status=active`；用户已被禁用时拒绝重置并吊销该 token
+  - 密码只保存 bcrypt 哈希，不返回明文或哈希
+  - 重置成功后 token 状态改为 `used`，记录 `used_at`
+  - 重置成功后吊销该用户所有 active 用户端会话，`revoke_reason=password_reset`
+  - token 不存在、过期、已使用或已吊销时返回状态冲突或未授权错误，不泄露 token 对应用户信息
+
+## 用户端账号资料域
+
+### `PATCH /api/user/profile`
+
+- 鉴权：用户端 Bearer Token
+- 作用：当前登录用户编辑自己的基础资料
+- 请求字段：
+  - `email`：邮箱
+  - `display_name`：显示名称，可为空
+- 成功数据包含当前用户真实摘要和当前会话摘要
+- 约束：
+  - `username` 不允许通过用户端修改
+  - `email` 必须唯一；与其它用户重复时返回状态冲突错误
+  - 用户被禁用时返回明确禁用错误
+  - 不允许修改状态、密码哈希、余额、角色或任何业务资源
+
+### `POST /api/user/password`
+
+- 鉴权：用户端 Bearer Token
+- 作用：当前登录用户修改自己的密码
+- 请求字段：
+  - `current_password`：当前密码
+  - `password`：新密码
+- 成功数据：空对象
+- 约束：
+  - 当前密码错误时返回明确校验错误
+  - 新密码只保存 bcrypt 哈希，不返回明文或哈希
+  - 修改成功后吊销该用户除当前会话外的其它 active 用户端会话，`revoke_reason=password_change`
+  - 当前会话保持有效，避免用户修改密码后被立即踢出
 
 ## Web 用户管理域
 
@@ -558,8 +638,7 @@
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户登录会话和服务器产品目录接口除外）
-- 用户注册、密码找回和账号资料编辑
+- 用户端业务 API（公开站点配置、用户账号自助和服务器产品目录接口除外）
 - 订单
 - 支付
 - 实例

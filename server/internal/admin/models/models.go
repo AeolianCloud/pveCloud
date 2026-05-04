@@ -178,6 +178,29 @@ func (UserSession) TableName() string {
 }
 
 /**
+ * UserPasswordResetToken 映射 user_password_reset_tokens 用户端密码重置 Token 表。
+ */
+type UserPasswordResetToken struct {
+	ID          uint64     `gorm:"column:id;primaryKey"`
+	UserID      uint64     `gorm:"column:user_id"`
+	TokenHash   string     `gorm:"column:token_hash"`
+	Status      string     `gorm:"column:status"`
+	ExpiresAt   time.Time  `gorm:"column:expires_at"`
+	UsedAt      *time.Time `gorm:"column:used_at"`
+	RequestedIP *string    `gorm:"column:requested_ip"`
+	UserAgent   *string    `gorm:"column:user_agent"`
+	CreatedAt   time.Time  `gorm:"column:created_at"`
+	UpdatedAt   time.Time  `gorm:"column:updated_at"`
+}
+
+/**
+ * TableName 返回用户端密码重置 Token 表名。
+ */
+func (UserPasswordResetToken) TableName() string {
+	return "user_password_reset_tokens"
+}
+
+/**
  * AdminAuditLog 映射 admin_audit_logs 后台操作审计表。
  */
 type AdminAuditLog struct {

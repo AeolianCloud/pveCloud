@@ -46,6 +46,27 @@ func (h *UserAuthHandler) Login(c *gin.Context) {
 }
 
 /**
+ * Register 处理用户端注册。
+ */
+func (h *UserAuthHandler) Register(c *gin.Context) {
+	var req webdto.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
+		return
+	}
+	if err := validator.Struct(req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))
+		return
+	}
+	result, err := h.service.Register(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+/**
  * Me 返回当前用户端认证态。
  */
 func (h *UserAuthHandler) Me(c *gin.Context) {
@@ -103,4 +124,44 @@ func (h *UserAuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+/**
+ * RequestPasswordReset 处理密码找回申请。
+ */
+func (h *UserAuthHandler) RequestPasswordReset(c *gin.Context) {
+	var req webdto.PasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
+		return
+	}
+	if err := validator.Struct(req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))
+		return
+	}
+	if err := h.service.RequestPasswordReset(c.Request.Context(), req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{})
+}
+
+/**
+ * ConfirmPasswordReset 处理密码重置确认。
+ */
+func (h *UserAuthHandler) ConfirmPasswordReset(c *gin.Context) {
+	var req webdto.PasswordResetConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
+		return
+	}
+	if err := validator.Struct(req); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))
+		return
+	}
+	if err := h.service.ConfirmPasswordReset(c.Request.Context(), req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{})
 }

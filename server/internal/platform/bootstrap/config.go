@@ -20,6 +20,7 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	Worker   WorkerConfig   `yaml:"worker"`
 	OpenAPI  OpenAPIConfig  `yaml:"openapi"`
+	Mail     MailConfig     `yaml:"mail"`
 	Log      LogConfig      `yaml:"log"`
 	Storage  StorageConfig  `yaml:"storage"`
 }
@@ -91,6 +92,21 @@ type WorkerConfig struct {
 type OpenAPIConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 	SpecPath string `yaml:"spec_path"`
+}
+
+/**
+ * MailConfig 表示用户端密码找回所需的 SMTP 邮件配置。
+ */
+type MailConfig struct {
+	Enabled              bool   `yaml:"enabled"`
+	Host                 string `yaml:"host"`
+	Port                 int    `yaml:"port"`
+	Username             string `yaml:"username"`
+	Password             string `yaml:"password"`
+	FromAddress          string `yaml:"from_address"`
+	FromName             string `yaml:"from_name"`
+	UseTLS               bool   `yaml:"use_tls"`
+	PasswordResetURLBase string `yaml:"password_reset_url_base"`
 }
 
 /**
@@ -173,6 +189,15 @@ func defaultConfig() *Config {
 			AdminIssuer:        "pvecloud-admin",
 			AdminExpireMinutes: 480,
 		},
+		Mail: MailConfig{
+			Enabled:              false,
+			Host:                 "smtp.example.com",
+			Port:                 587,
+			FromAddress:          "no-reply@example.com",
+			FromName:             "pveCloud",
+			UseTLS:               true,
+			PasswordResetURLBase: "http://localhost:5174/reset-password",
+		},
 		Log: LogConfig{
 			Level: "info",
 		},
@@ -223,6 +248,20 @@ func (cfg *Config) Validate() error {
 	}
 	if cfg.JWT.UserExpireMinutes <= 0 {
 		return fmt.Errorf("jwt.user_expire_minutes 必须大于 0")
+	}
+	if cfg.Mail.Enabled {
+		if cfg.Mail.Host == "" {
+			return fmt.Errorf("mail.host 不能为空")
+		}
+		if cfg.Mail.Port <= 0 {
+			return fmt.Errorf("mail.port 必须大于 0")
+		}
+		if cfg.Mail.FromAddress == "" {
+			return fmt.Errorf("mail.from_address 不能为空")
+		}
+		if cfg.Mail.PasswordResetURLBase == "" {
+			return fmt.Errorf("mail.password_reset_url_base 不能为空")
+		}
 	}
 	if cfg.Storage.Driver == "" {
 		return fmt.Errorf("storage.driver 不能为空")

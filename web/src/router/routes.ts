@@ -28,10 +28,31 @@ export const publicRoutes: RouteRecordRaw[] = [
         component: () => import('../views/auth/index.vue'),
       },
       {
+        path: 'register',
+        name: 'register',
+        component: () => import('../views/auth/register.vue'),
+      },
+      {
+        path: 'forgot-password',
+        name: 'forgot-password',
+        component: () => import('../views/auth/forgot-password.vue'),
+      },
+      {
+        path: 'reset-password',
+        name: 'reset-password',
+        component: () => import('../views/auth/reset-password.vue'),
+      },
+      {
         path: 'user',
         name: 'user-center',
         meta: { requiresAuth: true },
         component: () => import('../views/user-center/index.vue'),
+      },
+      {
+        path: 'user/profile',
+        name: 'user-profile',
+        meta: { requiresAuth: true },
+        component: () => import('../views/user-profile/index.vue'),
       },
     ],
   },

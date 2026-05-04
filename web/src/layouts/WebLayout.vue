@@ -66,6 +66,9 @@ async function handleLogout() {
         <RouterLink v-if="isLoggedIn" to="/user" class="nav-link nav-link--primary" @click="appStore.closeNavigation">
           控制台
         </RouterLink>
+        <RouterLink v-if="isLoggedIn" to="/user/profile" class="nav-link" @click="appStore.closeNavigation">
+          资料
+        </RouterLink>
         <RouterLink v-if="!isLoggedIn" to="/login" class="nav-link nav-link--primary" @click="appStore.closeNavigation">
           登录
         </RouterLink>

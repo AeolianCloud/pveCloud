@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const tokenKey = 'pve-web-token'
+import { clearStoredWebToken, getStoredWebToken, notifyWebUnauthorized } from '../utils/web-auth'
 
 function isUnauthorizedCode(code: unknown) {
   return typeof code === 'number' && code >= 40100 && code < 40200
@@ -8,7 +8,8 @@ function isUnauthorizedCode(code: unknown) {
 
 function clearTokenOnUnauthorized(status: number | undefined, code: unknown) {
   if (status === 401 || isUnauthorizedCode(code)) {
-    localStorage.removeItem(tokenKey)
+    clearStoredWebToken()
+    notifyWebUnauthorized()
   }
 }
 
@@ -18,7 +19,7 @@ export const request = axios.create({
 })
 
 request.interceptors.request.use((config) => {
-  const token = localStorage.getItem(tokenKey)
+  const token = getStoredWebToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -28,6 +29,9 @@ request.interceptors.request.use((config) => {
 request.interceptors.response.use(
   (response) => {
     clearTokenOnUnauthorized(response.status, response.data?.code)
+    if (typeof response.data?.code === 'number' && response.data.code !== 0) {
+      return Promise.reject({ response })
+    }
     return response
   },
   (error) => {

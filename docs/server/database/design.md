@@ -46,11 +46,23 @@ admin_audit_logs
 ```text
 users
 user_sessions
+user_password_reset_tokens
 ```
 
-`users` 用于用户端登录账号。当前阶段只支持已有用户登录，不开放用户注册、资料编辑、实名、钱包或业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑和密码修改，不开放实名、钱包、订单、实例、工单或其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
+
+`user_password_reset_tokens` 用于记录用户端密码找回的一次性 token。数据库只保存 token 哈希，不保存 token 原文；token 原文只通过邮件重置链接发送给用户。
+
+密码重置 token 状态使用字符串字段，不使用数据库 enum。可用状态包括：
+
+- `active`：可使用
+- `used`：已使用
+- `revoked`：已吊销
+- `expired`：已过期
+
+同一用户同时只能保留一个可用的 active 密码重置 token。用户申请新的密码重置 token 时，应吊销旧 active token 或复用未过期请求。密码重置成功后必须将 token 标记为 used，并吊销该用户所有 active 用户端会话。
 
 ### 文件管理
 
@@ -150,7 +162,6 @@ plan_os_templates
 
 以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
-- 用户注册、密码找回和账号资料编辑
 - 订单
 - 支付与钱包
 - 实例
@@ -165,6 +176,7 @@ plan_os_templates
 - `users.username`
 - `users.email`
 - `user_sessions.session_id`
+- `user_password_reset_tokens.token_hash`
 - `system_configs.config_key`
 - `products.product_no`
 - `products.slug`

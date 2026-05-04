@@ -8,11 +8,20 @@ const { displayName } = storeToRefs(authStore)
 
 const sections = [
   {
+    title: '账号资料',
+    tag: '已开放',
+    tagColor: 'var(--c-green)',
+    tagBg: 'var(--c-green-soft)',
+    desc: '维护邮箱、显示名称和登录密码。',
+    to: '/user/profile',
+  },
+  {
     title: '实例管理',
     tag: '待开放',
     tagColor: 'var(--c-orange)',
     tagBg: 'var(--c-orange-soft)',
     desc: '查看、启停、重启和销毁云服务器实例。',
+    to: '',
   },
   {
     title: '账单中心',
@@ -20,6 +29,7 @@ const sections = [
     tagColor: 'var(--c-orange)',
     tagBg: 'var(--c-orange-soft)',
     desc: '查看消费明细、充值记录和发票管理。',
+    to: '',
   },
   {
     title: '安全设置',
@@ -27,6 +37,7 @@ const sections = [
     tagColor: 'var(--c-orange)',
     tagBg: 'var(--c-orange-soft)',
     desc: '管理登录密码、SSH 密钥和访问控制。',
+    to: '',
   },
 ]
 </script>
@@ -41,11 +52,11 @@ const sections = [
       </div>
 
       <div class="user-grid">
-        <div v-for="s in sections" :key="s.title" class="user-card">
+        <RouterLink v-for="s in sections" :key="s.title" class="user-card" :to="s.to || '/user'">
           <span class="tag" :style="{ color: s.tagColor, background: s.tagBg }">{{ s.tag }}</span>
           <h3>{{ s.title }}</h3>
           <p>{{ s.desc }}</p>
-        </div>
+        </RouterLink>
       </div>
     </div>
   </section>
