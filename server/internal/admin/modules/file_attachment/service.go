@@ -74,29 +74,28 @@ func (s *FileAttachmentService) Upload(ctx context.Context, operatorID uint64, f
 		return admindto.FileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件名不能为空")
 	}
 
-	// 读取文件内容
-	data, err := io.ReadAll(io.LimitReader(file, s.config.MaxSize+1))
-	if err != nil {
+	// 校验文件大小
+	if header.Size > s.config.MaxSize {
+		return admindto.FileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d 字节", s.config.MaxSize))
+	}
+	sniff := make([]byte, 512)
+	sniffSize, err := io.ReadFull(file, sniff)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		return admindto.FileUploadResponse{}, apperrors.ErrInternal.WithMessage("读取文件失败")
 	}
-	if len(data) == 0 {
+	if sniffSize == 0 {
 		return admindto.FileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件内容不能为空")
 	}
-
-	// 校验文件大小
-	if int64(len(data)) > s.config.MaxSize {
+	sniff = sniff[:sniffSize]
+	if int64(sniffSize) > s.config.MaxSize {
 		return admindto.FileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d 字节", s.config.MaxSize))
 	}
 
 	// 安全校验：文件名、扩展名、声明 MIME 和真实文件头必须一致。
-	mimeType := detectMimeType(data)
+	mimeType := detectMimeType(sniff)
 	if err := s.validateFile(originalName, header, mimeType); err != nil {
 		return admindto.FileUploadResponse{}, err
 	}
-
-	// 计算 SHA-256 校验和
-	checksum := sha256.Sum256(data)
-	checksumHex := hex.EncodeToString(checksum[:])
 
 	// 生成 UUID 作为存储文件名
 	uuid, err := generateUUID()
@@ -126,10 +125,30 @@ func (s *FileAttachmentService) Upload(ctx context.Context, operatorID uint64, f
 		return admindto.FileUploadResponse{}, apperrors.ErrInternal.WithMessage("创建存储目录失败")
 	}
 
-	// 写入文件
-	if err := os.WriteFile(absolutePath, data, 0644); err != nil {
+	// 流式写入文件并同步计算 SHA-256，避免按文件大小整体占用内存。
+	out, err := os.OpenFile(absolutePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
 		return admindto.FileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
 	}
+	hash := sha256.New()
+	writer := io.MultiWriter(out, hash)
+	writtenBytes, err := writer.Write(sniff)
+	written := int64(writtenBytes)
+	if err == nil {
+		var copied int64
+		copied, err = io.Copy(writer, io.LimitReader(file, s.config.MaxSize-written+1))
+		written += copied
+	}
+	closeErr := out.Close()
+	if err != nil || closeErr != nil {
+		_ = os.Remove(absolutePath)
+		return admindto.FileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
+	}
+	if written > s.config.MaxSize {
+		_ = os.Remove(absolutePath)
+		return admindto.FileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d 字节", s.config.MaxSize))
+	}
+	checksumHex := hex.EncodeToString(hash.Sum(nil))
 
 	// 创建数据库记录
 	attachment := models.FileAttachment{
@@ -137,7 +156,7 @@ func (s *FileAttachmentService) Upload(ctx context.Context, operatorID uint64, f
 		StoredName:    uuid + "." + ext,
 		MimeType:      mimeType,
 		Extension:     ext,
-		Size:          uint64(len(data)),
+		Size:          uint64(written),
 		StoragePath:   storagePath,
 		StorageDriver: "local",
 		Checksum:      checksumHex,

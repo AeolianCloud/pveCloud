@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -110,18 +111,19 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 	}
 	hash := sha256.New()
 	writer := io.MultiWriter(out, hash)
-	written, err := writer.Write(sniff)
+	writtenBytes, err := writer.Write(sniff)
+	written := int64(writtenBytes)
 	if err == nil {
 		var copied int64
-		copied, err = io.Copy(writer, io.LimitReader(file, maxSize-int64(written)+1))
-		written += int(copied)
+		copied, err = io.Copy(writer, io.LimitReader(file, maxSize-written+1))
+		written += copied
 	}
 	closeErr := out.Close()
 	if err != nil || closeErr != nil {
 		_ = os.Remove(absolutePath)
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
 	}
-	if int64(written) > maxSize {
+	if written > maxSize {
 		_ = os.Remove(absolutePath)
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d MB", config.ImageMaxSizeMB))
 	}
@@ -186,7 +188,7 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 		}
 		var duplicate int64
 		if err := tx.Model(&models.UserRealNameApplication{}).
-			Where("id_number_digest = ? AND status = ? AND user_id <> ?", digest, statusApproved, userID).
+			Where("id_number_digest = ? AND status = ?", digest, statusApproved).
 			Count(&duplicate).Error; err != nil {
 			return err
 		}
@@ -288,7 +290,7 @@ func (s *RealNameService) createFileReferences(ctx context.Context, tx *gorm.DB,
 func (s *RealNameService) latest(ctx context.Context, db *gorm.DB, userID uint64) (models.UserRealNameApplication, bool, error) {
 	var app models.UserRealNameApplication
 	err := db.WithContext(ctx).Where("user_id = ?", userID).Order("id DESC").First(&app).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.UserRealNameApplication{}, false, nil
 	}
 	return app, err == nil, err
@@ -297,7 +299,7 @@ func (s *RealNameService) latest(ctx context.Context, db *gorm.DB, userID uint64
 func (s *RealNameService) latestForUpdate(ctx context.Context, db *gorm.DB, userID uint64) (models.UserRealNameApplication, bool, error) {
 	var app models.UserRealNameApplication
 	err := db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).Order("id DESC").First(&app).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return models.UserRealNameApplication{}, false, nil
 	}
 	return app, err == nil, err
