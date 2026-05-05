@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mime"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -188,5 +189,5 @@ func isPreviewableMime(value string) bool {
 }
 
 func urlEncodeFilename(value string) string {
-	return strings.ReplaceAll(mime.QEncoding.Encode("utf-8", value), "?", "%3F")
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }

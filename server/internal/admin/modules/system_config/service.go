@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -87,6 +88,9 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 			return err
 		}
 		value := req.ConfigValue
+		if err := validateConfigValue(current.ValueType, value); err != nil {
+			return err
+		}
 		if err := tx.Model(&models.SystemConfig{}).Where("id = ?", id).Update("config_value", value).Error; err != nil {
 			return err
 		}
@@ -111,6 +115,22 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 		return admindto.SystemConfigItem{}, err
 	}
 	return systemConfigItem(updated), nil
+}
+
+func validateConfigValue(valueType string, value string) error {
+	switch strings.TrimSpace(valueType) {
+	case "bool":
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "true" && trimmed != "false" {
+			return apperrors.ErrValidation.WithMessage("布尔配置只能填写 true 或 false")
+		}
+	case "int":
+		parsed, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || parsed <= 0 {
+			return apperrors.ErrValidation.WithMessage("数字配置必须为正整数")
+		}
+	}
+	return nil
 }
 
 func systemConfigGroups(configs []models.SystemConfig) []admindto.SystemConfigGroup {

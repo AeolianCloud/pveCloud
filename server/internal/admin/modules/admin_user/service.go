@@ -222,6 +222,15 @@ func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uin
 			if err := tx.Model(&models.AdminUser{}).Where("id = ?", id).Updates(updates).Error; err != nil {
 				return err
 			}
+			if req.Status != nil && current.Status == support.AdminStatusActive && strings.TrimSpace(*req.Status) != support.AdminStatusActive {
+				now := time.Now()
+				reason := "admin_disabled"
+				if err := tx.Model(&models.AdminSession{}).
+					Where("admin_id = ? AND status = ?", id, support.AdminSessionStatusActive).
+					Updates(map[string]any{"status": support.AdminSessionStatusRevoked, "revoked_at": now, "revoke_reason": reason}).Error; err != nil {
+					return err
+				}
+			}
 		}
 		if req.RoleIDs != nil {
 			if err := replaceAdminUserRoles(ctx, tx, id, req.RoleIDs); err != nil {

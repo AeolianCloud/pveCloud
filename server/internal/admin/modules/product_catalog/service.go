@@ -87,6 +87,9 @@ func (s *ProductCatalogService) UpdateProduct(ctx context.Context, operatorID ui
 		if updates.ProductNo == "" {
 			updates.ProductNo = current.ProductNo
 		}
+		if strings.TrimSpace(req.Status) == "" {
+			updates.Status = current.Status
+		}
 		if err := tx.Model(&models.Product{}).Where("id = ?", id).Updates(productUpdateMap(updates)).Error; err != nil {
 			return err
 		}

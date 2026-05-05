@@ -333,7 +333,10 @@ func (s *FileAttachmentService) DownloadPath(ctx context.Context, id uint64) (st
 	if attachment.Status != "active" {
 		return "", "", "", apperrors.ErrNotFound.WithMessage("文件不存在")
 	}
-	absolutePath := filepath.Join(s.config.LocalPath, attachment.StoragePath)
+	absolutePath, err := s.safeStoragePath(attachment.StoragePath)
+	if err != nil {
+		return "", "", "", err
+	}
 	if _, err := os.Stat(absolutePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", "", "", apperrors.ErrNotFound.WithMessage("文件不存在")
@@ -344,6 +347,13 @@ func (s *FileAttachmentService) DownloadPath(ctx context.Context, id uint64) (st
 }
 
 func (s *FileAttachmentService) ReferenceResponse(ctx context.Context, id uint64) (admindto.FileReferenceResponse, error) {
+	attachment, err := s.findAttachment(ctx, id)
+	if err != nil {
+		return admindto.FileReferenceResponse{}, err
+	}
+	if attachment.Status != "active" {
+		return admindto.FileReferenceResponse{}, apperrors.ErrNotFound.WithMessage("文件不存在")
+	}
 	return s.referenceResponse(ctx, id)
 }
 
@@ -428,6 +438,26 @@ func (s *FileAttachmentService) maxUploadRequestBytes() int64 {
 		return multipartOverheadBytes
 	}
 	return s.config.MaxSize + multipartOverheadBytes
+}
+
+func (s *FileAttachmentService) safeStoragePath(storagePath string) (string, error) {
+	cleanPath := filepath.Clean(strings.TrimSpace(storagePath))
+	if cleanPath == "." || filepath.IsAbs(cleanPath) || cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
+		return "", apperrors.ErrNotFound.WithMessage("文件不存在")
+	}
+	root, err := filepath.Abs(s.config.LocalPath)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.Abs(filepath.Join(root, cleanPath))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", apperrors.ErrNotFound.WithMessage("文件不存在")
+	}
+	return target, nil
 }
 
 func (s *FileAttachmentService) findAttachment(ctx context.Context, id uint64) (models.FileAttachment, error) {

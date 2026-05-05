@@ -27,11 +27,12 @@ import (
 )
 
 const (
-	statusUnverified = "unverified"
-	statusPending    = "pending"
-	statusApproved   = "approved"
-	statusRejected   = "rejected"
-	refTypeRealName  = "user_real_name_application"
+	statusUnverified    = "unverified"
+	statusPending       = "pending"
+	statusApproved      = "approved"
+	statusRejected      = "rejected"
+	refTypeRealName     = "user_real_name_application"
+	multipartOverheadMB = int64(1 << 20)
 )
 
 var idCardPattern = regexp.MustCompile(`^[0-9]{17}[0-9Xx]$`)
@@ -146,6 +147,14 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 	return webdto.RealNameFileUploadResponse{ID: attachment.ID, OriginalName: attachment.OriginalName, MimeType: attachment.MimeType, Size: attachment.Size, CreatedAt: attachment.CreatedAt}, nil
 }
 
+func (s *RealNameService) MaxUploadRequestBytes(ctx context.Context) (int64, error) {
+	config, err := s.config(ctx, s.db)
+	if err != nil {
+		return 0, err
+	}
+	return int64(config.ImageMaxSizeMB)*1024*1024 + multipartOverheadMB, nil
+}
+
 func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.RealNameSubmitRequest) (webdto.RealNameApplicationSummary, error) {
 	realName := strings.TrimSpace(req.RealName)
 	idNumber := strings.ToUpper(strings.TrimSpace(req.IDNumber))
@@ -155,6 +164,14 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 	digest := digestIDNumber(req.IDType, idNumber)
 	var created models.UserRealNameApplication
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user models.User
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(&user).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.ErrUnauthorized
+		}
+		if err != nil {
+			return err
+		}
 		config, err := s.config(ctx, tx)
 		if err != nil {
 			return err
@@ -269,6 +286,12 @@ func (s *RealNameService) ensureRequiredFiles(ctx context.Context, tx *gorm.DB, 
 	}
 	if len(attachments) != len(ids) {
 		return apperrors.ErrValidation.WithMessage("实名图片不存在或不属于当前用户")
+	}
+	maxSize := uint64(config.ImageMaxSizeMB) * 1024 * 1024
+	for _, attachment := range attachments {
+		if !allowedString(config.AllowedImageTypes, attachment.MimeType) || !allowedString(s.storage.AllowedTypes, attachment.MimeType) || attachment.Size > maxSize {
+			return apperrors.ErrValidation.WithMessage("实名图片不符合当前配置要求")
+		}
 	}
 	return nil
 }

@@ -1,6 +1,8 @@
 package realname
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
@@ -38,6 +40,12 @@ func (h *RealNameHandler) UploadFile(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
+	maxBytes, err := h.service.MaxUploadRequestBytes(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		response.Error(c, apperrors.ErrValidation.WithMessage("请选择上传文件"))

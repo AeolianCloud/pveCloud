@@ -16,6 +16,8 @@ import (
  * RegisterWebRoutes 注册用户端公开 API 路由。
  */
 func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
+	group.Use(middleware.RequestContext())
+
 	siteConfigService := siteconfig.NewSiteConfigService(app.DB)
 	siteConfigHandler := siteconfig.NewSiteConfigHandler(siteConfigService)
 	authService := webauth.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)

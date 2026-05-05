@@ -142,13 +142,13 @@ func (s *AdminAuthService) Login(ctx context.Context, req admindto.LoginRequest)
 		return admindto.LoginResponse{}, err
 	}
 	if admin.Status != adminStatusActive {
-		if recordErr := s.recordLoginFailure(ctx, &admin.ID, identifier, clientIP, userAgent, "账号已禁用"); recordErr != nil {
+		if recordErr := s.recordLoginFailure(ctx, nil, identifier, clientIP, userAgent, "账号已禁用"); recordErr != nil {
 			return admindto.LoginResponse{}, recordErr
 		}
 		return admindto.LoginResponse{}, apperrors.ErrForbidden.WithMessage("管理员账号已被禁用")
 	}
 	if !password.Verify(admin.PasswordHash, req.Password) {
-		if recordErr := s.recordLoginFailure(ctx, &admin.ID, identifier, clientIP, userAgent, "账号或密码错误"); recordErr != nil {
+		if recordErr := s.recordLoginFailure(ctx, nil, identifier, clientIP, userAgent, "账号或密码错误"); recordErr != nil {
 			return admindto.LoginResponse{}, recordErr
 		}
 		return admindto.LoginResponse{}, apperrors.ErrUnauthorized.WithMessage("管理员账号或密码错误")

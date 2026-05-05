@@ -302,11 +302,15 @@ func applyLogFilters(db *gorm.DB, adminID uint64, action string, objectType stri
 		db = db.Where("created_at >= ?", from)
 	}
 	if dateTo != "" {
-		to, err := parseLogTime(dateTo)
+		to, wholeDay, err := parseLogTimeEnd(dateTo)
 		if err != nil {
 			return nil, apperrors.ErrValidation.WithMessage("结束时间格式错误")
 		}
-		db = db.Where("created_at <= ?", to)
+		if wholeDay {
+			db = db.Where("created_at < ?", to)
+		} else {
+			db = db.Where("created_at <= ?", to)
+		}
 	}
 	return db, nil
 }
@@ -316,6 +320,17 @@ func parseLogTime(value string) (time.Time, error) {
 		return parsed, nil
 	}
 	return time.Parse("2006-01-02", value)
+}
+
+func parseLogTimeEnd(value string) (time.Time, bool, error) {
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed, false, nil
+	}
+	parsed, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return parsed.Add(24 * time.Hour), true, nil
 }
 
 type auditLogRow struct {
