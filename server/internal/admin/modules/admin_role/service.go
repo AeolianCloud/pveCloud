@@ -13,6 +13,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/support"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/rbac"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/sets"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
@@ -97,13 +98,16 @@ func (s *AdminRoleService) Roles(ctx context.Context, query admindto.AdminRoleLi
  * @return admin.AdminRoleItem 新建角色
  * @return error 创建失败原因
  */
-func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, req admindto.AdminRoleCreateRequest) (admindto.AdminRoleItem, error) {
+func (s *AdminRoleService) CreateRole(ctx context.Context, operatorID uint64, operatorPermissionCodes []string, req admindto.AdminRoleCreateRequest) (admindto.AdminRoleItem, error) {
 	code := strings.TrimSpace(req.Code)
 	if err := s.ensureRoleCodeUnique(ctx, 0, code); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
 	permissionIDs, normalizedCodes, err := s.permissionIDsByCodes(ctx, req.PermissionCodes)
 	if err != nil {
+		return admindto.AdminRoleItem{}, err
+	}
+	if err := ensurePermissionCodesAssignable(operatorPermissionCodes, normalizedCodes); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
 
@@ -165,7 +169,7 @@ func (s *AdminRoleService) RoleDetail(ctx context.Context, id uint64) (admindto.
  * @return admin.AdminRoleItem 更新后的角色
  * @return error 更新失败原因
  */
-func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminRoleUpdateRequest) (admindto.AdminRoleItem, error) {
+func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, operatorPermissionCodes []string, id uint64, req admindto.AdminRoleUpdateRequest) (admindto.AdminRoleItem, error) {
 	if err := s.ensureBuiltInRoleCanUpdate(ctx, id, req); err != nil {
 		return admindto.AdminRoleItem{}, err
 	}
@@ -173,8 +177,12 @@ func (s *AdminRoleService) UpdateRole(ctx context.Context, operatorID uint64, id
 	var permissionIDs []uint64
 	var err error
 	if req.PermissionCodes != nil {
-		permissionIDs, _, err = s.permissionIDsByCodes(ctx, req.PermissionCodes)
+		var normalizedCodes []string
+		permissionIDs, normalizedCodes, err = s.permissionIDsByCodes(ctx, req.PermissionCodes)
 		if err != nil {
+			return admindto.AdminRoleItem{}, err
+		}
+		if err := ensurePermissionCodesAssignable(operatorPermissionCodes, normalizedCodes); err != nil {
 			return admindto.AdminRoleItem{}, err
 		}
 	}
@@ -418,6 +426,15 @@ func replaceAdminRolePermissions(ctx context.Context, db *gorm.DB, roleID uint64
 			"permission_id": permissionID,
 		}).Error; err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func ensurePermissionCodesAssignable(operatorCodes []string, targetCodes []string) error {
+	for _, code := range sets.UniqueStrings(targetCodes) {
+		if !rbac.HasPermissionCode(operatorCodes, code) {
+			return apperrors.ErrForbidden.WithMessage("不能分配当前管理员未拥有的权限")
 		}
 	}
 	return nil

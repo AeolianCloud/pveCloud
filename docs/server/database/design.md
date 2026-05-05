@@ -148,6 +148,7 @@ plan_os_templates
 - 管理端会话最终状态以 `admin_sessions` 为准
 - `super_admin` 角色应始终拥有当前 `admin_permissions` 中定义的全部权限
 - JWT 中的角色和权限快照只用于登录响应与前端体验，不替代服务端当前 RBAC 校验
+- 角色权限分配和管理员角色分配属于二次授权入口，服务端必须基于当前数据库 RBAC 限制分配范围，禁止普通管理员分配自己未拥有的权限集合
 - `system_configs.is_secret=1` 的配置不得通过接口返回明文
 - `system_configs` 中 `site.name` 和 `site.logo_url` 是公开站点基础展示配置，分别控制 Web 左上角品牌文字和 Logo 图片 URL
 - 站点品牌配置在系统设置中使用中文分组“站点设置”展示

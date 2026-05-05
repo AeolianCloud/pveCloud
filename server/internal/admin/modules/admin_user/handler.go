@@ -80,7 +80,7 @@ func (h *AdminUserHandler) Create(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminUserService.Create(c.Request.Context(), operatorID, req)
+	result, err := h.adminUserService.Create(c.Request.Context(), operatorID, middleware.CurrentAdminPermissionCodes(c), req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -136,7 +136,7 @@ func (h *AdminUserHandler) Update(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminUserService.Update(c.Request.Context(), operatorID, id, req)
+	result, err := h.adminUserService.Update(c.Request.Context(), operatorID, middleware.CurrentAdminPermissionCodes(c), id, req)
 	if err != nil {
 		response.Error(c, err)
 		return

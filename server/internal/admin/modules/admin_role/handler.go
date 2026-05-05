@@ -79,7 +79,7 @@ func (h *AdminRoleHandler) CreateRole(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminRoleService.CreateRole(c.Request.Context(), operatorID, req)
+	result, err := h.adminRoleService.CreateRole(c.Request.Context(), operatorID, middleware.CurrentAdminPermissionCodes(c), req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -135,7 +135,7 @@ func (h *AdminRoleHandler) UpdateRole(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.adminRoleService.UpdateRole(c.Request.Context(), operatorID, id, req)
+	result, err := h.adminRoleService.UpdateRole(c.Request.Context(), operatorID, middleware.CurrentAdminPermissionCodes(c), id, req)
 	if err != nil {
 		response.Error(c, err)
 		return

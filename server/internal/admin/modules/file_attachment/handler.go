@@ -2,7 +2,6 @@ package fileattachment
 
 import (
 	"fmt"
-	"mime"
 	"net/http"
 	"net/url"
 	"strings"

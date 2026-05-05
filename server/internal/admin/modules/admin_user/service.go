@@ -14,6 +14,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/support"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/rbac"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/sets"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
@@ -92,12 +93,12 @@ func (s *AdminUserService) List(ctx context.Context, query admindto.AdminUserLis
  * @return admin.AdminUserItem 创建后的管理员账号
  * @return error 创建失败原因
  */
-func (s *AdminUserService) Create(ctx context.Context, operatorID uint64, req admindto.AdminUserCreateRequest) (admindto.AdminUserItem, error) {
+func (s *AdminUserService) Create(ctx context.Context, operatorID uint64, operatorPermissionCodes []string, req admindto.AdminUserCreateRequest) (admindto.AdminUserItem, error) {
 	email := textutil.NormalizeOptionalString(req.Email)
 	if err := s.ensureAdminUserUnique(ctx, 0, req.Username, email); err != nil {
 		return admindto.AdminUserItem{}, err
 	}
-	if err := s.ensureRolesAssignable(ctx, req.RoleIDs); err != nil {
+	if err := s.ensureRolesAssignable(ctx, req.RoleIDs, operatorPermissionCodes); err != nil {
 		return admindto.AdminUserItem{}, err
 	}
 	passwordHash, err := password.Hash(req.Password)
@@ -182,13 +183,16 @@ func (s *AdminUserService) Detail(ctx context.Context, id uint64) (admindto.Admi
  * @return admin.AdminUserItem 更新后的管理员账号
  * @return error 更新失败原因
  */
-func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, id uint64, req admindto.AdminUserUpdateRequest) (admindto.AdminUserItem, error) {
+func (s *AdminUserService) Update(ctx context.Context, operatorID uint64, operatorPermissionCodes []string, id uint64, req admindto.AdminUserUpdateRequest) (admindto.AdminUserItem, error) {
 	email := textutil.NormalizeOptionalString(req.Email)
 	if err := s.ensureAdminUserUnique(ctx, id, "", email); err != nil {
 		return admindto.AdminUserItem{}, err
 	}
 	if req.RoleIDs != nil {
-		if err := s.ensureRolesAssignable(ctx, req.RoleIDs); err != nil {
+		if id == operatorID {
+			return admindto.AdminUserItem{}, apperrors.ErrConflict.WithMessage("不能修改当前登录账号的角色")
+		}
+		if err := s.ensureRolesAssignable(ctx, req.RoleIDs, operatorPermissionCodes); err != nil {
 			return admindto.AdminUserItem{}, err
 		}
 	}
@@ -367,22 +371,46 @@ func (s *AdminUserService) ensureAdminUserUnique(ctx context.Context, excludeID 
 	return nil
 }
 
-func (s *AdminUserService) ensureRolesAssignable(ctx context.Context, roleIDs []uint64) error {
+func (s *AdminUserService) ensureRolesAssignable(ctx context.Context, roleIDs []uint64, operatorPermissionCodes []string) error {
 	roleIDs = sets.UniqueUint64s(roleIDs)
 	if len(roleIDs) == 0 {
 		return nil
 	}
-	var count int64
+	var roles []models.AdminRole
 	if err := s.db.WithContext(ctx).Model(&models.AdminRole{}).
 		Where("id IN ?", roleIDs).
 		Where("status = ?", support.AdminStatusActive).
-		Count(&count).Error; err != nil {
+		Find(&roles).Error; err != nil {
 		return err
 	}
-	if count != int64(len(roleIDs)) {
+	if len(roles) != len(roleIDs) {
 		return apperrors.ErrValidation.WithMessage("角色不存在或已禁用")
 	}
+	targetCodes, err := s.permissionCodesByRoleIDs(ctx, roleIDs)
+	if err != nil {
+		return err
+	}
+	for _, code := range targetCodes {
+		if !rbac.HasPermissionCode(operatorPermissionCodes, code) {
+			return apperrors.ErrForbidden.WithMessage("不能分配包含当前管理员未拥有权限的角色")
+		}
+	}
 	return nil
+}
+
+func (s *AdminUserService) permissionCodesByRoleIDs(ctx context.Context, roleIDs []uint64) ([]string, error) {
+	if len(roleIDs) == 0 {
+		return nil, nil
+	}
+	var codes []string
+	err := s.db.WithContext(ctx).
+		Table("admin_role_permissions").
+		Select("admin_permissions.code").
+		Joins("JOIN admin_permissions ON admin_permissions.id = admin_role_permissions.permission_id").
+		Where("admin_role_permissions.role_id IN ?", roleIDs).
+		Order("admin_permissions.code ASC").
+		Scan(&codes).Error
+	return sets.UniqueStrings(codes), err
 }
 
 func replaceAdminUserRoles(ctx context.Context, db *gorm.DB, adminID uint64, roleIDs []uint64) error {

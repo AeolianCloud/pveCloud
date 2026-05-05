@@ -99,6 +99,7 @@
 - 鉴权：管理端 Bearer Token
 - 操作权限：`admin-user:create` 或 `admin-user:*`
 - 作用：创建管理员账号
+- 约束：若创建时分配角色，目标角色展开后的全部权限必须是当前操作者实时数据库权限集合的子集
 
 ### `GET /admin-api/admin-users/{id}`
 
@@ -111,6 +112,7 @@
 - 鉴权：管理端 Bearer Token
 - 操作权限：`admin-user:update` 或 `admin-user:*`
 - 作用：更新管理员信息、状态和角色
+- 约束：管理员不能通过该接口修改自己的 `role_ids`；给其它管理员分配角色时，目标角色展开后的全部权限必须是当前操作者实时数据库权限集合的子集
 
 ### `POST /admin-api/admin-users/{id}/password`
 
@@ -131,6 +133,7 @@
 - 鉴权：管理端 Bearer Token
 - 操作权限：`admin-role:create` 或 `admin-role:*`
 - 作用：创建角色
+- 约束：提交的 `permission_codes` 必须是当前操作者实时数据库权限集合的子集，禁止通过角色创建授予操作者未拥有的权限
 
 ### `GET /admin-api/admin-roles/{id}`
 
@@ -143,6 +146,7 @@
 - 鉴权：管理端 Bearer Token
 - 操作权限：`admin-role:update` 或 `admin-role:*`
 - 作用：更新角色信息、状态和权限
+- 约束：提交的 `permission_codes` 必须是当前操作者实时数据库权限集合的子集，禁止通过角色编辑授予操作者未拥有的权限
 
 ### `GET /admin-api/admin-permissions`
 
