@@ -260,13 +260,14 @@ func (s *RealNameService) ensureRequiredFiles(ctx context.Context, tx *gorm.DB, 
 	if len(ids) == 0 {
 		return nil
 	}
-	var count int64
+	var attachments []models.FileAttachment
 	if err := tx.WithContext(ctx).Model(&models.FileAttachment{}).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id IN ? AND uploader_user_id = ? AND status = ?", ids, userID, "active").
-		Count(&count).Error; err != nil {
+		Find(&attachments).Error; err != nil {
 		return err
 	}
-	if count != int64(len(ids)) {
+	if len(attachments) != len(ids) {
 		return apperrors.ErrValidation.WithMessage("实名图片不存在或不属于当前用户")
 	}
 	return nil

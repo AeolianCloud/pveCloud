@@ -345,18 +345,39 @@ func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.P
 		RequestedIP: textutil.StringPtr(request.IP),
 		UserAgent:   textutil.StringPtr(textutil.TrimTo(request.UserAgent, 500)),
 	}
+	shouldSend := false
+	sendEmail := user.Email
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var lockedUser models.User
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", user.ID).First(&lockedUser).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if lockedUser.Status != userStatusActive {
+			return nil
+		}
 		if err := tx.Model(&models.UserPasswordResetToken{}).
-			Where("user_id = ? AND status = ?", user.ID, userResetStatusActive).
+			Where("user_id = ? AND status = ?", lockedUser.ID, userResetStatusActive).
 			Updates(map[string]interface{}{"status": userResetStatusRevoked}).Error; err != nil {
 			return err
 		}
-		return tx.Create(&reset).Error
+		if err := tx.Create(&reset).Error; err != nil {
+			return err
+		}
+		sendEmail = lockedUser.Email
+		shouldSend = true
+		return nil
 	}); err != nil {
 		return err
 	}
+	if !shouldSend {
+		return nil
+	}
 
-	if err := s.mail.SendPasswordReset(user.Email, s.resetURL(token)); err != nil {
+	if err := s.mail.SendPasswordReset(sendEmail, s.resetURL(token)); err != nil {
 		_ = s.db.WithContext(ctx).Model(&models.UserPasswordResetToken{}).
 			Where("token_hash = ? AND status = ?", tokenHash, userResetStatusActive).
 			Update("status", userResetStatusRevoked).Error

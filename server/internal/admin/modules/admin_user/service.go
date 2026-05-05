@@ -281,6 +281,13 @@ func (s *AdminUserService) ResetPassword(ctx context.Context, operatorID uint64,
 		if err := tx.Model(&models.AdminUser{}).Where("id = ?", id).Update("password_hash", passwordHash).Error; err != nil {
 			return err
 		}
+		now := time.Now()
+		reason := "password_reset"
+		if err := tx.Model(&models.AdminSession{}).
+			Where("admin_id = ? AND status = ?", id, support.AdminSessionStatusActive).
+			Updates(map[string]any{"status": support.AdminSessionStatusRevoked, "revoked_at": now, "revoke_reason": reason}).Error; err != nil {
+			return err
+		}
 		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
 			AdminID:    &operatorID,
 			Action:     adminUserPasswordResetAction,

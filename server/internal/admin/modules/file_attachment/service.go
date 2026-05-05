@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/admin/dto"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
@@ -28,6 +29,7 @@ const (
 	fileAttachmentObjectType = "file_attachment"
 	fileUploadAction         = "file.upload"
 	fileDeleteAction         = "file.delete"
+	multipartOverheadBytes   = int64(1 << 20)
 )
 
 /**
@@ -378,22 +380,25 @@ func (s *FileAttachmentService) referenceResponse(ctx context.Context, id uint64
  * @return error 删除失败原因
  */
 func (s *FileAttachmentService) Delete(ctx context.Context, operatorID uint64, id uint64) error {
-	attachment, err := s.findAttachment(ctx, id)
-	if err != nil {
-		return err
-	}
-	if attachment.Status != "active" {
-		return apperrors.ErrNotFound.WithMessage("文件不存在")
-	}
-	reference, err := s.referenceResponse(ctx, id)
-	if err != nil {
-		return err
-	}
-	if reference.ReferenceCount > 0 {
-		return apperrors.ErrConflict.WithMessage("文件仍被业务记录引用，禁止删除")
-	}
-
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var attachment models.FileAttachment
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&attachment).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.ErrNotFound.WithMessage("文件不存在")
+		}
+		if err != nil {
+			return err
+		}
+		if attachment.Status != "active" {
+			return apperrors.ErrNotFound.WithMessage("文件不存在")
+		}
+		var referenceCount int64
+		if err := tx.Model(&models.FileAttachmentReference{}).Where("file_id = ?", id).Count(&referenceCount).Error; err != nil {
+			return err
+		}
+		if referenceCount > 0 {
+			return apperrors.ErrConflict.WithMessage("文件仍被业务记录引用，禁止删除")
+		}
 		// 软删除
 		if err := tx.Model(&attachment).Update("status", "deleted").Error; err != nil {
 			return err
@@ -416,6 +421,13 @@ func (s *FileAttachmentService) Delete(ctx context.Context, operatorID uint64, i
 	}
 
 	return nil
+}
+
+func (s *FileAttachmentService) maxUploadRequestBytes() int64 {
+	if s.config.MaxSize <= 0 {
+		return multipartOverheadBytes
+	}
+	return s.config.MaxSize + multipartOverheadBytes
 }
 
 func (s *FileAttachmentService) findAttachment(ctx context.Context, id uint64) (models.FileAttachment, error) {

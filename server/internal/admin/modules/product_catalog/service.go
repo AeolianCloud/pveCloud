@@ -240,6 +240,9 @@ func (s *ProductCatalogService) UpdatePlanPrices(ctx context.Context, operatorID
 			if seen[cycle] {
 				return apperrors.ErrValidation.WithMessage("计费周期不能重复")
 			}
+			if input.OriginalPriceCents != nil && *input.OriginalPriceCents < input.PriceCents {
+				return apperrors.ErrValidation.WithMessage("划线价不能低于售价")
+			}
 			seen[cycle] = true
 			prices = append(prices, models.PlanPrice{PlanID: id, BillingCycle: cycle, PriceCents: input.PriceCents, OriginalPriceCents: input.OriginalPriceCents, Currency: input.Currency, Status: input.Status, SortOrder: input.SortOrder})
 		}

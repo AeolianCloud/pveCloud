@@ -3,6 +3,7 @@ package fileattachment
 import (
 	"fmt"
 	"mime"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -48,6 +49,7 @@ func (h *FileAttachmentHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.fileAttachmentService.maxUploadRequestBytes())
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
 		response.Error(c, apperrors.ErrValidation.WithMessage("请选择要上传的文件"))
