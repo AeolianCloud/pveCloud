@@ -73,17 +73,20 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件名不能为空")
 	}
 	maxSize := int64(config.ImageMaxSizeMB) * 1024 * 1024
-	data, err := io.ReadAll(io.LimitReader(file, maxSize+1))
-	if err != nil {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("读取文件失败")
-	}
-	if len(data) == 0 {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件内容不能为空")
-	}
-	if int64(len(data)) > maxSize {
+	if header.Size > maxSize {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d MB", config.ImageMaxSizeMB))
 	}
-	mimeType := http.DetectContentType(data)
+
+	sniff := make([]byte, 512)
+	sniffSize, err := io.ReadFull(file, sniff)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("读取文件失败")
+	}
+	if sniffSize == 0 {
+		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件内容不能为空")
+	}
+	sniff = sniff[:sniffSize]
+	mimeType := http.DetectContentType(sniff)
 	if !allowedString(config.AllowedImageTypes, mimeType) || !allowedString(s.storage.AllowedTypes, mimeType) {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件类型不允许")
 	}
@@ -91,7 +94,6 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 	if !extensionMatchesMime(ext, mimeType) {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件扩展名与内容不匹配")
 	}
-	checksum := sha256.Sum256(data)
 	storedUUID, err := randomHex(16)
 	if err != nil {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("生成文件名失败")
@@ -102,18 +104,36 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 	if err := os.MkdirAll(filepath.Dir(absolutePath), 0755); err != nil {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("创建存储目录失败")
 	}
-	if err := os.WriteFile(absolutePath, data, 0644); err != nil {
+	out, err := os.OpenFile(absolutePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
+	}
+	hash := sha256.New()
+	writer := io.MultiWriter(out, hash)
+	written, err := writer.Write(sniff)
+	if err == nil {
+		var copied int64
+		copied, err = io.Copy(writer, io.LimitReader(file, maxSize-int64(written)+1))
+		written += int(copied)
+	}
+	closeErr := out.Close()
+	if err != nil || closeErr != nil {
+		_ = os.Remove(absolutePath)
+		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
+	}
+	if int64(written) > maxSize {
+		_ = os.Remove(absolutePath)
+		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d MB", config.ImageMaxSizeMB))
 	}
 	attachment := models.FileAttachment{
 		OriginalName:   originalName,
 		StoredName:     storedUUID + "." + ext,
 		MimeType:       mimeType,
 		Extension:      ext,
-		Size:           uint64(len(data)),
+		Size:           uint64(written),
 		StoragePath:    storagePath,
 		StorageDriver:  "local",
-		Checksum:       hex.EncodeToString(checksum[:]),
+		Checksum:       hex.EncodeToString(hash.Sum(nil)),
 		UploaderUserID: &userID,
 		Status:         "active",
 	}

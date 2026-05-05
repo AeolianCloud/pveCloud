@@ -90,11 +90,15 @@ func (s *RealNameService) Review(ctx context.Context, operatorID uint64, id uint
 		}
 		if status == "approved" {
 			var duplicate int64
-			if err := tx.Model(&models.UserRealNameApplication{}).Where("id_number_digest = ? AND status = ? AND user_id <> ?", current.IDNumberDigest, "approved", current.UserID).Count(&duplicate).Error; err != nil {
+			query := tx.Model(&models.UserRealNameApplication{}).Where("id_number_digest = ? AND status = ?", current.IDNumberDigest, "approved")
+			if current.ID != 0 {
+				query = query.Where("id != ?", current.ID)
+			}
+			if err := query.Count(&duplicate).Error; err != nil {
 				return err
 			}
 			if duplicate > 0 {
-				return apperrors.ErrConflict.WithMessage("该证件号码已被其它用户实名通过")
+				return apperrors.ErrConflict.WithMessage("该证件号码已有实名通过记录")
 			}
 		}
 		now := time.Now()
