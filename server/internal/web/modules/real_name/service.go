@@ -188,7 +188,7 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 		}
 		var duplicate int64
 		if err := tx.Model(&models.UserRealNameApplication{}).
-			Where("id_number_digest = ? AND status = ?", digest, statusApproved).
+			Where("id_number_digest = ? AND status = ? AND user_id <> ?", digest, statusApproved, userID).
 			Count(&duplicate).Error; err != nil {
 			return err
 		}
