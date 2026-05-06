@@ -22,7 +22,7 @@
 - 接口契约：`docs/server/api/`
 - 后端架构与业务规则：`docs/server/`
 - 管理端前端契约：`docs/admin/`
-- 用户端前端契约与规划：`docs/web/`
+- 用户端前端契约：`docs/web/`
 - 数据库可执行契约：`server/migrations/`
 - 配置示例契约：`server/config.example.yaml`
 - AI 工作流与守则：`.codex/skills/`
@@ -64,8 +64,7 @@
 
 - 不要覆盖用户未提交改动。
 - 未经维护者明确要求，不要自动执行 `git add`、`git commit`、`git push` 或其它会改变 Git 历史/暂存区状态的操作。
-- 临时创建的测试文件、验证脚本和探测代码，在验证完成后默认删除；只有维护者明确要求保留时才留下。
-- 修改 `AGENTS.md` 或 `.codex/skills/**/SKILL.md` 后，运行 `python3 scripts/validate-skills.py` 验证 skill 元数据。
+- 临时验证脚本、一次性样例和探测代码，在验证完成后默认删除；正式 `*_test.go` 按后端技术文档和对应 skill guardrail 判断是否保留。
 - `admin/` 和 `web/` 独立管理，不创建跨前端共享运行时代码包。
 - 管理端只调用 `/admin-api/*`。
 - 用户端只调用 `/api/*`。

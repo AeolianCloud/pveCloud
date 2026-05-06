@@ -6,6 +6,8 @@
 
 - `architecture.md`
   后端整体架构、边界、鉴权和当前阶段范围
+- `../security.md`
+  跨后端、前端和运维的通用安全基线
 - `go-technical.md`
   技术栈、目录结构、命令和运行依赖
 - `api/`
@@ -21,8 +23,9 @@
 
 按后端任务定位时，建议先按下面顺序建立上下文：
 1. `architecture.md`
-2. `go-technical.md`
-3. 再按任务进入对应子域：
+2. 涉及鉴权、权限、脱敏、限流、审计、上传、敏感配置或安全边界时读 `../security.md`
+3. `go-technical.md`
+4. 再按任务进入对应子域：
    - API：`api/`
    - 数据库：`database/design.md`
    - 历史下线能力：`jobs.md`

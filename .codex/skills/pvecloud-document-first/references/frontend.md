@@ -7,6 +7,7 @@
 - 管理端：`docs/admin/architecture.md`
 - 用户端：`docs/web/architecture.md`
 - 涉及后端请求时：`docs/server/api/`、`docs/server/api/conventions.md`
+- 涉及登录态、权限、401/403、敏感字段、token 保存或跨端边界时：`docs/security.md`
 
 ## 双前端边界
 
@@ -16,10 +17,32 @@
 - `admin/` 只调用 `/admin-api/*`。
 - `web/` 只调用 `/api/*`。
 
+## 前端安全守则
+
+- 前端安全边界来自 `docs/security.md`，页面行为来自 `docs/admin/` 或 `docs/web/`。
+- 前端权限判断只用于可见性和体验优化，不能替代后端鉴权、RBAC、资源归属和状态校验。
+- 不把 token、密码、验证码、secret、敏感配置明文、证件号明文或未脱敏身份信息写入页面日志、调试输出、URL、localStorage 以外的任意持久位置或可分享文本。
+- 修改 access token 保存、登录恢复、退出、refresh、401/403 或权限反馈时，先更新对应前端 owner docs、`docs/server/api/conventions.md` 和 `docs/security.md`。
+
+## AI 前端安全检查
+
+审查或修改前端代码时，AI 必须定向检索并检查：
+
+- XSS：搜索 `innerHTML`、`outerHTML`、`v-html`、`dangerouslySetInnerHTML`、动态组件、动态 URL、富文本和文件名展示；用户输入和接口内容不得未处理直出到危险位置。
+- token 泄露：检查 token、验证码、密码、重置 token、证件号明文和敏感配置是否进入 URL、console、错误弹窗、持久化状态、截图文本或埋点。
+- 开放重定向：检查 `redirect`、`returnUrl`、`next` 等跳转参数，必须限制站内路径或白名单域名。
+- 权限假象：检查按钮隐藏、路由 meta、菜单过滤是否被误当作最终授权；写接口必须仍依赖后端权限。
+- 跨端调用：检查 `admin/` 是否调用 `/api/*`，`web/` 是否调用 `/admin-api/*`，或两端是否共享运行时代码、请求封装、token key。
+- 401/403：检查请求包装是否按 owner docs 统一处理，不把无权限误清登录态，也不把未登录当作普通业务错误。
+- 文件上传：检查前端 accept、大小和类型提示只作为体验，不能描述为最终安全校验。
+- 前端环境变量：检查 `import.meta.env`、`.env*` 使用和构建配置，不得把服务端 secret、数据库、SMTP、对象存储或管理端私有配置暴露进前端包。
+- 缓存与持久化：检查 Pinia、本地存储、sessionStorage、URL、错误边界和调试输出，不得长期保存敏感响应、实名资料、审计详情或敏感配置明文。
+- 安全响应头依赖：如果页面引入 iframe、外链脚本、富文本或对象预览，必须回到 `docs/security.md` 和运维文档确认 CSP、frame、referrer 和 MIME 边界。
+
 ## 当前仓库状态
 
 - `admin/` 已存在，是当前实际前端实现。
-- 如果仓库里还没有 `web/` 目录，`docs/web/` 仅代表规划和契约，不代表已有用户端代码。
+- `web/` 已存在，是当前实际用户端前端实现。
 - 在没有文档更新和维护者确认前，不要擅自把已移除的后台页面重新加回菜单、路由或占位页。
 
 ## 联动开发规则
@@ -44,9 +67,19 @@
 - 复杂管理页的 `index.vue` 只做状态、请求、权限、事件编排和组件组合；表格、tab 和弹窗表单应下沉到页面私有组件。
 - 现有 `admin/src/views/admin-users/` 是复杂管理页参考样板；新增同类页面不得默认堆成单个大 `index.vue`。
 
+## 用户端实现规则
+
+- `web/` 的页面范围、路由语义和开放状态以 `docs/web/` 为准；不要用 `admin/` 的页面结构、权限菜单或运营文案推导用户端能力。
+- `web/` 的请求封装、登录态、刷新、退出、401/403 处理必须集中在用户端自己的状态和请求层，不跨应用复用 `admin/` 代码。
+- 修改登录恢复、refresh、401、403、退出或会话持久化语义前，先同步 `docs/web/` 和 `docs/server/api/conventions.md`，再停确认。
+- 401/403 处理不得只散落在页面组件里；页面只处理业务展示，鉴权失败的通用恢复、跳转、清理和提示由请求包装或状态层统一编排。
+- 用户端页面、路由、请求包装、状态和类型目录按 `docs/web/architecture.md` 执行；如果文档没有覆盖新增结构，先补文档。
+- 在 owner docs 开放订单、支付、实例购买或资源交付前，`web/` 不展示承诺已可下单、支付、开通实例、交付资源或 SLA 的 UI 文案。
+
 ## 组件与样式
 
 - 现阶段管理端优先用 Element Plus。
+- Element Plus 的优先级只默认适用于 `admin/`；`web/` 是否使用 UI 库以 `docs/web/architecture.md` 和现有代码为准。
 - 优先复用成熟 UI 能力，不手写复杂底层交互。
 - 不建设替代 UI 框架的本地工具类体系。
 - 只有需要统一业务语义或固定组合时才做项目内封装。
@@ -73,9 +106,18 @@
 
 ## 验证
 
+管理端构建验证：
+
 ```powershell
 cd admin
 bun run build
 ```
 
-如果未来 `web/` 存在，则对该应用执行等价构建验证。
+用户端构建验证：
+
+```powershell
+cd web
+bun run build
+```
+
+只改其中一个前端时，至少运行该应用构建；联动修改 `admin/` 和 `web/` 时分别构建。无法运行时，在最终回复说明原因和风险。

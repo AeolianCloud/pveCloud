@@ -1,0 +1,4 @@
+interface:
+  display_name: "pveCloud Basic Admin"
+  short_description: "Keep historical basic-admin work aligned with current docs."
+  default_prompt: "Use $pvecloud-basic-admin when working with historical basic-admin scope or admin page-scope drift."

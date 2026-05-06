@@ -92,6 +92,10 @@ func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file mu
 	if !allowedString(config.AllowedImageTypes, mimeType) || !allowedString(s.storage.AllowedTypes, mimeType) {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件类型不允许")
 	}
+	declaredMimeType := strings.TrimSpace(header.Header.Get("Content-Type"))
+	if declaredMimeType != "" && (!allowedString(config.AllowedImageTypes, declaredMimeType) || !allowedString(s.storage.AllowedTypes, declaredMimeType) || !strings.EqualFold(declaredMimeType, mimeType)) {
+		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件声明类型与内容不匹配")
+	}
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(originalName)), ".")
 	if !extensionMatchesMime(ext, mimeType) {
 		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件扩展名与内容不匹配")
@@ -277,6 +281,9 @@ func (s *RealNameService) ensureRequiredFiles(ctx context.Context, tx *gorm.DB, 
 	if len(ids) == 0 {
 		return nil
 	}
+	if len(uniqueUint64s(ids)) != len(ids) {
+		return apperrors.ErrValidation.WithMessage("实名图片不能重复使用同一附件")
+	}
 	var attachments []models.FileAttachment
 	if err := tx.WithContext(ctx).Model(&models.FileAttachment{}).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -363,7 +370,21 @@ func (s *RealNameService) config(ctx context.Context, db *gorm.DB) (webdto.RealN
 			config.ReviewNotice = value
 		}
 	}
-	return config, nil
+	return s.effectiveConfig(config), nil
+}
+
+func (s *RealNameService) effectiveConfig(config webdto.RealNameConfig) webdto.RealNameConfig {
+	if s.storage.MaxSize > 0 {
+		storageMaxMB := int(s.storage.MaxSize / (1024 * 1024))
+		if storageMaxMB <= 0 {
+			storageMaxMB = 1
+		}
+		if config.ImageMaxSizeMB <= 0 || config.ImageMaxSizeMB > storageMaxMB {
+			config.ImageMaxSizeMB = storageMaxMB
+		}
+	}
+	config.AllowedImageTypes = intersectStrings(config.AllowedImageTypes, s.storage.AllowedTypes)
+	return config
 }
 
 func applicationSummary(app models.UserRealNameApplication) webdto.RealNameApplicationSummary {
@@ -447,6 +468,46 @@ func csv(value string, fallback []string) []string {
 	}
 	if len(result) == 0 {
 		return fallback
+	}
+	return result
+}
+
+func uniqueUint64s(values []uint64) []uint64 {
+	seen := make(map[uint64]struct{}, len(values))
+	result := make([]uint64, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
+}
+
+func intersectStrings(left []string, right []string) []string {
+	rightSet := make(map[string]struct{}, len(right))
+	for _, item := range right {
+		trimmed := strings.ToLower(strings.TrimSpace(item))
+		if trimmed != "" {
+			rightSet[trimmed] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(left))
+	seen := map[string]struct{}{}
+	for _, item := range left {
+		trimmed := strings.ToLower(strings.TrimSpace(item))
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := rightSet[trimmed]; !ok {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
 	}
 	return result
 }

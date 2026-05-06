@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -104,6 +105,9 @@ func (s *RealNameService) Review(ctx context.Context, operatorID uint64, id uint
 		now := time.Now()
 		updates := map[string]any{"status": status, "review_admin_id": operatorID, "reviewed_at": now, "reject_reason": reason}
 		if err := tx.Model(&models.UserRealNameApplication{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+			if isDuplicateApprovedDigest(err) {
+				return apperrors.ErrConflict.WithMessage("该证件号码已有实名通过记录")
+			}
 			return err
 		}
 		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: realNameReviewAction, ObjectType: realNameObjectType, ObjectID: textutil.Uint64String(id), BeforeData: auditSnapshot(current), AfterData: map[string]any{"id": id, "status": status, "reject_reason": reason}, Remark: "审核实名申请"})
@@ -111,6 +115,11 @@ func (s *RealNameService) Review(ctx context.Context, operatorID uint64, id uint
 		return admindto.RealNameApplicationItem{}, err
 	}
 	return s.Detail(ctx, id)
+}
+
+func isDuplicateApprovedDigest(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
 
 func applyFilters(db *gorm.DB, query admindto.RealNameApplicationListQuery) (*gorm.DB, error) {

@@ -19,7 +19,7 @@
 - API 契约：`docs/server/api/`
 - 后端架构与业务规则：`docs/server/`
 - 管理端前端契约：`docs/admin/`
-- 用户端前端契约与规划：`docs/web/`
+- 用户端前端契约：`docs/web/`
 - 数据库可执行契约：`server/migrations/`
 - 配置示例契约：`server/config.example.yaml`
 
@@ -30,14 +30,25 @@
 阶段进行中：
 
 - `MASTER.md` 记录当前总览
-- `phase-*.md` 记录阶段进度、验收和重要说明
+- 进行中的阶段文件放在 `docs/progress/` 根目录，按需要记录阶段进度、验收和重要说明
 
 阶段完成后：
 
 - 当前事实必须沉淀到对应权威文档
 - `MASTER.md` 只保留简短当前状态
-- 旧阶段文件可以保留为历史记录
-- 如果旧阶段文件可能误导当前实现，应移动到 `archive/`，或在文件顶部标注“历史记录，以当前权威文档为准”
+- 旧阶段文件归档到 `docs/progress/archive/`
+- 归档文件只用于恢复历史背景；当前契约必须回到 API、架构、页面、数据库迁移和配置示例等权威位置
+
+## 归档记录
+
+基础后台历史阶段记录已归档到：
+
+- `docs/progress/archive/phase-0-audit-risk-foundation.md`
+- `docs/progress/archive/phase-1-audit-write-masking.md`
+- `docs/progress/archive/phase-2-admin-rbac.md`
+- `docs/progress/archive/phase-3-session-config.md`
+- `docs/progress/archive/phase-4-dashboard-ux.md`
+- `docs/progress/archive/phase-5-acceptance.md`
 
 ## 维护规则
 

@@ -25,6 +25,7 @@ const (
 	webUserPasswordResetAction = "web.user.password_reset"
 	webUserSessionRevokeAction = "web.user_session.revoke"
 	webUserSessionRevokeReason = "admin_revoke"
+	webUserPasswordResetReason = "admin_password_reset"
 	webUserSessionExpireReason = "expired"
 )
 
@@ -186,6 +187,12 @@ func (s *WebUserService) ResetPassword(ctx context.Context, operatorID uint64, i
 			return err
 		}
 		if err := tx.Model(&models.User{}).Where("id = ?", id).Update("password_hash", passwordHash).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		if err := tx.Model(&models.UserSession{}).
+			Where("user_id = ? AND status = ?", id, "active").
+			Updates(map[string]any{"status": "revoked", "revoked_at": now, "revoke_reason": webUserPasswordResetReason}).Error; err != nil {
 			return err
 		}
 		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{

@@ -174,7 +174,7 @@ plan_os_templates
 
 ## 当前阶段说明
 
-当前仓库已经从“基础后台阶段”进入服务器产品目录阶段。
+当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名和服务器产品目录阶段。
 数据库契约保留以下管理域：
 
 - 认证
@@ -183,6 +183,7 @@ plan_os_templates
 - 系统配置
 - 审计日志
 - 用户端账号与会话
+- 用户实名
 - 服务器产品目录
 
 以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
@@ -203,6 +204,7 @@ plan_os_templates
 - `user_sessions.session_id`
 - `user_password_reset_tokens.token_hash`
 - `user_real_name_applications.application_no`
+- `user_real_name_applications.approved_id_number_digest`，只约束 `status=approved` 的证件摘要唯一，防止并发审核通过同一证件号码
 - `system_configs.config_key`
 - `products.product_no`
 - `products.slug`

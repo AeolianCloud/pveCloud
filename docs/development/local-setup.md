@@ -14,13 +14,13 @@
 - Redis：缓存、限流、验证码、短 TTL 状态、短锁和辅助幂等
 - API：HTTP 接口
 - `admin`：管理端前端
-- `web`：用户端前端；当前承载公开站点、产品目录和用户账号自助入口，不代表订单、支付、实例或工单 API 已开放
+- `web`：用户端前端；当前承载公开站点、产品目录、用户账号自助和个人实名入口，不代表订单、支付、实例或工单 API 已开放
 
 ## 配置
 
 - 示例配置：`server/config.example.yaml`
 - 真实配置：`server/config.yaml`
-- `server/config.yaml` 不提交
+- `server/config.yaml` 默认不提交；维护者明确要求时可纳入提交
 - 新增配置项时先更新示例配置
 - 用户端密码找回依赖 `mail` 配置；本地未配置 SMTP 时，密码找回申请应返回服务不可用提示，不应生成可用重置 token
 
@@ -30,7 +30,7 @@
 2. Redis
 3. API
 4. `admin`
-5. 如果存在 `web/package.json`，再启动 `web`
+5. `web`
 
 ## 检查接口
 
@@ -73,7 +73,7 @@ cd web
 bun run build
 ```
 
-说明：只有仓库真实存在 `web/package.json` 时才执行用户端命令。Web 基础前台阶段不要求后端开放 `/api/*` 业务接口。
+说明：`web/` 已存在。当前用户端只开放公开站点配置、用户账号自助、用户实名和服务器产品目录接口，不代表订单、支付、实例或工单 API 已开放。
 
 ## 本地一键启动脚本约定
 
@@ -83,6 +83,5 @@ bun run build
 
 - 使用 Node.js，保持跨平台
 - 不覆盖已有 `server/config.yaml`
-- 默认启动 API、`admin`
-- 只有在真实存在 `web/package.json` 时才启动 `web`
+- 默认启动 API、`admin` 和 `web`
 - 不负责启动 MariaDB 和 Redis

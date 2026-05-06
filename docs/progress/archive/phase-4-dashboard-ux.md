@@ -1,5 +1,7 @@
 # Phase 4：Dashboard 与管理端体验收口
 
+> 历史记录：本文件只记录 Phase 4 当时的页面收口和验收背景。当前管理端页面范围以 `docs/admin/pages/README.md` 和 `docs/admin/routing-permissions.md` 为准。
+
 - [x] 更新 Dashboard 指标契约，限定只展示当前阶段真实开放指标
 - [x] 完成 Dashboard 真实基础指标
 - [x] 完成 `403` 无权限页和页面级权限反馈

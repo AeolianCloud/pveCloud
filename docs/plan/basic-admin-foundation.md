@@ -33,7 +33,7 @@
 
 ### 重要说明
 
-上面是“后台能力”范围，不等于“当前管理端前端页面”范围。当前前端页面范围仍以 `docs/admin/architecture.md` 为准，当前开放 `Login`、`Dashboard`、`System Settings` 和 `403`。
+上面是“后台能力”范围，不等于“当前管理端前端页面”范围。当前管理端页面范围以 `docs/admin/pages/README.md` 为准，路由和权限以 `docs/admin/routing-permissions.md` 为准。
 
 ## 分阶段路线
 
@@ -65,7 +65,7 @@
 
 - API 契约与实现一致
 - 数据库设计与迁移一致
-- 当前管理端前端开放范围为 `Login`、`Dashboard`、`System Settings`、`403`
+- 当前管理端前端开放范围与 `docs/admin/pages/README.md` 一致
 - Dashboard 不展示未开放业务数据
 - `go test ./...` 通过
 - `bun run build` 通过

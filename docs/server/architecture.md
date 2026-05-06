@@ -26,6 +26,14 @@
 
 Redis 可以保存缓存、限流、验证码、一次性 token、短锁和短期状态。它不能替代管理端会话最终状态、RBAC 关系或审计事实。
 
+## 通用安全边界
+
+跨端通用安全基线见 `docs/security.md`。
+
+- 后端是鉴权、权限、资源归属和业务状态的最终裁决点。
+- 前端权限判断、JWT 权限快照和请求参数不得替代当前数据库 RBAC、会话状态和资源归属校验。
+- 安全增强如果改变接受输入、拒绝输入、返回内容、审计内容、授权方式、配置要求、存储方式或事务边界，必须先更新 `docs/security.md` 和对应 owner docs。
+
 ## 目标目录原则
 
 后端目录当前按“基础后台可用”口径维护：
@@ -172,7 +180,9 @@ server/
 - `Dashboard`
 - `System Settings`
 - `File Management`
+- `Web User Management`
 - `Real Name Management`
+- `Product Management`
 - `403`
 
 `System Settings` 当前包含系统配置、管理员账号、管理员组权限和管理员会话。

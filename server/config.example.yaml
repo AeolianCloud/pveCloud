@@ -48,13 +48,13 @@ redis:
 # 管理端 JWT 配置。
 jwt:
   # 用户端 JWT 签名密钥；生产环境必须替换为高强度随机值。
-  user_secret: change_me_user_secret
+  user_secret: replace_with_32_plus_random_user_jwt_key
   # 用户端 JWT issuer，用于区分 token 来源。
   user_issuer: pvecloud-user
   # 用户端 access token 有效期，单位为分钟。
   user_expire_minutes: 480
   # 管理端 JWT 签名密钥；生产环境必须替换为高强度随机值。
-  admin_secret: change_me_admin_secret
+  admin_secret: replace_with_32_plus_random_admin_jwt_key
   # 管理端 JWT issuer，用于区分 token 来源。
   admin_issuer: pvecloud-admin
   # 管理端 access token 有效期，单位为分钟。

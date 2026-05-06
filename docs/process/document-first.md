@@ -7,6 +7,7 @@
 以下变更都必须走文档先行：
 
 - API、错误码、鉴权、权限码
+- 安全边界、安全校验、脱敏、限流、审计和敏感数据处理
 - 数据库结构、迁移、事务边界、幂等规则
 - 页面行为、路由语义、状态语义、菜单来源
 - 配置结构、运行依赖、部署方式
@@ -31,6 +32,7 @@
 
 - AI 工作流和门禁：`AGENTS.md`、`.codex/skills/`
 - API 契约：`docs/server/api/`
+- 通用安全基线：`docs/security.md`
 - 数据库可执行契约：`server/migrations/`
 - 数据库设计：`docs/server/database/design.md`
 - 前端行为与页面范围：`docs/admin/`、`docs/web/`

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -237,11 +238,17 @@ func (cfg *Config) Validate() error {
 	if cfg.Redis.KeyPrefix == "" {
 		return fmt.Errorf("redis.key_prefix 不能为空")
 	}
-	if cfg.JWT.AdminSecret == "" {
-		return fmt.Errorf("jwt.admin_secret 不能为空")
+	if err := validateJWTSecret("jwt.admin_secret", cfg.JWT.AdminSecret); err != nil {
+		return err
 	}
-	if cfg.JWT.UserSecret == "" {
-		return fmt.Errorf("jwt.user_secret 不能为空")
+	if err := validateJWTSecret("jwt.user_secret", cfg.JWT.UserSecret); err != nil {
+		return err
+	}
+	if cfg.JWT.AdminIssuer == "" {
+		return fmt.Errorf("jwt.admin_issuer 不能为空")
+	}
+	if cfg.JWT.AdminExpireMinutes <= 0 {
+		return fmt.Errorf("jwt.admin_expire_minutes 必须大于 0")
 	}
 	if cfg.JWT.UserIssuer == "" {
 		return fmt.Errorf("jwt.user_issuer 不能为空")
@@ -277,6 +284,21 @@ func (cfg *Config) Validate() error {
 	}
 	if len(cfg.Storage.AllowedTypes) == 0 {
 		return fmt.Errorf("storage.allowed_types 不能为空")
+	}
+	return nil
+}
+
+func validateJWTSecret(name string, value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fmt.Errorf("%s 不能为空", name)
+	}
+	if len(trimmed) < 32 {
+		return fmt.Errorf("%s 长度不能小于 32 字符", name)
+	}
+	normalized := strings.ToLower(trimmed)
+	if strings.Contains(normalized, "change_me") || normalized == "default" || normalized == "secret" || normalized == "password" {
+		return fmt.Errorf("%s 不能使用默认或弱密钥", name)
 	}
 	return nil
 }

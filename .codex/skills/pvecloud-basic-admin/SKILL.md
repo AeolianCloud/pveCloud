@@ -1,6 +1,6 @@
 ---
 name: pvecloud-basic-admin
-description: "Use when working on the historical basic admin foundation. This skill helps AI stay inside the basic-admin stage context: auth, dashboard, RBAC, sessions, system configs, audit logs, and risk logs, while respecting that the stage's frontend surface had been narrowed to Login, Dashboard, and 403."
+description: "Use only when the task explicitly mentions the historical basic-admin foundation, basic-admin plan/progress docs, or drift between old stage notes and the current admin surface. This helper forces current page scope back to owner docs instead of historical phase notes."
 ---
 
 # pveCloud Basic Admin
@@ -13,6 +13,8 @@ It keeps AI aligned with the historical basic-admin scope without turning the sk
 Project truth still lives in:
 
 - `docs/admin/architecture.md`
+- `docs/admin/pages/README.md`
+- `docs/admin/routing-permissions.md`
 - `docs/server/api/`
 - `docs/server/database/design.md`
 - `server/migrations/`
@@ -23,18 +25,19 @@ Project truth still lives in:
 ## Historical Scope
 
 - Backend scope during that stage covered: admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, risk logs.
-- Admin frontend scope during that stage was narrower: only `Login`, `Dashboard`, and `403`.
-- Removed admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
+- Admin frontend scope changed during and after that stage. Do not treat any historical page list in this skill or progress notes as the current contract.
+- Current admin page scope must come from `docs/admin/pages/README.md`, with route and permission semantics from `docs/admin/routing-permissions.md`.
+- Removed or not-yet-opened admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
 
 ## When This Skill Applies
 
 Use this helper only when the task explicitly touches the historical basic-admin stage, including:
 
-- admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, or the historical risk-log scope
-- removed admin pages, reopened admin menus, or confusion between backend capability and frontend page scope
+- basic-admin history around admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, or the historical risk-log scope
+- removed admin pages, reopened admin menus, or confusion between backend capability, historical phase notes, and current frontend page scope
 - basic-admin gap, plan, or progress documents
 
-Do not load this helper for unrelated current-stage work. Historical progress can explain why a scope changed, but current contracts still live in the owner docs and machine contracts.
+Do not load this helper for unrelated current-stage work or ordinary admin implementation tasks. Historical progress can explain why a scope changed, but current contracts still live in the owner docs and machine contracts.
 
 When this helper applies, read:
 
@@ -43,7 +46,9 @@ When this helper applies, read:
 3. `docs/progress/MASTER.md`
 4. `docs/analysis/basic-admin-gap.md`
 5. `docs/plan/basic-admin-foundation.md`
-6. The relevant server or admin frontend architecture docs
+6. `docs/admin/pages/README.md` when page scope matters
+7. `docs/admin/routing-permissions.md` when route or permission scope matters
+8. The relevant server or admin frontend architecture docs
 
 ## Working Rules
 

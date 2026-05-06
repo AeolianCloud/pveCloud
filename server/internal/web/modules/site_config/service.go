@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/web/dto"
 )
 
@@ -35,14 +36,15 @@ const (
  * SiteConfigService 处理 Web 公开站点配置读取。
  */
 type SiteConfigService struct {
-	db *gorm.DB
+	db      *gorm.DB
+	storage bootstrap.StorageConfig
 }
 
 /**
  * NewSiteConfigService 创建 Web 公开站点配置服务。
  */
-func NewSiteConfigService(db *gorm.DB) *SiteConfigService {
-	return &SiteConfigService{db: db}
+func NewSiteConfigService(db *gorm.DB, storage bootstrap.StorageConfig) *SiteConfigService {
+	return &SiteConfigService{db: db, storage: storage}
 }
 
 /**
@@ -120,6 +122,7 @@ func (s *SiteConfigService) Show(ctx context.Context) (webdto.SiteConfigResponse
 		}
 	}
 
+	result.RealName = effectiveRealNameConfig(result.RealName, s.storage)
 	return result, nil
 }
 
@@ -167,6 +170,47 @@ func parseCSVConfigValue(value *string, fallback []string) []string {
 	}
 	if len(result) == 0 {
 		return fallback
+	}
+	return result
+}
+
+func effectiveRealNameConfig(config webdto.RealNameConfig, storage bootstrap.StorageConfig) webdto.RealNameConfig {
+	if storage.MaxSize > 0 {
+		storageMaxMB := int(storage.MaxSize / (1024 * 1024))
+		if storageMaxMB <= 0 {
+			storageMaxMB = 1
+		}
+		if config.ImageMaxSizeMB <= 0 || config.ImageMaxSizeMB > storageMaxMB {
+			config.ImageMaxSizeMB = storageMaxMB
+		}
+	}
+	config.AllowedImageTypes = intersectStrings(config.AllowedImageTypes, storage.AllowedTypes)
+	return config
+}
+
+func intersectStrings(left []string, right []string) []string {
+	rightSet := make(map[string]struct{}, len(right))
+	for _, item := range right {
+		trimmed := strings.ToLower(strings.TrimSpace(item))
+		if trimmed != "" {
+			rightSet[trimmed] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(left))
+	seen := map[string]struct{}{}
+	for _, item := range left {
+		trimmed := strings.ToLower(strings.TrimSpace(item))
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := rightSet[trimmed]; !ok {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
 	}
 	return result
 }

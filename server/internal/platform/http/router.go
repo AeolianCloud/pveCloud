@@ -65,13 +65,7 @@ func healthz(app *bootstrap.App) gin.HandlerFunc {
 		c.JSON(http.StatusOK, response.Envelope{
 			Code:    0,
 			Message: "成功",
-			Data: gin.H{
-				"app":      app.Config.App.Name,
-				"env":      app.Config.App.Env,
-				"database": "正常",
-				"redis":    "正常",
-				"time":     time.Now().Format(time.RFC3339),
-			},
+			Data:    gin.H{"status": "ok"},
 		})
 	}
 }

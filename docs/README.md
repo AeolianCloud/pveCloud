@@ -16,12 +16,14 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 - 数据库设计口径：`docs/server/database/`
 - 可执行数据库契约：`server/migrations/`
 - 配置示例契约：`server/config.example.yaml`
+- 通用安全基线：`docs/security.md`
 
 ### 2. 架构层
 
 用于描述系统当前结构、职责边界和实现口径：
 
 - 后端：`docs/server/`
+- 安全基线：`docs/security.md`
 - 管理端入口：`docs/admin/README.md`
 - 管理端总体架构：`docs/admin/architecture.md`
 - 管理端页面契约：`docs/admin/pages/`
@@ -51,7 +53,7 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 
 - 进度说明：`docs/progress/README.md`
 - 进度总览：`docs/progress/MASTER.md`
-- 分阶段进度：`docs/progress/phase-*.md`
+- 历史分阶段进度：`docs/progress/archive/phase-*.md`
 
 进度文档是阶段账本和历史记录，不是最终契约。
 如果它和 API、前端架构、数据库迁移或配置示例冲突，应先以权威契约为准，再同步修正或归档进度文档。
@@ -76,12 +78,14 @@ AI 的工作方法、读取顺序和执行门禁请看 `AGENTS.md` 与 `.codex/s
 
 - 后端 `server/` 是当前主实现。
 - 管理端 `admin/` 已存在，是当前实际前端实现。
-- `docs/web/` 当前描述 Web 基础前台阶段契约；如果仓库里尚无 `web/` 目录，不应把它误读成已有实现说明。
-- Web 基础前台阶段只代表用户端前端壳和静态页面准备，不代表用户端 `/api/*`、账号、产品、订单、支付、实例或工单已经开放。
+- 用户端 `web/` 已存在，是当前实际用户端前端实现。
+- `docs/web/` 当前描述用户端前端契约；当前已开放公开站点配置、用户账号自助、用户实名和服务器产品目录展示。
+- 当前仍不开放订单、支付、实例、工单、PVE 节点、资源池、库存扣减或自动开通能力。
 
 ## 维护原则
 
 - 改接口，先改 `docs/server/api/`。
+- 改安全边界、鉴权、权限、脱敏、限流、审计或敏感数据处理，先改 `docs/security.md` 和对应 owner docs。
 - 改数据库结构，先改迁移和数据库设计文档。
 - 改页面行为、路由、权限、状态、菜单，先改对应前端架构文档。
 - 改配置和部署，先改 `server/config.example.yaml` 与运维文档。

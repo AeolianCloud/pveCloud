@@ -16,6 +16,8 @@
 
 ## 基础后台分阶段进度
 
+基础后台历史阶段记录已归档到 `docs/progress/archive/`：
+
 - [x] Phase 0：安全日志基础
 - [x] Phase 1：审计写入与脱敏收口
 - [x] Phase 2：管理员与角色权限
@@ -23,27 +25,22 @@
 - [x] Phase 4：Dashboard 与管理端体验收口
 - [x] Phase 5：验收与发布准备
 
+归档阶段记录只用于恢复历史背景；当前契约以 `docs/admin/`、`docs/server/`、`docs/server/api/`、`server/migrations/` 和 `server/config.example.yaml` 为准。
+
 ## 当前状态
 
 基础后台阶段的后端能力已覆盖认证、会话、RBAC、Dashboard、管理员、角色、系统配置、审计写入和文件管理等管理域。
-当前管理端前端实现范围为：
-
-- `Login`
-- `Dashboard`
-- `System Settings`
-- `File Management`
-- `Product Management`
-- `403`
+当前管理端前端开放页面以 `docs/admin/pages/README.md` 为准，路由和权限以 `docs/admin/routing-permissions.md` 为准。
 
 `System Settings` 当前承载系统配置和管理员设置能力；管理员设置内包含管理员账号、管理员组权限和管理员会话管理。
-当前数据库契约已重新开放用户端账号会话和服务器产品目录；订单、支付、实例、异步任务和工单等业务域仍不在当前阶段。
+当前数据库契约已重新开放用户端账号会话、用户实名和服务器产品目录；订单、支付、实例、异步任务和工单等业务域仍不在当前阶段。
 操作日志查询已按系统设置子页面口径开放；审计日志内部写入能力仍保留。
 
 ## 当前推进阶段
 
-当前进入用户账号自助阶段，已开始契约确认。
+当前进入用户账号自助和个人实名阶段。
 
-本阶段目标：在已有 Web 前台和服务器产品目录基础上，开放用户注册、密码找回、自动 refresh 和用户资料编辑。
+本阶段目标：在已有 Web 前台和服务器产品目录基础上，开放用户注册、密码找回、自动 refresh、用户资料编辑和个人实名。
 
 本阶段范围：
 
@@ -51,8 +48,9 @@
 - Products 服务器产品展示页
 - Pricing 服务器套餐价格展示页
 - Login / Register / Forgot Password 用户认证页
-- User Center 占位页
+- User Center 控制台入口页
 - Account Profile 用户资料页
+- Real Name 个人实名页
 - 404
 
 本阶段不开放：

@@ -41,6 +41,10 @@ const (
 	passwordResetTTL          = 30 * time.Minute
 	userCaptchaRateLimit      = int64(30)
 	userCaptchaRateWindow     = time.Minute
+	userLoginFailureLimit     = int64(5)
+	userLoginFailureWindow    = 15 * time.Minute
+	userPasswordResetLimit    = int64(3)
+	userPasswordResetWindow   = 15 * time.Minute
 )
 
 type userCaptchaScene struct {
@@ -141,12 +145,18 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 	if err := s.verifyCaptchaIfEnabled(ctx, loginCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
 		return webdto.LoginResponse{}, err
 	}
+	if err := s.ensureLoginAllowed(ctx, request.IP, account); err != nil {
+		return webdto.LoginResponse{}, err
+	}
 
 	var user models.User
 	err := s.db.WithContext(ctx).
 		Where("username = ? OR email = ?", account, account).
 		First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if recordErr := s.recordLoginFailure(ctx, request.IP, account); recordErr != nil {
+			return webdto.LoginResponse{}, recordErr
+		}
 		return webdto.LoginResponse{}, apperrors.ErrUnauthorized.WithMessage("账号或密码错误")
 	}
 	if err != nil {
@@ -156,7 +166,13 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 		return webdto.LoginResponse{}, apperrors.ErrForbidden.WithMessage("用户账号已被禁用")
 	}
 	if !password.Verify(user.PasswordHash, req.Password) {
+		if recordErr := s.recordLoginFailure(ctx, request.IP, account); recordErr != nil {
+			return webdto.LoginResponse{}, recordErr
+		}
 		return webdto.LoginResponse{}, apperrors.ErrUnauthorized.WithMessage("账号或密码错误")
+	}
+	if err := s.clearLoginFailures(ctx, request.IP, account); err != nil {
+		return webdto.LoginResponse{}, err
 	}
 
 	var result webdto.LoginResponse
@@ -236,13 +252,20 @@ func (s *UserAuthService) Logout(ctx context.Context, userID uint64, sessionID s
 	}
 	now := time.Now()
 	reason := revokeReasonLogout
-	return s.db.WithContext(ctx).Model(&models.UserSession{}).
+	result := s.db.WithContext(ctx).Model(&models.UserSession{}).
 		Where("session_id = ? AND user_id = ? AND status = ?", sessionID, userID, userSessionStatusActive).
 		Updates(map[string]interface{}{
 			"status":        userSessionStatusRevoked,
 			"revoked_at":    now,
 			"revoke_reason": reason,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return apperrors.ErrUnauthorized.WithMessage("会话已失效")
+	}
+	return nil
 }
 
 /**
@@ -319,6 +342,9 @@ func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.P
 
 	request := audit.RequestContextFrom(ctx)
 	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if err := s.ensurePasswordResetAllowed(ctx, request.IP, email); err != nil {
+		return err
+	}
 
 	var user models.User
 	err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
@@ -393,7 +419,11 @@ func (s *UserAuthService) ConfirmPasswordReset(ctx context.Context, req webdto.P
 	if err := s.verifyCaptchaIfEnabled(ctx, passwordResetConfirmCaptchaScene, req.CaptchaID, req.CaptchaCode); err != nil {
 		return err
 	}
-	tokenHash := hashPasswordResetToken(strings.TrimSpace(req.Token))
+	token := strings.TrimSpace(req.Token)
+	if token == "" {
+		return apperrors.ErrValidation.WithMessage("密码重置 token 不能为空")
+	}
+	tokenHash := hashPasswordResetToken(token)
 	now := time.Now()
 
 	var userDisabled bool
@@ -638,6 +668,70 @@ func (s *UserAuthService) ensureCaptchaAllowed(ctx context.Context, scene userCa
 		return apperrors.ErrTooManyRequests.WithMessage("验证码获取过于频繁，请稍后再试")
 	}
 	return nil
+}
+
+func (s *UserAuthService) ensureLoginAllowed(ctx context.Context, clientIP string, account string) error {
+	if s.redis == nil {
+		return apperrors.ErrInternal.WithMessage("登录服务暂不可用，请稍后再试")
+	}
+	count, err := s.redis.Client().Get(ctx, s.loginFailureRedisKey(clientIP, account)).Int64()
+	if err != nil && !errors.Is(err, goredis.Nil) {
+		return err
+	}
+	if count >= userLoginFailureLimit {
+		return apperrors.ErrTooManyRequests.WithMessage("登录失败次数过多，请稍后再试")
+	}
+	return nil
+}
+
+func (s *UserAuthService) recordLoginFailure(ctx context.Context, clientIP string, account string) error {
+	if s.redis == nil {
+		return apperrors.ErrInternal.WithMessage("登录服务暂不可用，请稍后再试")
+	}
+	key := s.loginFailureRedisKey(clientIP, account)
+	count, err := s.redis.Client().Incr(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	if count == 1 {
+		return s.redis.Client().Expire(ctx, key, userLoginFailureWindow).Err()
+	}
+	return nil
+}
+
+func (s *UserAuthService) clearLoginFailures(ctx context.Context, clientIP string, account string) error {
+	if s.redis == nil {
+		return nil
+	}
+	return s.redis.Client().Del(ctx, s.loginFailureRedisKey(clientIP, account)).Err()
+}
+
+func (s *UserAuthService) ensurePasswordResetAllowed(ctx context.Context, clientIP string, email string) error {
+	if s.redis == nil {
+		return apperrors.ErrInternal.WithMessage("密码找回服务暂不可用，请稍后再试")
+	}
+	key := s.passwordResetRateRedisKey(clientIP, email)
+	count, err := s.redis.Client().Incr(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	if count == 1 {
+		if err := s.redis.Client().Expire(ctx, key, userPasswordResetWindow).Err(); err != nil {
+			return err
+		}
+	}
+	if count > userPasswordResetLimit {
+		return apperrors.ErrTooManyRequests.WithMessage("密码找回请求过于频繁，请稍后再试")
+	}
+	return nil
+}
+
+func (s *UserAuthService) loginFailureRedisKey(clientIP string, account string) string {
+	return s.redis.Key("web", "login_fail", sharedcaptcha.HashText(clientIP), sharedcaptcha.HashText(account))
+}
+
+func (s *UserAuthService) passwordResetRateRedisKey(clientIP string, email string) string {
+	return s.redis.Key("web", "password_reset_request", sharedcaptcha.HashText(clientIP), sharedcaptcha.HashText(email))
 }
 
 func (s *UserAuthService) isCaptchaEnabled(ctx context.Context, configKey string) (bool, error) {

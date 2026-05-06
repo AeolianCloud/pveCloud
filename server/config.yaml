@@ -48,9 +48,9 @@ redis:
 # 用户端和管理端 JWT 配置。
 jwt:
   # 用户端 JWT 签名密钥；生产环境必须替换为高强度随机值。
-  user_secret: change_me_user_secret
+  user_secret: ea37506d59527cbbfaaef96029f3eb51d0de62ab5f282251bd3bb803cdea3518
   # 管理端 JWT 签名密钥；应与用户端密钥分离。
-  admin_secret: change_me_admin_secret
+  admin_secret: 278ec13fa225c55fb7f5fc23e988c690b9a4125a14d0359ac5be852359c239ae
   # 用户端 JWT issuer，用于区分 token 来源。
   user_issuer: pvecloud-user
   # 管理端 JWT issuer，用于区分 token 来源。

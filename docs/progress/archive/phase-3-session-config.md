@@ -1,5 +1,7 @@
 # Phase 3：登录会话与系统设置
 
+> 历史记录：本文件只记录 Phase 3 当时的阶段变化。当前管理端页面范围以 `docs/admin/pages/README.md` 和 `docs/admin/routing-permissions.md` 为准。
+
 - [x] 更新登录会话和系统设置接口契约
 - [x] 实现会话管理后端能力
 - [x] 实现系统配置后端能力

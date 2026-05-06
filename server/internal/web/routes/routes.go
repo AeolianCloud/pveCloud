@@ -18,7 +18,7 @@ import (
 func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	group.Use(middleware.RequestContext())
 
-	siteConfigService := siteconfig.NewSiteConfigService(app.DB)
+	siteConfigService := siteconfig.NewSiteConfigService(app.DB, app.Config.Storage)
 	siteConfigHandler := siteconfig.NewSiteConfigHandler(siteConfigService)
 	authService := webauth.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)
 	authHandler := webauth.NewUserAuthHandler(authService)

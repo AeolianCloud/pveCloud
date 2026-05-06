@@ -1,5 +1,7 @@
 # Phase 2：管理员与角色权限
 
+> 历史记录：本文件只记录 Phase 2 当时的阶段变化。当前管理端页面范围以 `docs/admin/pages/README.md` 和 `docs/admin/routing-permissions.md` 为准。
+
 - [x] 更新管理员、角色和权限接口契约
 - [x] 实现管理员后端服务、Handler、DTO 和路由
 - [x] 实现角色后端服务、Handler、DTO 和路由
