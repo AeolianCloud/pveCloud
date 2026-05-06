@@ -75,6 +75,16 @@ Before making changes, classify the task:
 - Pure UI/UX polish:
   layout, spacing, colors, typography, iconography, visual density, responsive presentation, or non-contract copy.
 
+Use this short classification note before editing files for non-trivial work:
+
+```text
+任务分类：
+- 类型：契约/行为变更 | 纯 UI/UX | AI 工作流/协作规则
+- 影响面：admin | web | server/api | database | operations | ai-workflow
+- 已读 owner docs/contracts：
+- 是否需要先停确认：
+```
+
 For coupled business features, do not implement one surface in isolation:
 
 - user-visible feature: default `web + server/api + database`
@@ -145,6 +155,7 @@ When the maintainer asks AI to commit, the commit message must be written in Chi
 10. For pure UI/UX polish, implement directly after reading the frontend guardrail.
 11. Before final response, compare implemented behavior against the updated owner docs/contracts and fix drift.
 12. Verify with the smallest meaningful tests or builds.
+    If `AGENTS.md` or `.codex/skills/**/SKILL.md` changed, run `python3 scripts/validate-skills.py`.
 13. Report what changed, what was verified, and any residual risk.
 
 ## Non-Negotiable Rules
@@ -165,6 +176,7 @@ When the maintainer asks AI to commit, the commit message must be written in Chi
 - If the repository does not contain a `web/` app yet, treat `docs/web/` as planning and contract guidance, not proof of an existing implementation.
 - Do not start a new business feature by implementing only one surface and planning to backfill the rest later.
 - Do not treat `docs/web/` as evidence that the `web/` app already exists.
+- Do not assume `node`, `bun`, or `go` are absent until checking an interactive shell with `bash -ic`; local version managers may only initialize there.
 
 ## Stop Message
 

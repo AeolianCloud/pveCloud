@@ -1,6 +1,6 @@
 ---
 name: pvecloud-basic-admin
-description: Use when working on the historical basic admin foundation. This skill helps AI stay inside the basic-admin stage context: auth, dashboard, RBAC, sessions, system configs, audit logs, and risk logs, while respecting that the stage's frontend surface had been narrowed to Login, Dashboard, and 403.
+description: "Use when working on the historical basic admin foundation. This skill helps AI stay inside the basic-admin stage context: auth, dashboard, RBAC, sessions, system configs, audit logs, and risk logs, while respecting that the stage's frontend surface had been narrowed to Login, Dashboard, and 403."
 ---
 
 # pveCloud Basic Admin
@@ -26,14 +26,24 @@ Project truth still lives in:
 - Admin frontend scope during that stage was narrower: only `Login`, `Dashboard`, and `403`.
 - Removed admin pages must not be recreated unless the owning docs are updated first and the maintainer confirms reopening them.
 
-## Start Every Session
+## When This Skill Applies
 
-1. Read `AGENTS.md`.
-2. Read `.codex/skills/pvecloud-document-first/SKILL.md`.
-3. Read `docs/progress/MASTER.md`.
-4. Read `docs/analysis/basic-admin-gap.md`.
-5. Read `docs/plan/basic-admin-foundation.md`.
-6. Read the relevant server or admin frontend architecture docs.
+Use this helper only when the task explicitly touches the historical basic-admin stage, including:
+
+- admin auth, dashboard, RBAC, admin sessions, system configs, audit logs, or the historical risk-log scope
+- removed admin pages, reopened admin menus, or confusion between backend capability and frontend page scope
+- basic-admin gap, plan, or progress documents
+
+Do not load this helper for unrelated current-stage work. Historical progress can explain why a scope changed, but current contracts still live in the owner docs and machine contracts.
+
+When this helper applies, read:
+
+1. `AGENTS.md`
+2. `.codex/skills/pvecloud-document-first/SKILL.md`
+3. `docs/progress/MASTER.md`
+4. `docs/analysis/basic-admin-gap.md`
+5. `docs/plan/basic-admin-foundation.md`
+6. The relevant server or admin frontend architecture docs
 
 ## Working Rules
 
