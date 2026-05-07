@@ -21,7 +21,7 @@ const sections = [
     tag: '购买必需',
     tone: 'primary',
     index: '02',
-    desc: '购买机器前需要完成个人实名审核。',
+    desc: '购买机器前需要完成支付宝或微信侧个人实名核验。',
     action: '去实名',
     to: '/user/real-name',
   },
@@ -72,11 +72,11 @@ const sections = [
         <div class="hero-panel">
           <span class="panel-label">购买门禁</span>
           <strong>实名通过后才可购买机器</strong>
-          <p>未实名、审核中或被拒绝都会被服务端拦截。</p>
+          <p>未实名、核验中或被拒绝都会被服务端拦截。</p>
           <div class="panel-steps">
             <span>提交资料</span>
             <i></i>
-            <span>后台审核</span>
+            <span>供应商核验</span>
             <i></i>
             <span>开放购买</span>
           </div>

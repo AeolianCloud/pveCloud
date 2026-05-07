@@ -47,7 +47,7 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	fileAttachmentHandler := fileattachment.NewFileAttachmentHandler(fileAttachmentService)
 	productCatalogService := productcatalog.NewProductCatalogService(app.DB, auditService)
 	productCatalogHandler := productcatalog.NewProductCatalogHandler(productCatalogService)
-	realNameService := realname.NewRealNameService(app.DB, auditService)
+	realNameService := realname.NewRealNameService(app.DB, app.Redis, auditService)
 	realNameHandler := realname.NewRealNameHandler(realNameService)
 
 	admin := group.Group("")
@@ -86,7 +86,7 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.PATCH("/user-sessions/:session_id", middleware.AdminPermission("web-user-session:revoke"), webUserHandler.RevokeSession)
 	protected.GET("/real-name-applications", middleware.AdminPermission("page.real-name-management"), realNameHandler.Applications)
 	protected.GET("/real-name-applications/:id", middleware.AdminPermission("page.real-name-management"), realNameHandler.Detail)
-	protected.POST("/real-name-applications/:id/review", middleware.AdminPermission("real-name:review"), realNameHandler.Review)
+	protected.POST("/real-name-applications/:id/sync", middleware.AdminPermission("real-name:sync"), realNameHandler.Sync)
 	protected.GET("/products", middleware.AdminPermission("page.products"), productCatalogHandler.Products)
 	protected.POST("/products", middleware.AdminPermission("product:create"), productCatalogHandler.CreateProduct)
 	protected.PUT("/products/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateProduct)

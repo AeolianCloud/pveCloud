@@ -50,18 +50,9 @@ func (h *RealNameHandler) Detail(c *gin.Context) {
 	response.Success(c, result)
 }
 
-func (h *RealNameHandler) Review(c *gin.Context) {
+func (h *RealNameHandler) Sync(c *gin.Context) {
 	id, ok := support.AdminPathID(c)
 	if !ok {
-		return
-	}
-	var req admindto.RealNameReviewRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
-		return
-	}
-	if err := validator.Struct(req); err != nil {
-		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))
 		return
 	}
 	operatorID, ok := middleware.CurrentAdminID(c)
@@ -69,7 +60,7 @@ func (h *RealNameHandler) Review(c *gin.Context) {
 		response.Error(c, apperrors.ErrUnauthorized)
 		return
 	}
-	result, err := h.service.Review(c.Request.Context(), operatorID, id, req)
+	result, err := h.service.Sync(c.Request.Context(), operatorID, id)
 	if err != nil {
 		response.Error(c, err)
 		return

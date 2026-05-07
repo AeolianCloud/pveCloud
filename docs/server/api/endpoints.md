@@ -179,12 +179,20 @@
 - 鉴权：管理端 Bearer Token
 - 菜单权限：`page.system-settings.config`
 - 作用：按配置分组查询系统配置
+- 成功数据包含配置分组和配置项；配置项包含 `id`、`config_key`、`config_value`、`value_type`、`group_name`、`is_secret`、`has_value`、`description`
+- 约束：
+  - `is_secret=1` 的配置不得返回明文，`config_value` 必须为空或固定掩码，只通过 `has_value` 表示是否已配置
+  - 支付宝、微信侧实名供应商密钥和证件摘要密钥都作为后台敏感配置管理
 
 ### `PATCH /admin-api/system-configs/{id}`
 
 - 鉴权：管理端 Bearer Token
 - 操作权限：`system-config:update` 或 `system-config:*`
 - 作用：更新系统配置
+- 约束：
+  - 更新 `is_secret=1` 配置时，仅非空新值会覆盖旧值；空值表示保留旧敏感值
+  - `real_name.identity_digest_secret` 在已有当前 HMAC 版本实名申请后不得通过普通系统设置直接修改
+  - 更新实名供应商启用开关时，服务端必须校验对应供应商必要后台配置是否完整
 
 ## 用户端公开配置域
 
@@ -192,7 +200,7 @@
 
 - 鉴权：公开接口，无需登录
 - 作用：读取 Web 端公开站点基础展示配置
-- 数据来源：`system_configs` 中的非敏感配置
+- 数据来源：`system_configs` 中的公开配置白名单
 - 返回字段：
   - `site_name`：站点显示名称，来自 `site.name`，为空时服务端返回默认值 `pveCloud`
   - `logo_url`：站点 Logo 图片 URL，来自 `site.logo_url`，为空时返回空字符串
@@ -200,8 +208,11 @@
   - `register_captcha_enabled`：注册页验证码开关，来自 `web.auth.register_captcha_enabled`
   - `password_reset_request_captcha_enabled`：忘记密码申请页验证码开关，来自 `web.auth.password_reset_request_captcha_enabled`
   - `password_reset_confirm_captcha_enabled`：重置密码确认页验证码开关，来自 `web.auth.password_reset_confirm_captcha_enabled`
-  - `real_name`：实名公开配置对象，来自 `real_name.*` 非敏感后台配置，包含 `enabled`、`required_for_order`、`resubmit_enabled`、`max_submit_attempts`、`id_card_front_required`、`id_card_back_required`、`hold_card_required`、`image_max_size_mb`、`allowed_image_types`、`review_notice`
-- 约束：不得返回 `is_secret=1` 的配置项，不得返回任意配置键列表
+  - `real_name`：实名公开配置对象，来自实名公开配置白名单，包含 `enabled`、`required_for_order`、`allowed_providers`、`default_provider`、`resubmit_enabled`、`max_submit_attempts`、`review_notice`
+- 约束：
+  - 不得返回 `is_secret=1` 的配置项，不得返回供应商密钥、网关、回调地址、返回地址、规则 ID 或任意配置键列表
+  - `real_name.allowed_providers` 对外返回时必须过滤未启用或必要后台配置不完整的外部供应商
+  - `real_name.default_provider` 对外返回时必须是过滤后的可用供应商；无可用供应商时返回空字符串
 
 ## 用户端认证域
 
@@ -381,18 +392,29 @@
 
 ## 用户端实名域
 
-### `POST /api/user/real-name/files`
+### `POST /api/user/real-name`
 
 - 鉴权：用户端 Bearer Token
-- 作用：上传当前用户实名图片，返回附件 ID 供实名提交使用
-- 请求格式：`multipart/form-data`
-- 请求字段：`file`（图片文件）
-- 成功数据包含：`id`、`original_name`、`mime_type`、`size`、`created_at`
+- 作用：当前登录用户创建个人实名核验申请，并获取支付宝或微信侧核验入口
+- 请求字段：
+  - `real_name`：真实姓名
+  - `id_type`：证件类型，当前仅允许 `id_card`
+  - `id_number`：证件号码
+  - `provider`：实名供应商，允许值来自服务端过滤后的 `real_name.allowed_providers`，当前支持 `alipay`、`wechat`；为空时使用 `real_name.default_provider`
+- 成功数据包含：
+  - `application`：最新实名申请摘要
+  - `provider_action`：供应商核验动作，包含 `provider`、`action_type`、`redirect_url`、`expires_at`；不得包含供应商密钥、完整签名参数或证件号码明文
 - 约束：
-  - 仅当 `real_name.enabled=true` 时允许上传
-  - 文件类型必须在 `real_name.allowed_image_types` 内，并不得突破全局文件安全白名单
-  - 文件大小不得超过 `real_name.image_max_size_mb`
-  - 上传文件只允许当前用户后续实名申请引用
+  - 仅当 `real_name.enabled=true` 时允许创建申请
+  - `provider` 必须已在后台系统配置中启用，且对应供应商必要配置完整
+  - 当前用户存在 `pending` 申请时拒绝重复创建；用户返回页面后应调用同步接口查询结果
+  - 当前用户已 `approved` 时拒绝用户端覆盖实名资料
+  - 拒绝后是否允许重新提交由 `real_name.resubmit_enabled` 和 `real_name.max_submit_attempts` 决定
+  - 证件号码必须通过格式校验，且不得与其它已通过实名用户重复；兼容历史数据期间，重复校验必须同时覆盖当前 HMAC 摘要和历史 `sha256-legacy` 摘要
+  - 证件号码不得明文落库，只保存带后台敏感配置密钥的查询摘要和脱敏展示值，接口不得返回明文
+  - 创建外部供应商会话失败时，不得把申请误标记为可继续核验或已通过
+  - 服务端调用支付宝或微信/腾讯云接口时不得记录供应商密钥、证件号码明文、真实姓名明文或完整响应
+  - 当前实名流程不接收实名图片附件，提交请求不得包含图片附件字段
 
 ### `GET /api/user/real-name`
 
@@ -402,30 +424,35 @@
   - `status`：`unverified`、`pending`、`approved`、`rejected`
   - `application`：最新实名申请摘要；无申请时为空
   - `config`：实名提交相关公开配置快照
-- 申请摘要包含：申请编号、真实姓名、证件类型、脱敏证件号码、状态、拒绝原因、提交次数、提交时间、审核时间
-- 约束：不得返回证件号码明文、证件图片物理路径或后台敏感信息
+- 申请摘要包含：申请编号、真实姓名、证件类型、脱敏证件号码、实名供应商、供应商状态、状态、失败原因、提交次数、提交时间、核验完成时间
+- 约束：不得返回证件号码明文、供应商完整响应、供应商密钥或后台敏感信息
 
-### `POST /api/user/real-name`
+### `POST /api/user/real-name/sync`
 
 - 鉴权：用户端 Bearer Token
-- 作用：当前登录用户提交个人实名申请
+- 作用：当前登录用户从支付宝或微信侧返回后，触发服务端查询最新供应商核验结果
 - 请求字段：
-  - `real_name`：真实姓名
-  - `id_type`：证件类型，当前仅允许 `id_card`
-  - `id_number`：证件号码
-  - `id_card_front_file_id`：身份证人像面附件 ID；是否必填由 `real_name.id_card_front_required` 决定
-  - `id_card_back_file_id`：身份证国徽面附件 ID；是否必填由 `real_name.id_card_back_required` 决定
-  - `hold_card_file_id`：手持证件附件 ID；是否必填由 `real_name.hold_card_required` 决定
-- 成功数据包含最新实名申请摘要
+  - `application_no`：申请编号；为空时同步当前用户最新 `pending` 申请
+- 成功数据包含最新实名状态响应
 - 约束：
-  - 仅当 `real_name.enabled=true` 时允许提交
-  - 当前用户存在 `pending` 申请时拒绝重复提交
-  - 当前用户已 `approved` 时拒绝用户端覆盖实名资料
-  - 拒绝后是否允许重新提交由 `real_name.resubmit_enabled` 和 `real_name.max_submit_attempts` 决定
-  - 证件号码必须通过格式校验，且不得与其它已通过实名用户重复
-  - 证件号码不得明文落库，只保存查询摘要和脱敏展示值，接口不得返回明文
-  - 附件必须属于当前用户本次实名场景，并满足实名图片类型和尺寸配置
-  - 服务端必须写入文件引用关系，防止实名图片被误删
+  - 只能同步当前登录用户自己的实名申请
+  - 只有 `pending` 外部供应商申请允许同步
+  - 同步由服务端调用供应商查询接口并验签或校验响应可信性，前端 URL 参数不能作为通过依据
+  - 供应商未出最终结果时保持 `pending`
+  - 供应商已通过但证件号码与其它已通过用户重复时，本地不得通过当前申请；兼容历史数据期间，重复校验必须同时覆盖当前 HMAC 摘要和历史 `sha256-legacy` 摘要
+
+### `POST /api/real-name/provider-callbacks/{provider}`
+
+- 鉴权：公开回调接口；必须执行供应商签名校验、时间窗口校验和幂等检查
+- 作用：接收已开放供应商的实名核验异步通知；当前仅开放支付宝回调，微信/腾讯云回调暂未开放，微信结果通过同步查询确认
+- 路径参数：
+  - `provider`：当前仅 `alipay` 可处理；`wechat` 返回参数错误并要求使用同步查询
+- 约束：
+  - 该接口不使用用户 Bearer Token
+  - 回调必须通过供应商验签后才可更新本地申请
+  - 回调必须通过本地申请编号和供应商会话编号定位申请
+  - 重复回调必须幂等；已进入 `approved` 或 `rejected` 的申请不得被低可信或旧状态覆盖
+  - 回调处理不得记录证件号码明文、真实姓名明文、供应商密钥或完整响应
 
 ## Web 用户管理域
 
@@ -504,33 +531,30 @@
 - 鉴权：管理端 Bearer Token
 - 菜单权限：`page.real-name-management`
 - 作用：分页查询用户实名申请
-- 查询参数支持：`page`、`per_page`、`keyword`、`status`、`id_type`、`date_from`、`date_to`
+- 查询参数支持：`page`、`per_page`、`keyword`、`status`、`id_type`、`provider`、`provider_status`、`date_from`、`date_to`
 - 成功数据包含：`list`、`total`、`page`、`per_page`、`last_page`
-- 列表项包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、状态、提交次数、提交时间、审核管理员摘要、审核时间、拒绝原因
-- 约束：不得返回证件号码明文或证件图片物理路径
+- 列表项包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、实名供应商、供应商状态、状态、提交次数、提交时间、核验完成时间、失败原因
+- 约束：不得返回证件号码明文或供应商完整响应
 
 ### `GET /admin-api/real-name-applications/{id}`
 
 - 鉴权：管理端 Bearer Token
 - 菜单权限：`page.real-name-management`
 - 作用：查看用户实名申请详情
-- 成功数据包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、状态、提交次数、证件图片附件摘要、审核管理员摘要、审核时间、拒绝原因、创建时间、更新时间
-- 约束：证件图片只返回受控附件摘要或预览入口，不返回物理存储路径
+- 成功数据包含：申请编号、用户摘要、真实姓名、证件类型、脱敏证件号码、实名供应商、供应商会话摘要、供应商状态、供应商结果码、供应商结果说明、状态、提交次数、核验完成时间、失败原因、创建时间、更新时间
+- 约束：
+  - 不得返回证件号码明文、供应商完整响应或供应商密钥
 
-### `POST /admin-api/real-name-applications/{id}/review`
+### `POST /admin-api/real-name-applications/{id}/sync`
 
 - 鉴权：管理端 Bearer Token
-- 操作权限：`real-name:review` 或 `real-name:*`
-- 作用：审核通过或拒绝实名申请
-- 请求字段：
-  - `status`：审核结果，仅允许 `approved` 或 `rejected`
-  - `reject_reason`：拒绝原因；`status=rejected` 时必填
+- 操作权限：`real-name:sync` 或 `real-name:*`
+- 作用：后台触发服务端重新查询支付宝或微信实名供应商结果
 - 成功数据包含最新实名申请详情
 - 约束：
-  - 仅 `pending` 状态申请允许审核
-  - 审核通过时，同一证件号码不得已被其它用户通过实名
-  - 审核拒绝时必须填写拒绝原因
-  - 审核操作必须写入 `admin_audit_logs`，动作使用 `real_name.review`
+  - 只有外部供应商申请允许同步
+  - 同步调用不得放入长事务；供应商查询完成后再以本地事务更新状态和审计
+  - 同步操作必须写入 `admin_audit_logs`，动作使用 `real_name.sync`
 
 ## 日志管理域
 
@@ -609,6 +633,7 @@
 - 约束：
   - 仅允许已授权管理员访问
   - 仅返回非删除状态文件
+  - 如果文件被历史实名申请引用，通用文件下载接口必须拒绝访问，不提供预览或下载
   - 下载响应不得暴露物理存储路径
   - 图片和 PDF 可直接预览，其它类型走下载
 

@@ -108,7 +108,7 @@ const displayPlans = computed(() => {
             </div>
 
             <div class="pc-action">
-              <RouterLink :to="isLoggedIn ? '/user/real-name' : '/login'" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">{{ isLoggedIn ? '先实名再购买' : '登录后实名购买' }}</RouterLink>
+              <RouterLink :to="isLoggedIn ? '/user/real-name' : '/login'" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">{{ isLoggedIn ? '查看实名要求' : '登录查看实名要求' }}</RouterLink>
             </div>
 
             <ul class="pc-specs">

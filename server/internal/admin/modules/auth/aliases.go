@@ -6,4 +6,3 @@ type AdminAuditService = auditpkg.AdminAuditService
 type AdminAuditWriteInput = auditpkg.AdminAuditWriteInput
 
 var NewAdminAuditService = auditpkg.NewAdminAuditService
-var RequestContextFrom = auditpkg.RequestContextFrom

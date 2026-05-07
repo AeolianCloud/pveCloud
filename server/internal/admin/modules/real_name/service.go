@@ -6,32 +6,37 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/admin/dto"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/support"
+	domainrealname "github.com/AeolianCloud/pveCloud/server/internal/domain/realname"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
 
 const (
-	realNameObjectType   = "user_real_name"
-	realNameReviewAction = "real_name.review"
+	realNameObjectType = "user_real_name"
+	realNameSyncAction = "real_name.sync"
 )
 
 type RealNameService struct {
 	db           *gorm.DB
 	auditService *AdminAuditService
+	syncService  *domainrealname.RealNameService
 }
 
-func NewRealNameService(db *gorm.DB, auditService *AdminAuditService) *RealNameService {
+func NewRealNameService(db *gorm.DB, redis *cache.Redis, auditService *AdminAuditService) *RealNameService {
 	if auditService == nil {
 		auditService = NewAdminAuditService(db)
 	}
-	return &RealNameService{db: db, auditService: auditService}
+	return &RealNameService{
+		db:           db,
+		auditService: auditService,
+		syncService:  domainrealname.NewRealNameService(db, redis),
+	}
 }
 
 func (s *RealNameService) Applications(ctx context.Context, query admindto.RealNameApplicationListQuery) (admindto.PageResponse[admindto.RealNameApplicationItem], error) {
@@ -51,7 +56,7 @@ func (s *RealNameService) Applications(ctx context.Context, query admindto.RealN
 	}
 	items := make([]admindto.RealNameApplicationItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, row.item(false))
+		items = append(items, row.item())
 	}
 	return support.PageResponse(items, total, page, perPage), nil
 }
@@ -65,61 +70,55 @@ func (s *RealNameService) Detail(ctx context.Context, id uint64) (admindto.RealN
 	if row.ID == 0 {
 		return admindto.RealNameApplicationItem{}, apperrors.ErrNotFound.WithMessage("实名申请不存在")
 	}
-	return row.item(true), nil
+	return row.item(), nil
 }
 
-func (s *RealNameService) Review(ctx context.Context, operatorID uint64, id uint64, req admindto.RealNameReviewRequest) (admindto.RealNameApplicationItem, error) {
-	status := strings.TrimSpace(req.Status)
-	reason := textutil.NormalizeOptionalString(req.RejectReason)
-	if status == "rejected" && (reason == nil || strings.TrimSpace(*reason) == "") {
-		return admindto.RealNameApplicationItem{}, apperrors.ErrValidation.WithMessage("拒绝原因不能为空")
-	}
-	if status == "approved" {
-		reason = nil
-	}
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var current models.UserRealNameApplication
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&current).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return apperrors.ErrNotFound.WithMessage("实名申请不存在")
-		}
-		if err != nil {
-			return err
-		}
-		if current.Status != "pending" {
-			return apperrors.ErrConflict.WithMessage("只有待审核申请可以审核")
-		}
-		if status == "approved" {
-			var duplicate int64
-			query := tx.Model(&models.UserRealNameApplication{}).Where("id_number_digest = ? AND status = ?", current.IDNumberDigest, "approved")
-			if current.ID != 0 {
-				query = query.Where("id != ?", current.ID)
-			}
-			if err := query.Count(&duplicate).Error; err != nil {
-				return err
-			}
-			if duplicate > 0 {
-				return apperrors.ErrConflict.WithMessage("该证件号码已有实名通过记录")
-			}
-		}
-		now := time.Now()
-		updates := map[string]any{"status": status, "review_admin_id": operatorID, "reviewed_at": now, "reject_reason": reason}
-		if err := tx.Model(&models.UserRealNameApplication{}).Where("id = ?", id).Updates(updates).Error; err != nil {
-			if isDuplicateApprovedDigest(err) {
-				return apperrors.ErrConflict.WithMessage("该证件号码已有实名通过记录")
-			}
-			return err
-		}
-		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: realNameReviewAction, ObjectType: realNameObjectType, ObjectID: textutil.Uint64String(id), BeforeData: auditSnapshot(current), AfterData: map[string]any{"id": id, "status": status, "reject_reason": reason}, Remark: "审核实名申请"})
-	}); err != nil {
+func (s *RealNameService) Sync(ctx context.Context, operatorID uint64, id uint64) (admindto.RealNameApplicationItem, error) {
+	_, err := s.syncService.SyncApplicationByID(ctx, id, func(tx *gorm.DB, before models.UserRealNameApplication, after models.UserRealNameApplication) error {
+		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
+			AdminID:    &operatorID,
+			Action:     realNameSyncAction,
+			ObjectType: realNameObjectType,
+			ObjectID:   textutil.Uint64String(id),
+			BeforeData: auditSnapshot(before),
+			AfterData:  auditSnapshot(after),
+			Remark:     "同步实名供应商结果",
+		})
+	})
+	if err != nil {
+		_ = s.recordSyncFailureAudit(ctx, operatorID, id, err)
 		return admindto.RealNameApplicationItem{}, err
 	}
 	return s.Detail(ctx, id)
 }
 
-func isDuplicateApprovedDigest(err error) bool {
-	var mysqlErr *mysql.MySQLError
-	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+func (s *RealNameService) recordSyncFailureAudit(ctx context.Context, operatorID uint64, id uint64, syncErr error) error {
+	app, detailErr := s.applicationByID(ctx, id)
+	if detailErr != nil {
+		return detailErr
+	}
+	message := "同步实名供应商结果失败"
+	if syncErr != nil && strings.TrimSpace(syncErr.Error()) != "" {
+		message = message + "：" + strings.TrimSpace(syncErr.Error())
+	}
+	return s.auditService.Record(ctx, nil, AdminAuditWriteInput{
+		AdminID:    &operatorID,
+		Action:     realNameSyncAction,
+		ObjectType: realNameObjectType,
+		ObjectID:   textutil.Uint64String(id),
+		BeforeData: auditSnapshot(app),
+		AfterData:  auditSnapshot(app),
+		Remark:     message,
+	})
+}
+
+func (s *RealNameService) applicationByID(ctx context.Context, id uint64) (models.UserRealNameApplication, error) {
+	var app models.UserRealNameApplication
+	err := s.db.WithContext(ctx).Where("id = ?", id).First(&app).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return models.UserRealNameApplication{}, apperrors.ErrNotFound.WithMessage("实名申请不存在")
+	}
+	return app, err
 }
 
 func applyFilters(db *gorm.DB, query admindto.RealNameApplicationListQuery) (*gorm.DB, error) {
@@ -132,6 +131,12 @@ func applyFilters(db *gorm.DB, query admindto.RealNameApplicationListQuery) (*go
 	}
 	if query.IDType != "" {
 		db = db.Where("applications.id_type = ?", strings.TrimSpace(query.IDType))
+	}
+	if query.Provider != "" {
+		db = db.Where("applications.verification_provider = ?", strings.TrimSpace(query.Provider))
+	}
+	if query.ProviderStatus != "" {
+		db = db.Where("applications.provider_status = ?", strings.TrimSpace(query.ProviderStatus))
 	}
 	if query.DateFrom != "" {
 		from, err := time.ParseInLocation("2006-01-02", query.DateFrom, time.Local)
@@ -153,89 +158,79 @@ func applyFilters(db *gorm.DB, query admindto.RealNameApplicationListQuery) (*go
 func (s *RealNameService) applicationDB(ctx context.Context) *gorm.DB {
 	return s.db.WithContext(ctx).
 		Table("user_real_name_applications AS applications").
-		Joins("JOIN users ON users.id = applications.user_id").
-		Joins("LEFT JOIN file_attachments AS front ON front.id = applications.id_card_front_file_id").
-		Joins("LEFT JOIN file_attachments AS back ON back.id = applications.id_card_back_file_id").
-		Joins("LEFT JOIN file_attachments AS hold ON hold.id = applications.hold_card_file_id").
-		Joins("LEFT JOIN admin_users AS admins ON admins.id = applications.review_admin_id")
+		Joins("JOIN users ON users.id = applications.user_id")
 }
 
 func auditSnapshot(app models.UserRealNameApplication) map[string]any {
-	return map[string]any{"id": app.ID, "application_no": app.ApplicationNo, "user_id": app.UserID, "status": app.Status, "id_number_masked": app.IDNumberMasked}
+	return map[string]any{
+		"id":                    app.ID,
+		"application_no":        app.ApplicationNo,
+		"user_id":               app.UserID,
+		"status":                app.Status,
+		"id_number_masked":      app.IDNumberMasked,
+		"verification_provider": app.VerificationProvider,
+		"provider_status":       app.ProviderStatus,
+	}
 }
 
 func applicationSelect() string {
-	return `applications.id, applications.application_no, applications.real_name, applications.id_type, applications.id_number_masked, applications.status, applications.submit_attempt, applications.reviewed_at, applications.reject_reason, applications.created_at, applications.updated_at,
-		users.id AS user_id, users.username, users.email, users.display_name, users.status AS user_status,
-		front.id AS front_file_id, front.original_name AS front_original_name, front.mime_type AS front_mime_type, front.size AS front_size, front.created_at AS front_created_at,
-		back.id AS back_file_id, back.original_name AS back_original_name, back.mime_type AS back_mime_type, back.size AS back_size, back.created_at AS back_created_at,
-		hold.id AS hold_file_id, hold.original_name AS hold_original_name, hold.mime_type AS hold_mime_type, hold.size AS hold_size, hold.created_at AS hold_created_at,
-		admins.id AS review_admin_id, admins.username AS review_admin_username, admins.email AS review_admin_email, admins.display_name AS review_admin_display_name, admins.status AS review_admin_status
-	`
+	return `applications.id, applications.application_no, applications.real_name, applications.id_type, applications.id_number_masked,
+		applications.verification_provider, applications.provider_application_id, applications.provider_status, applications.provider_result_code,
+		applications.provider_result_message, applications.provider_trace_id, applications.status, applications.submit_attempt,
+		applications.reject_reason, applications.provider_started_at, applications.provider_finished_at, applications.created_at, applications.updated_at,
+		users.id AS user_id, users.username, users.email, users.display_name, users.status AS user_status`
 }
 
 type applicationRow struct {
-	ID                     uint64
-	ApplicationNo          string
-	RealName               string
-	IDType                 string
-	IDNumberMasked         string
-	Status                 string
-	SubmitAttempt          uint
-	ReviewedAt             *time.Time
-	RejectReason           *string
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
-	UserID                 uint64
-	Username               string
-	Email                  string
-	DisplayName            *string
-	UserStatus             string
-	FrontFileID            *uint64
-	FrontOriginalName      *string
-	FrontMimeType          *string
-	FrontSize              *uint64
-	FrontCreatedAt         *time.Time
-	BackFileID             *uint64
-	BackOriginalName       *string
-	BackMimeType           *string
-	BackSize               *uint64
-	BackCreatedAt          *time.Time
-	HoldFileID             *uint64
-	HoldOriginalName       *string
-	HoldMimeType           *string
-	HoldSize               *uint64
-	HoldCreatedAt          *time.Time
-	ReviewAdminID          *uint64
-	ReviewAdminUsername    *string
-	ReviewAdminEmail       *string
-	ReviewAdminDisplayName *string
-	ReviewAdminStatus      *string
+	ID                    uint64
+	ApplicationNo         string
+	RealName              string
+	IDType                string
+	IDNumberMasked        string
+	VerificationProvider  *string
+	ProviderApplicationID *string
+	ProviderStatus        *string
+	ProviderResultCode    *string
+	ProviderResultMessage *string
+	ProviderTraceID       *string
+	Status                string
+	SubmitAttempt         uint
+	FailureReason         *string `gorm:"column:reject_reason"`
+	ProviderStartedAt     *time.Time
+	ProviderFinishedAt    *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	UserID                uint64
+	Username              string
+	Email                 string
+	DisplayName           *string
+	UserStatus            string
 }
 
-func (r applicationRow) item(includeFiles bool) admindto.RealNameApplicationItem {
-	item := admindto.RealNameApplicationItem{ID: r.ID, ApplicationNo: r.ApplicationNo, User: admindto.RealNameUserSummary{ID: r.UserID, Username: r.Username, Email: r.Email, DisplayName: r.DisplayName, Status: r.UserStatus}, RealName: r.RealName, IDType: r.IDType, IDNumberMasked: r.IDNumberMasked, Status: r.Status, SubmitAttempt: r.SubmitAttempt, ReviewedAt: r.ReviewedAt, RejectReason: r.RejectReason, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
-	if r.ReviewAdminID != nil {
-		item.ReviewAdmin = &admindto.RealNameUserSummary{ID: *r.ReviewAdminID, Username: stringValue(r.ReviewAdminUsername), Email: stringValue(r.ReviewAdminEmail), DisplayName: r.ReviewAdminDisplayName, Status: stringValue(r.ReviewAdminStatus)}
+func (r applicationRow) item() admindto.RealNameApplicationItem {
+	return admindto.RealNameApplicationItem{
+		ID:                    r.ID,
+		ApplicationNo:         r.ApplicationNo,
+		User:                  admindto.RealNameUserSummary{ID: r.UserID, Username: r.Username, Email: r.Email, DisplayName: r.DisplayName, Status: r.UserStatus},
+		RealName:              r.RealName,
+		IDType:                r.IDType,
+		IDNumberMasked:        r.IDNumberMasked,
+		VerificationProvider:  r.VerificationProvider,
+		ProviderApplicationID: r.ProviderApplicationID,
+		ProviderStatus:        r.ProviderStatus,
+		ProviderResultCode:    r.ProviderResultCode,
+		ProviderResultMessage: r.ProviderResultMessage,
+		ProviderTraceID:       r.ProviderTraceID,
+		Status:                r.Status,
+		SubmitAttempt:         r.SubmitAttempt,
+		FailureReason:         r.FailureReason,
+		ProviderStartedAt:     r.ProviderStartedAt,
+		ProviderFinishedAt:    r.ProviderFinishedAt,
+		CreatedAt:             r.CreatedAt,
+		UpdatedAt:             r.UpdatedAt,
 	}
-	if includeFiles {
-		item.IDCardFrontFile = fileSummary(r.FrontFileID, r.FrontOriginalName, r.FrontMimeType, r.FrontSize, r.FrontCreatedAt)
-		item.IDCardBackFile = fileSummary(r.BackFileID, r.BackOriginalName, r.BackMimeType, r.BackSize, r.BackCreatedAt)
-		item.HoldCardFile = fileSummary(r.HoldFileID, r.HoldOriginalName, r.HoldMimeType, r.HoldSize, r.HoldCreatedAt)
-	}
-	return item
 }
 
-func fileSummary(id *uint64, name *string, mimeType *string, size *uint64, createdAt *time.Time) *admindto.RealNameFileSummary {
-	if id == nil || name == nil || mimeType == nil || size == nil || createdAt == nil {
-		return nil
-	}
-	return &admindto.RealNameFileSummary{ID: *id, OriginalName: *name, MimeType: *mimeType, Size: *size, CreatedAt: *createdAt}
-}
-
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
+func stringPtr(value string) *string {
+	return &value
 }

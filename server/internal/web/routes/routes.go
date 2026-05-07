@@ -18,7 +18,7 @@ import (
 func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	group.Use(middleware.RequestContext())
 
-	siteConfigService := siteconfig.NewSiteConfigService(app.DB, app.Config.Storage)
+	siteConfigService := siteconfig.NewSiteConfigService(app.DB)
 	siteConfigHandler := siteconfig.NewSiteConfigHandler(siteConfigService)
 	authService := webauth.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)
 	authHandler := webauth.NewUserAuthHandler(authService)
@@ -26,10 +26,11 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	userProfileHandler := userprofile.NewUserProfileHandler(userProfileService)
 	productCatalogService := productcatalog.NewProductCatalogService(app.DB)
 	productCatalogHandler := productcatalog.NewProductCatalogHandler(productCatalogService)
-	realNameService := realname.NewRealNameService(app.DB, app.Config.Storage)
+	realNameService := realname.NewRealNameService(app.DB, app.Redis)
 	realNameHandler := realname.NewRealNameHandler(realNameService)
 
 	group.GET("/site-config", siteConfigHandler.Show)
+	group.POST("/real-name/provider-callbacks/:provider", realNameHandler.ProviderCallback)
 	group.GET("/server-catalog", productCatalogHandler.Show)
 	group.GET("/auth/login-captcha", authHandler.LoginCaptcha)
 	group.GET("/auth/register-captcha", authHandler.RegisterCaptcha)
@@ -47,7 +48,7 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.POST("/auth/refresh", authHandler.Refresh)
 	protected.PATCH("/user/profile", userProfileHandler.UpdateProfile)
 	protected.POST("/user/password", userProfileHandler.ChangePassword)
-	protected.POST("/user/real-name/files", realNameHandler.UploadFile)
 	protected.GET("/user/real-name", realNameHandler.Status)
 	protected.POST("/user/real-name", realNameHandler.Submit)
+	protected.POST("/user/real-name/sync", realNameHandler.Sync)
 }

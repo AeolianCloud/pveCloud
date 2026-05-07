@@ -91,13 +91,19 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 		if err := validateConfigValue(current.ValueType, value); err != nil {
 			return err
 		}
-		if err := tx.Model(&models.SystemConfig{}).Where("id = ?", id).Update("config_value", value).Error; err != nil {
+		if err := s.validateRealNameConfigUpdate(ctx, tx, current, value); err != nil {
 			return err
 		}
-		if err := tx.Where("id = ?", id).First(&updated).Error; err != nil {
-			return err
+		if current.IsSecret && strings.TrimSpace(value) == "" {
+			updated = current
+		} else {
+			if err := tx.Model(&models.SystemConfig{}).Where("id = ?", id).Update("config_value", value).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id = ?", id).First(&updated).Error; err != nil {
+				return err
+			}
 		}
-
 		input := AdminAuditWriteInput{
 			AdminID:    &operatorID,
 			Action:     systemConfigUpdateAction,
@@ -131,6 +137,130 @@ func validateConfigValue(valueType string, value string) error {
 		}
 	}
 	return nil
+}
+
+func (s *SystemConfigService) validateRealNameConfigUpdate(ctx context.Context, tx *gorm.DB, current models.SystemConfig, value string) error {
+	key := strings.TrimSpace(current.ConfigKey)
+	trimmedValue := strings.TrimSpace(value)
+	if current.IsSecret && trimmedValue == "" {
+		return nil
+	}
+	switch key {
+	case "real_name.allowed_providers":
+		for _, provider := range splitProviders(trimmedValue) {
+			if provider != "alipay" && provider != "wechat" {
+				return apperrors.ErrValidation.WithMessage("实名供应商只允许 alipay 或 wechat")
+			}
+		}
+	case "real_name.default_provider":
+		if trimmedValue != "" && trimmedValue != "alipay" && trimmedValue != "wechat" {
+			return apperrors.ErrValidation.WithMessage("默认实名供应商只允许 alipay 或 wechat")
+		}
+	case "real_name.identity_digest_secret":
+		if err := ensureIdentityDigestSecretMutable(ctx, tx, current, trimmedValue); err != nil {
+			return err
+		}
+	case "real_name.enabled":
+		if trimmedValue == "true" {
+			configs, err := systemConfigValueMap(ctx, tx, current, value)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(configs["real_name.identity_digest_secret"]) == "" {
+				return apperrors.ErrValidation.WithMessage("启用实名前必须先配置证件摘要密钥")
+			}
+		}
+	case "real_name.alipay.enabled":
+		if trimmedValue == "true" {
+			configs, err := systemConfigValueMap(ctx, tx, current, value)
+			if err != nil {
+				return err
+			}
+			if !alipayConfigComplete(configs) {
+				return apperrors.ErrValidation.WithMessage("启用支付宝实名前必须补齐应用ID、网关、私钥、公钥、返回地址和回调地址")
+			}
+		}
+	case "real_name.wechat.enabled":
+		if trimmedValue == "true" {
+			configs, err := systemConfigValueMap(ctx, tx, current, value)
+			if err != nil {
+				return err
+			}
+			if !wechatConfigComplete(configs) {
+				return apperrors.ErrValidation.WithMessage("启用微信实名前必须补齐腾讯云密钥、地域、端点、规则ID和返回地址")
+			}
+		}
+	}
+	return nil
+}
+
+func ensureIdentityDigestSecretMutable(ctx context.Context, tx *gorm.DB, current models.SystemConfig, nextValue string) error {
+	currentValue := ""
+	if current.ConfigValue != nil {
+		currentValue = strings.TrimSpace(*current.ConfigValue)
+	}
+	if nextValue == "" || currentValue == "" || nextValue == currentValue {
+		return nil
+	}
+	var count int64
+	if err := tx.WithContext(ctx).Model(&models.UserRealNameApplication{}).
+		Where("id_number_digest_version = ?", "hmac-sha256-v1").
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return apperrors.ErrConflict.WithMessage("已有当前HMAC版本实名记录，不能直接修改证件摘要密钥")
+	}
+	return nil
+}
+
+func systemConfigValueMap(ctx context.Context, tx *gorm.DB, current models.SystemConfig, nextValue string) (map[string]string, error) {
+	var configs []models.SystemConfig
+	if err := tx.WithContext(ctx).Where("config_key LIKE ?", "real_name.%").Find(&configs).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(configs))
+	for _, config := range configs {
+		value := ""
+		if config.ConfigValue != nil {
+			value = strings.TrimSpace(*config.ConfigValue)
+		}
+		if config.ID == current.ID {
+			value = strings.TrimSpace(nextValue)
+		}
+		result[config.ConfigKey] = value
+	}
+	return result, nil
+}
+
+func alipayConfigComplete(configs map[string]string) bool {
+	return strings.TrimSpace(configs["real_name.alipay.app_id"]) != "" &&
+		strings.TrimSpace(configs["real_name.alipay.gateway_url"]) != "" &&
+		strings.TrimSpace(configs["real_name.alipay.return_url"]) != "" &&
+		(strings.TrimSpace(configs["real_name.alipay.notify_url"]) != "" || strings.TrimSpace(configs["real_name.callback_base_url"]) != "") &&
+		strings.TrimSpace(configs["real_name.alipay.app_private_key"]) != "" &&
+		strings.TrimSpace(configs["real_name.alipay.alipay_public_key"]) != ""
+}
+
+func wechatConfigComplete(configs map[string]string) bool {
+	return strings.TrimSpace(configs["real_name.wechat.secret_id"]) != "" &&
+		strings.TrimSpace(configs["real_name.wechat.secret_key"]) != "" &&
+		strings.TrimSpace(configs["real_name.wechat.region"]) != "" &&
+		strings.TrimSpace(configs["real_name.wechat.endpoint"]) != "" &&
+		strings.TrimSpace(configs["real_name.wechat.rule_id"]) != "" &&
+		strings.TrimSpace(configs["real_name.wechat.redirect_url"]) != ""
+}
+
+func splitProviders(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.ToLower(strings.TrimSpace(part))
+		if item != "" {
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func systemConfigGroups(configs []models.SystemConfig) []admindto.SystemConfigGroup {

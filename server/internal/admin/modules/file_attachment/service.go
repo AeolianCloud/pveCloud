@@ -333,6 +333,15 @@ func (s *FileAttachmentService) DownloadPath(ctx context.Context, id uint64) (st
 	if attachment.Status != "active" {
 		return "", "", "", apperrors.ErrNotFound.WithMessage("文件不存在")
 	}
+	reference, err := s.referenceResponse(ctx, id)
+	if err != nil {
+		return "", "", "", err
+	}
+	for _, item := range reference.References {
+		if item.RefType == "user_real_name_application" {
+			return "", "", "", apperrors.ErrForbidden.WithMessage("历史实名附件不提供下载或预览")
+		}
+	}
 	absolutePath, err := s.safeStoragePath(attachment.StoragePath)
 	if err != nil {
 		return "", "", "", err

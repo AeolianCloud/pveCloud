@@ -10,11 +10,11 @@ import (
 
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/admin/dto"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
-	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/support"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	jwtpkg "github.com/AeolianCloud/pveCloud/server/internal/shared/jwt"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/requestcontext"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/response"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
@@ -119,7 +119,7 @@ func AdminAuth(cfg bootstrap.JWTConfig, db *gorm.DB) gin.HandlerFunc {
 				"user_agent":   textutil.TrimTo(c.Request.UserAgent(), 500),
 			}).Error
 
-		auditCtx := audit.WithRequestContext(c.Request.Context(), audit.RequestContext{
+		auditCtx := requestcontext.WithRequestContext(c.Request.Context(), requestcontext.RequestContext{
 			AdminID:          &admin.ID,
 			AdminUsername:    admin.Username,
 			AdminDisplayName: admin.DisplayName,

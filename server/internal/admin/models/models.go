@@ -280,23 +280,28 @@ func (FileAttachmentReference) TableName() string {
  * UserRealNameApplication 映射用户实名申请表。
  */
 type UserRealNameApplication struct {
-	ID                uint64     `gorm:"column:id;primaryKey"`
-	ApplicationNo     string     `gorm:"column:application_no"`
-	UserID            uint64     `gorm:"column:user_id"`
-	RealName          string     `gorm:"column:real_name"`
-	IDType            string     `gorm:"column:id_type"`
-	IDNumberDigest    string     `gorm:"column:id_number_digest"`
-	IDNumberMasked    string     `gorm:"column:id_number_masked"`
-	IDCardFrontFileID *uint64    `gorm:"column:id_card_front_file_id"`
-	IDCardBackFileID  *uint64    `gorm:"column:id_card_back_file_id"`
-	HoldCardFileID    *uint64    `gorm:"column:hold_card_file_id"`
-	Status            string     `gorm:"column:status"`
-	ReviewAdminID     *uint64    `gorm:"column:review_admin_id"`
-	ReviewedAt        *time.Time `gorm:"column:reviewed_at"`
-	RejectReason      *string    `gorm:"column:reject_reason"`
-	SubmitAttempt     uint       `gorm:"column:submit_attempt"`
-	CreatedAt         time.Time  `gorm:"column:created_at"`
-	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+	ID                     uint64     `gorm:"column:id;primaryKey"`
+	ApplicationNo          string     `gorm:"column:application_no"`
+	UserID                 uint64     `gorm:"column:user_id"`
+	RealName               string     `gorm:"column:real_name"`
+	IDType                 string     `gorm:"column:id_type"`
+	IDNumberDigest         string     `gorm:"column:id_number_digest"`
+	IDNumberDigestVersion  string     `gorm:"column:id_number_digest_version"`
+	IDNumberMasked         string     `gorm:"column:id_number_masked"`
+	VerificationProvider   *string    `gorm:"column:verification_provider"`
+	ProviderApplicationID  *string    `gorm:"column:provider_application_id"`
+	ProviderStatus         *string    `gorm:"column:provider_status"`
+	ProviderResultCode     *string    `gorm:"column:provider_result_code"`
+	ProviderResultMessage  *string    `gorm:"column:provider_result_message"`
+	ProviderStartedAt      *time.Time `gorm:"column:provider_started_at"`
+	ProviderFinishedAt     *time.Time `gorm:"column:provider_finished_at"`
+	ProviderResponseDigest *string    `gorm:"column:provider_response_digest"`
+	ProviderTraceID        *string    `gorm:"column:provider_trace_id"`
+	Status                 string     `gorm:"column:status"`
+	RejectReason           *string    `gorm:"column:reject_reason"`
+	SubmitAttempt          uint       `gorm:"column:submit_attempt"`
+	CreatedAt              time.Time  `gorm:"column:created_at"`
+	UpdatedAt              time.Time  `gorm:"column:updated_at"`
 }
 
 func (UserRealNameApplication) TableName() string {

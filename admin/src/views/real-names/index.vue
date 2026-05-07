@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
-import { getRealNameApplication, getRealNameApplications, reviewRealNameApplication, type RealNameApplicationItem } from '../../api/real-name'
+import { getRealNameApplication, getRealNameApplications, syncRealNameApplication, type RealNameApplicationItem } from '../../api/real-name'
 import { hasPermissionCode } from '../../utils/permission'
 import { usePermissionStore } from '../../store/modules/permission'
 
@@ -13,22 +13,44 @@ const detailVisible = ref(false)
 const applications = ref<RealNameApplicationItem[]>([])
 const current = ref<RealNameApplicationItem | null>(null)
 const total = ref(0)
-const query = reactive({ page: 1, per_page: 15, keyword: '', status: '' })
+const query = reactive({
+  page: 1,
+  per_page: 15,
+  keyword: '',
+  status: '',
+  provider: '',
+  provider_status: '',
+})
 
 const statusMap: Record<string, { label: string; type: 'warning' | 'success' | 'danger' }> = {
-  pending: { label: '待审核', type: 'warning' },
+  pending: { label: '核验中', type: 'warning' },
   approved: { label: '已通过', type: 'success' },
   rejected: { label: '已拒绝', type: 'danger' },
 }
 
-function canReview() {
-  return hasPermissionCode(permissionStore.permissionCodes, 'real-name:review')
+const providerMap: Record<string, string> = {
+  alipay: '支付宝',
+  wechat: '微信',
+}
+
+function canSync() {
+  return hasPermissionCode(permissionStore.permissionCodes, 'real-name:sync')
+}
+
+function providerLabel(provider: string | null) {
+  return provider ? (providerMap[provider] || provider) : '-'
 }
 
 async function loadApplications() {
   loading.value = true
   try {
-    const data = await getRealNameApplications({ ...query, keyword: query.keyword || undefined, status: query.status || undefined })
+    const data = await getRealNameApplications({
+      ...query,
+      keyword: query.keyword || undefined,
+      status: query.status || undefined,
+      provider: query.provider || undefined,
+      provider_status: query.provider_status || undefined,
+    })
     applications.value = data.list
     total.value = data.total
   } finally {
@@ -46,17 +68,12 @@ async function openDetail(row: RealNameApplicationItem) {
   }
 }
 
-async function review(row: RealNameApplicationItem, status: 'approved' | 'rejected') {
-  let reason = ''
-  if (status === 'rejected') {
-    const result = await ElMessageBox.prompt('请输入拒绝原因', '拒绝实名申请', { inputType: 'textarea', inputValidator: value => Boolean(value && value.trim()), inputErrorMessage: '拒绝原因不能为空' })
-    reason = result.value
-  } else {
-    await ElMessageBox.confirm('确认通过该实名申请？', '审核确认', { type: 'warning' })
+async function sync(row: RealNameApplicationItem) {
+  await syncRealNameApplication(row.id)
+  ElMessage.success('已触发供应商结果同步')
+  if (current.value?.id === row.id) {
+    current.value = await getRealNameApplication(row.id)
   }
-  await reviewRealNameApplication(row.id, status, reason)
-  ElMessage.success('审核已提交')
-  detailVisible.value = false
   await loadApplications()
 }
 
@@ -69,16 +86,21 @@ onMounted(loadApplications)
       <template #header>
         <div class="card-header">
           <strong>实名管理</strong>
-          <span>审核用户购买机器前需要完成的个人实名申请</span>
+          <span>查看支付宝/微信侧个人实名申请，并在需要时触发结果同步。</span>
         </div>
       </template>
       <div class="toolbar">
-        <el-input v-model="query.keyword" clearable placeholder="搜索用户、邮箱、姓名或申请号" style="width: 280px" @keyup.enter="loadApplications" />
-        <el-select v-model="query.status" clearable placeholder="状态" style="width: 140px">
-          <el-option label="待审核" value="pending" />
+        <el-input v-model="query.keyword" clearable placeholder="搜索用户、邮箱、姓名或申请号" style="width: 260px" @keyup.enter="loadApplications" />
+        <el-select v-model="query.status" clearable placeholder="实名状态" style="width: 120px">
+          <el-option label="核验中" value="pending" />
           <el-option label="已通过" value="approved" />
           <el-option label="已拒绝" value="rejected" />
         </el-select>
+        <el-select v-model="query.provider" clearable placeholder="供应商" style="width: 120px">
+          <el-option label="支付宝" value="alipay" />
+          <el-option label="微信" value="wechat" />
+        </el-select>
+        <el-input v-model="query.provider_status" clearable placeholder="供应商状态" style="width: 140px" @keyup.enter="loadApplications" />
         <el-button type="primary" @click="loadApplications">查询</el-button>
       </div>
       <el-table v-loading="loading" :data="applications" border>
@@ -88,15 +110,18 @@ onMounted(loadApplications)
         </el-table-column>
         <el-table-column prop="real_name" label="真实姓名" width="120" />
         <el-table-column prop="id_number_masked" label="证件号码" min-width="180" />
-        <el-table-column label="状态" width="110">
+        <el-table-column label="供应商" width="100">
+          <template #default="{ row }">{{ providerLabel(row.verification_provider) }}</template>
+        </el-table-column>
+        <el-table-column prop="provider_status" label="供应商状态" min-width="120" />
+        <el-table-column label="实名状态" width="110">
           <template #default="{ row }"><el-tag :type="statusMap[row.status]?.type">{{ statusMap[row.status]?.label || row.status }}</el-tag></template>
         </el-table-column>
         <el-table-column prop="created_at" label="提交时间" min-width="170" />
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 'pending' && canReview()" link type="success" @click="review(row, 'approved')">通过</el-button>
-            <el-button v-if="row.status === 'pending' && canReview()" link type="danger" @click="review(row, 'rejected')">拒绝</el-button>
+            <el-button v-if="row.status === 'pending' && canSync()" link type="success" @click="sync(row)">同步结果</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -110,14 +135,18 @@ onMounted(loadApplications)
         <p><b>真实姓名：</b>{{ current.real_name }}</p>
         <p><b>证件类型：</b>{{ current.id_type }}</p>
         <p><b>证件号码：</b>{{ current.id_number_masked }}</p>
-        <p><b>状态：</b>{{ statusMap[current.status]?.label || current.status }}</p>
-        <p v-if="current.reject_reason"><b>拒绝原因：</b>{{ current.reject_reason }}</p>
-        <p><b>人像面：</b>{{ current.id_card_front_file?.original_name || '未上传' }}</p>
-        <p><b>国徽面：</b>{{ current.id_card_back_file?.original_name || '未上传' }}</p>
-        <p><b>手持证件：</b>{{ current.hold_card_file?.original_name || '未上传' }}</p>
-        <div v-if="current.status === 'pending' && canReview()" class="drawer-actions">
-          <el-button type="success" @click="review(current, 'approved')">通过</el-button>
-          <el-button type="danger" @click="review(current, 'rejected')">拒绝</el-button>
+        <p><b>实名供应商：</b>{{ providerLabel(current.verification_provider) }}</p>
+        <p><b>供应商会话：</b>{{ current.provider_application_id || '-' }}</p>
+        <p><b>供应商状态：</b>{{ current.provider_status || '-' }}</p>
+        <p><b>供应商结果码：</b>{{ current.provider_result_code || '-' }}</p>
+        <p><b>供应商结果说明：</b>{{ current.provider_result_message || '-' }}</p>
+        <p><b>链路号：</b>{{ current.provider_trace_id || '-' }}</p>
+        <p><b>实名状态：</b>{{ statusMap[current.status]?.label || current.status }}</p>
+        <p v-if="current.failure_reason"><b>失败原因：</b>{{ current.failure_reason }}</p>
+        <p><b>核验开始时间：</b>{{ current.provider_started_at || '-' }}</p>
+        <p><b>核验完成时间：</b>{{ current.provider_finished_at || '-' }}</p>
+        <div v-if="current.status === 'pending' && canSync()" class="drawer-actions">
+          <el-button type="success" @click="sync(current)">同步供应商结果</el-button>
         </div>
       </div>
     </el-drawer>
@@ -128,7 +157,7 @@ onMounted(loadApplications)
 .real-name-page { display: grid; gap: 16px; }
 .card-header { display: flex; align-items: baseline; gap: 12px; }
 .card-header span { color: var(--el-text-color-secondary); font-size: 13px; }
-.toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .detail-list { display: grid; gap: 10px; }
 .detail-list p { margin: 0; }
 .drawer-actions { margin-top: 24px; display: flex; gap: 12px; }

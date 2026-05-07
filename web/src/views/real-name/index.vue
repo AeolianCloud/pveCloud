@@ -1,37 +1,46 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { getRealNameStatus, submitRealName, uploadRealNameFile, type RealNameStatusResponse } from '../../api/real-name'
+import {
+  getRealNameStatus,
+  submitRealName,
+  syncRealName,
+  type RealNameProviderAction,
+  type RealNameStatusResponse,
+} from '../../api/real-name'
 
 const loading = ref(false)
 const submitting = ref(false)
+const syncing = ref(false)
 const errorMessage = ref('')
 const status = ref<RealNameStatusResponse | null>(null)
+const lastProviderAction = ref<RealNameProviderAction | null>(null)
 const realName = ref('')
 const idNumber = ref('')
-const frontFileId = ref<number>()
-const backFileId = ref<number>()
-const holdFileId = ref<number>()
-const uploading = ref('')
+const provider = ref<'alipay' | 'wechat' | ''>('')
 
 const config = computed(() => status.value?.config)
 const application = computed(() => status.value?.application)
 const canSubmit = computed(() => {
   const cfg = config.value
-  if (!cfg || !cfg.enabled || submitting.value || status.value?.status === 'pending' || status.value?.status === 'approved') return false
+  if (!cfg || !cfg.enabled || submitting.value || syncing.value || status.value?.status === 'pending' || status.value?.status === 'approved') return false
   if (!realName.value.trim() || !idNumber.value.trim()) return false
-  if (cfg.id_card_front_required && !frontFileId.value) return false
-  if (cfg.id_card_back_required && !backFileId.value) return false
-  if (cfg.hold_card_required && !holdFileId.value) return false
-  return true
+  return Boolean(provider.value || cfg.default_provider)
 })
 
 const statusText = computed(() => {
   switch (status.value?.status) {
-    case 'pending': return '审核中'
+    case 'pending': return '核验中'
     case 'approved': return '已通过'
     case 'rejected': return '已拒绝'
     default: return '未实名'
   }
+})
+
+const providerText = computed(() => {
+  const value = application.value?.verification_provider || provider.value
+  if (value === 'wechat') return '微信'
+  if (value === 'alipay') return '支付宝'
+  return '未选择'
 })
 
 function errorText(error: unknown) {
@@ -39,6 +48,7 @@ function errorText(error: unknown) {
     const response = (error as { response?: { data?: { message?: string } } }).response
     if (response?.data?.message) return response.data.message
   }
+  if (error instanceof Error && error.message) return error.message
   return '操作失败，请稍后再试'
 }
 
@@ -47,29 +57,11 @@ async function loadStatus() {
   errorMessage.value = ''
   try {
     status.value = await getRealNameStatus()
+    provider.value = (status.value.config.default_provider as 'alipay' | 'wechat' | '') || ''
   } catch (error) {
     errorMessage.value = errorText(error)
   } finally {
     loading.value = false
-  }
-}
-
-async function handleFile(event: Event, type: 'front' | 'back' | 'hold') {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  uploading.value = type
-  errorMessage.value = ''
-  try {
-    const result = await uploadRealNameFile(file)
-    if (type === 'front') frontFileId.value = result.id
-    if (type === 'back') backFileId.value = result.id
-    if (type === 'hold') holdFileId.value = result.id
-  } catch (error) {
-    errorMessage.value = errorText(error)
-  } finally {
-    uploading.value = ''
-    input.value = ''
   }
 }
 
@@ -78,19 +70,35 @@ async function handleSubmit() {
   submitting.value = true
   errorMessage.value = ''
   try {
-    await submitRealName({
+    const result = await submitRealName({
       real_name: realName.value.trim(),
       id_type: 'id_card',
       id_number: idNumber.value.trim(),
-      id_card_front_file_id: frontFileId.value,
-      id_card_back_file_id: backFileId.value,
-      hold_card_file_id: holdFileId.value,
+      provider: (provider.value || config.value?.default_provider || '') as 'alipay' | 'wechat',
     })
-    await loadStatus()
+    lastProviderAction.value = result.provider_action
+    if (result.provider_action.redirect_url) {
+      window.location.assign(result.provider_action.redirect_url)
+      return
+    }
+    status.value = await getRealNameStatus()
   } catch (error) {
     errorMessage.value = errorText(error)
   } finally {
     submitting.value = false
+  }
+}
+
+async function handleSync() {
+  if (!application.value?.application_no) return
+  syncing.value = true
+  errorMessage.value = ''
+  try {
+    status.value = await syncRealName({ application_no: application.value.application_no })
+  } catch (error) {
+    errorMessage.value = errorText(error)
+  } finally {
+    syncing.value = false
   }
 }
 
@@ -104,7 +112,7 @@ onMounted(loadStatus)
         <div>
           <p class="eyebrow">REAL NAME VERIFICATION</p>
           <h1>购买机器前完成个人实名</h1>
-          <p>实名审核通过后，才可以继续购买云服务器。资料只用于账号实名审核，证件号码会脱敏展示。</p>
+          <p>实名由支付宝或微信侧通道完成，页面只负责提交资料、跳转供应商和同步结果，最终状态以后端为准。</p>
         </div>
         <div class="hero-badge-card">
           <span>购买门禁</span>
@@ -120,16 +128,22 @@ onMounted(loadStatus)
             <span>当前状态</span>
             <h2>{{ application?.real_name || '个人实名状态' }}</h2>
             <p v-if="application">证件号码：{{ application.id_number_masked }}</p>
-            <p v-else>提交身份证实名资料后，后台会进行人工审核。</p>
+            <p v-else>提交实名资料后会跳转支付宝或微信侧完成核验。</p>
           </div>
           <div class="status-list">
             <p><b>购买要求</b><span>{{ config?.required_for_order ? '必须实名通过' : '暂不强制' }}</span></p>
             <p><b>重提规则</b><span>{{ config?.resubmit_enabled ? `最多 ${config.max_submit_attempts} 次` : '不允许重提' }}</span></p>
-            <p><b>审核方式</b><span>后台人工审核</span></p>
+            <p><b>实名通道</b><span>{{ providerText }}</span></p>
           </div>
-          <p v-if="application?.reject_reason" class="notice error">拒绝原因：{{ application.reject_reason }}</p>
+          <p v-if="application?.failure_reason" class="notice error">失败原因：{{ application.failure_reason }}</p>
           <p v-if="config?.review_notice" class="notice info">{{ config.review_notice }}</p>
-          <RouterLink v-if="status?.status === 'approved'" class="btn btn-primary" to="/pricing">返回价格页</RouterLink>
+          <p v-if="lastProviderAction?.redirect_url" class="notice info">已创建供应商会话，如未自动跳转，可重试同步当前结果。</p>
+          <div class="status-actions">
+            <button v-if="status?.status === 'pending'" class="btn btn-outline" type="button" :disabled="syncing" @click="handleSync">
+              {{ syncing ? '同步中...' : '同步实名结果' }}
+            </button>
+            <RouterLink v-if="status?.status === 'approved'" class="btn btn-primary" to="/pricing">返回价格页</RouterLink>
+          </div>
         </aside>
 
         <form class="real-form" @submit.prevent="handleSubmit">
@@ -141,8 +155,8 @@ onMounted(loadStatus)
           </template>
           <template v-else-if="status?.status === 'pending'">
             <div class="empty-state">
-              <h3>申请审核中</h3>
-              <p>后台正在审核你的实名资料，审核完成后即可继续购买机器。</p>
+              <h3>实名核验进行中</h3>
+              <p>完成支付宝或微信侧核验后，返回本页并点击“同步实名结果”。</p>
             </div>
           </template>
           <template v-else-if="status?.status === 'approved'">
@@ -155,7 +169,7 @@ onMounted(loadStatus)
             <div class="form-heading">
               <span>{{ status?.status === 'rejected' ? 'RESUBMIT' : 'SUBMIT' }}</span>
               <h3>{{ status?.status === 'rejected' ? '重新提交实名' : '提交个人实名' }}</h3>
-              <p>请填写与身份证一致的姓名和证件号码，并上传后台要求的证件图片。</p>
+              <p>请填写与身份证一致的姓名和证件号码，并选择后台开放的实名供应商。</p>
             </div>
 
             <div class="field-grid">
@@ -169,27 +183,19 @@ onMounted(loadStatus)
               </label>
             </div>
 
-            <div class="upload-grid">
-              <label class="upload-card" :data-ready="frontFileId ? 'true' : 'false'">
-                <input type="file" accept="image/*" @change="handleFile($event, 'front')" />
-                <b>身份证人像面{{ config?.id_card_front_required ? ' *' : '' }}</b>
-                <span>{{ frontFileId ? '已上传' : uploading === 'front' ? '上传中...' : '点击选择图片' }}</span>
-              </label>
-              <label class="upload-card" :data-ready="backFileId ? 'true' : 'false'">
-                <input type="file" accept="image/*" @change="handleFile($event, 'back')" />
-                <b>身份证国徽面{{ config?.id_card_back_required ? ' *' : '' }}</b>
-                <span>{{ backFileId ? '已上传' : uploading === 'back' ? '上传中...' : '点击选择图片' }}</span>
-              </label>
-              <label v-if="config?.hold_card_required" class="upload-card" :data-ready="holdFileId ? 'true' : 'false'">
-                <input type="file" accept="image/*" @change="handleFile($event, 'hold')" />
-                <b>手持证件照片 *</b>
-                <span>{{ holdFileId ? '已上传' : uploading === 'hold' ? '上传中...' : '点击选择图片' }}</span>
-              </label>
+            <div class="provider-group">
+              <span>实名供应商</span>
+              <div class="provider-options">
+                <label v-for="item in config?.allowed_providers || []" :key="item" class="provider-card" :data-active="(provider || config?.default_provider) === item">
+                  <input v-model="provider" type="radio" :value="item" />
+                  <b>{{ item === 'wechat' ? '微信' : '支付宝' }}</b>
+                  <span>{{ item === 'wechat' ? '跳转微信侧实名核验' : '跳转支付宝身份认证' }}</span>
+                </label>
+              </div>
             </div>
 
-            <p class="form-tip">允许类型：{{ config?.allowed_image_types.join(' / ') }}，单张最大 {{ config?.image_max_size_mb }} MB。</p>
             <p v-if="errorMessage" class="notice error">{{ errorMessage }}</p>
-            <button class="btn btn-primary submit-btn" type="submit" :disabled="!canSubmit">{{ submitting ? '提交中...' : '提交实名审核' }}</button>
+            <button class="btn btn-primary submit-btn" type="submit" :disabled="!canSubmit">{{ submitting ? '提交中...' : '提交并前往核验' }}</button>
           </template>
         </form>
       </div>
@@ -285,7 +291,6 @@ onMounted(loadStatus)
 .hero-badge-card strong {
   font-size: 1.45rem;
   line-height: 1.2;
-  letter-spacing: -0.04em;
 }
 
 .loading-card,
@@ -380,6 +385,12 @@ onMounted(loadStatus)
   color: var(--c-text);
 }
 
+.status-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .notice {
   margin: 0;
   padding: 12px 14px;
@@ -445,61 +456,54 @@ onMounted(loadStatus)
   background: var(--c-surface-dim);
 }
 
-.upload-grid {
+.provider-group {
+  display: grid;
+  gap: 12px;
+}
+
+.provider-group > span {
+  color: var(--c-text-2);
+  font-weight: 800;
+}
+
+.provider-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.upload-card {
+.provider-card {
   position: relative;
-  min-height: 132px;
   display: grid;
-  align-content: end;
   gap: 8px;
+  min-height: 132px;
   padding: 18px;
-  overflow: hidden;
-  border: 1px dashed rgba(59, 130, 246, 0.38);
+  border: 1px solid var(--c-border);
   border-radius: 20px;
+  background: var(--c-surface-dim);
+  cursor: pointer;
+}
+
+.provider-card[data-active='true'] {
+  border-color: rgba(59, 130, 246, 0.4);
   background:
     radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.12), transparent 44%),
     var(--c-surface-dim);
-  cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
-.upload-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--c-primary-h);
-}
-
-.upload-card[data-ready='true'] {
-  border-style: solid;
-  border-color: rgba(16, 185, 129, 0.42);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(16, 185, 129, 0.16), transparent 44%),
-    var(--c-surface-dim);
-}
-
-.upload-card input {
+.provider-card input {
   position: absolute;
   inset: 0;
   opacity: 0;
-  cursor: pointer;
 }
 
-.upload-card b {
+.provider-card b {
   font-size: 1rem;
 }
 
-.upload-card span,
-.form-tip {
+.provider-card span {
   color: var(--c-text-3);
-}
-
-.form-tip {
-  margin: 0;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .submit-btn {
@@ -547,7 +551,7 @@ onMounted(loadStatus)
   }
 
   .field-grid,
-  .upload-grid {
+  .provider-options {
     grid-template-columns: 1fr;
   }
 

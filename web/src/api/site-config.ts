@@ -13,13 +13,10 @@ export interface SiteConfigResponse {
 export interface RealNameConfig {
   enabled: boolean
   required_for_order: boolean
+  allowed_providers: string[]
+  default_provider: string
   resubmit_enabled: boolean
   max_submit_attempts: number
-  id_card_front_required: boolean
-  id_card_back_required: boolean
-  hold_card_required: boolean
-  image_max_size_mb: number
-  allowed_image_types: string[]
   review_notice: string
 }
 

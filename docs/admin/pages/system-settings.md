@@ -42,9 +42,11 @@
 - `site.logo_url` 可为空；为空时 Web 使用前端默认标识。
 - 站点品牌配置在后台系统配置中按中文分组“站点设置”展示。
 - Web 用户认证验证码开关在后台系统配置中按中文分组“用户认证”展示。
-- 用户实名业务开关和审核要求在后台系统配置中按中文分组“实名设置”展示。
+- 用户实名业务开关、可选供应商、供应商启用状态、支付宝/微信侧接入参数、密钥、回调地址和证件摘要密钥在后台系统配置中按中文分组“实名设置”展示。
+- 支付宝、微信/腾讯云密钥和证件摘要密钥使用 `is_secret=1`；页面不得回显明文，只展示是否已配置，并允许通过重新填写覆盖。
 - `value_type=bool` 的配置项必须使用明确布尔编辑控件，不使用自由文本输入。
 - 保存布尔配置时始终提交字符串 `true` / `false`。
+- 保存 `is_secret=1` 配置时，空值表示保留旧值，非空值表示覆盖旧值。
 
 当前阶段系统配置至少包含以下用户认证开关：
 
@@ -57,15 +59,34 @@
 
 - `real_name.enabled`
 - `real_name.required_for_order`
-- `real_name.manual_review_enabled`
+- `real_name.allowed_providers`
+- `real_name.default_provider`
+- `real_name.identity_digest_secret`
+- `real_name.callback_base_url`
 - `real_name.resubmit_enabled`
 - `real_name.max_submit_attempts`
-- `real_name.id_card_front_required`
-- `real_name.id_card_back_required`
-- `real_name.hold_card_required`
-- `real_name.image_max_size_mb`
-- `real_name.allowed_image_types`
 - `real_name.review_notice`
+- `real_name.alipay.enabled`
+- `real_name.alipay.app_id`
+- `real_name.alipay.gateway_url`
+- `real_name.alipay.app_private_key`
+- `real_name.alipay.alipay_public_key`
+- `real_name.alipay.return_url`
+- `real_name.alipay.notify_url`
+- `real_name.wechat.enabled`
+- `real_name.wechat.secret_id`
+- `real_name.wechat.secret_key`
+- `real_name.wechat.region`
+- `real_name.wechat.endpoint`
+- `real_name.wechat.rule_id`
+- `real_name.wechat.redirect_url`
+
+供应商启用约束：
+
+- `real_name.allowed_providers` 只控制用户端可选列表，具体供应商还必须满足对应 `real_name.<provider>.enabled=true`。
+- 启用支付宝前，必须填写支付宝应用 ID、网关、私钥、公钥、返回地址，以及全局回调基础地址或支付宝异步通知地址。
+- 启用微信侧实名前，必须填写腾讯云 SecretId、SecretKey、地域、端点、规则 ID 和返回地址；当前微信/腾讯云结果通过服务端同步查询确认，不开放异步回调。
+- `real_name.identity_digest_secret` 启用实名前必须填写；已有当前 HMAC 版本实名申请后，页面不允许通过普通系统设置直接修改该密钥。
 
 权限建议：
 

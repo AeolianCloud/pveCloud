@@ -28,7 +28,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 ## 权限码命名
 
 - 菜单权限统一采用 `page.xxx`，也是页面访问和侧栏可见的授权节点。
-- 操作权限统一采用 `resource:action`，例如 `admin-user:create`、`web-user:create`、`real-name:review`、`product:update`。
+- 操作权限统一采用 `resource:action`，例如 `admin-user:create`、`web-user:create`、`real-name:sync`、`product:update`。
 - 支持 `resource:*` 风格的模块全权限，例如 `admin-user:*`，并在前后端权限判断中覆盖同资源细权限。
 - 操作权限在权限目录中必须挂到明确菜单父节点；授权时选中操作权限会自动保留父级菜单权限。
 

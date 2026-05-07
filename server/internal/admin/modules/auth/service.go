@@ -20,6 +20,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	jwtpkg "github.com/AeolianCloud/pveCloud/server/internal/shared/jwt"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/requestcontext"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
 
@@ -77,7 +78,7 @@ func NewAdminAuthService(db *gorm.DB, redis *cache.Redis, cfg bootstrap.JWTConfi
  * @return error 生成失败原因
  */
 func (s *AdminAuthService) Captcha(ctx context.Context) (admindto.LoginCaptchaResponse, error) {
-	request := RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	clientIP := request.IP
 	if err := s.ensureCaptchaAllowed(ctx, clientIP); err != nil {
 		return admindto.LoginCaptchaResponse{}, err
@@ -113,7 +114,7 @@ func (s *AdminAuthService) Captcha(ctx context.Context) (admindto.LoginCaptchaRe
  * @return error 登录失败原因
  */
 func (s *AdminAuthService) Login(ctx context.Context, req admindto.LoginRequest) (admindto.LoginResponse, error) {
-	request := RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	clientIP := request.IP
 	userAgent := request.UserAgent
 	identifier := strings.ToLower(strings.TrimSpace(req.Username))
@@ -245,7 +246,7 @@ func (s *AdminAuthService) Logout(ctx context.Context, adminID uint64, sessionID
  * @return error 刷新失败原因
  */
 func (s *AdminAuthService) Refresh(ctx context.Context, adminID uint64, sessionID string) (admindto.LoginResponse, error) {
-	request := RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	clientIP := request.IP
 	userAgent := request.UserAgent
 	if strings.TrimSpace(sessionID) == "" {

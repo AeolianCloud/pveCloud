@@ -94,19 +94,30 @@ file_attachment_references
 user_real_name_applications
 ```
 
-`user_real_name_applications` 用于保存用户端个人实名申请和后台审核结果。当前只开放个人实名，不开放企业实名、OCR 自动识别、第三方核验或后台代填实名资料。
+`user_real_name_applications` 用于保存用户端个人实名申请和外部供应商核验会话。当前只开放个人实名，并支持支付宝与微信侧实名供应商；不开放企业实名、后台代填实名资料或后台人工审核。
 
 实名状态使用字符串字段，不使用数据库 enum。可用申请状态包括：
 
-- `pending`：待审核
-- `approved`：审核通过
-- `rejected`：审核拒绝
+- `pending`：待外部核验结果
+- `approved`：实名通过
+- `rejected`：实名拒绝或核验失败
 
-证件号码不得明文存储。数据库只保存证件号码查询摘要和脱敏展示值；接口只返回脱敏展示值。
+`pending` 可表示等待用户完成外部供应商核验，或等待供应商回调/查询结果。
 
-实名图片通过 `file_attachments` 保存，并通过 `file_attachment_references` 记录引用关系，防止实名图片被误删。
+证件号码不得明文存储。数据库只保存带后台敏感配置密钥的证件号码查询摘要和脱敏展示值；接口只返回脱敏展示值。证件摘要不得使用无盐 SHA-256。新增记录必须保存当前 HMAC 摘要版本；历史 `sha256-legacy` 摘要只用于兼容旧已通过记录的重复校验。
+
+实名供应商字段保存当前申请来源，允许值包括：
+
+- `alipay`
+- `wechat`
+
+供应商会话字段保存外部会话标识、供应商状态、供应商结果码、供应商结果说明、开始时间、完成时间、响应摘要和链路号。不得保存外部供应商完整响应、证件号码明文、人脸图片、token 或签名密钥。
+
+当前实名流程不写入实名图片附件；历史人工实名附件如已存在，只作为历史数据保留，不提供新的上传、预览或人工审核入口。通用文件管理权限不得绕过历史实名附件的敏感数据边界。
 
 同一用户存在 `pending` 申请时不得重复提交；已 `approved` 后不得由用户端自行覆盖实名资料。证件号码与其它已通过实名用户重复时必须拒绝通过或提交。
+
+外部供应商回调和主动同步必须按 `verification_provider + provider_application_id` 幂等处理。已通过证件摘要唯一性由已通过摘要生成列和唯一索引兜底；HMAC 摘要切换期间，同一证件号码的 legacy 摘要和当前 HMAC 摘要不同，服务端仍必须同时查询两个摘要版本防止历史重复通过。
 
 ### 服务器产品目录
 
@@ -154,8 +165,10 @@ plan_os_templates
 - 站点品牌配置在系统设置中使用中文分组“站点设置”展示
 - `system_configs` 中 `web.auth.login_captcha_enabled`、`web.auth.register_captcha_enabled`、`web.auth.password_reset_request_captcha_enabled`、`web.auth.password_reset_confirm_captcha_enabled` 是用户端认证验证码开关，使用中文分组“用户认证”展示
 - 上述 4 个验证码开关使用 `value_type=bool`，`config_value` 统一保存字符串 `true` 或 `false`
-- `system_configs` 中 `real_name.*` 是用户实名业务开关和审核要求，使用中文分组“实名设置”展示，全部由后台配置维护，不新增 `server/config.yaml` 运行配置项
-- 实名布尔配置使用 `value_type=bool`，数值配置使用 `value_type=int`，允许图片 MIME 列表和说明文案使用 `value_type=string`
+- `system_configs` 中 `real_name.*` 是用户实名业务开关、供应商选择、供应商接入参数、第三方密钥、回调地址、返回地址和证件摘要密钥，使用中文分组“实名设置”展示
+- 支付宝和微信侧实名供应商配置全部来自 `system_configs`，不使用 `server/config.yaml` 或 `server/config.example.yaml` 管理
+- 实名布尔配置使用 `value_type=bool`，数值配置使用 `value_type=int`，允许供应商列表、URL、密钥和说明文案使用 `value_type=string`
+- `real_name.identity_digest_secret`、`real_name.alipay.app_private_key`、`real_name.alipay.alipay_public_key`、`real_name.wechat.secret_id` 和 `real_name.wechat.secret_key` 等敏感实名配置必须 `is_secret=1`；后台 API 不得回显明文，公开站点配置接口不得返回这些配置
 - 普通操作日志用于查看后台操作历史，应保存操作者快照和请求上下文，避免只依赖当前管理员资料反查
 - 普通操作日志的请求上下文由管理端中间件统一采集，业务模块不得重复从每个模块内拼装 IP、会话、请求路径等通用信息
 
@@ -204,7 +217,7 @@ plan_os_templates
 - `user_sessions.session_id`
 - `user_password_reset_tokens.token_hash`
 - `user_real_name_applications.application_no`
-- `user_real_name_applications.approved_id_number_digest`，只约束 `status=approved` 的证件摘要唯一，防止并发审核通过同一证件号码
+- `user_real_name_applications.approved_id_number_digest`，只约束 `status=approved` 的证件摘要唯一，防止并发核验通过同一证件号码
 - `system_configs.config_key`
 - `products.product_no`
 - `products.slug`
@@ -245,7 +258,7 @@ Web 用户管理需要新增以下管理端权限目录：
 - `page.real-name-management`
 - `real-name:*`
 - `real-name:view`
-- `real-name:review`
+- `real-name:sync`
 
 ## 一致性原则
 

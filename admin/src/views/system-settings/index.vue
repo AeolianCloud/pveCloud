@@ -78,7 +78,6 @@ function handleGroupChange(name: string) {
 }
 
 function isDirty(config: SystemConfigItem): boolean {
-  if (config.is_secret) return false
   return (editForm.value[config.id] ?? '') !== normalizeConfigValue(config)
 }
 
@@ -102,8 +101,12 @@ async function saveConfig(config: SystemConfigItem) {
     if (currentGroup.value) {
       const idx = currentGroup.value.items.findIndex((c) => c.id === config.id)
       if (idx !== -1) {
-        currentGroup.value.items[idx].config_value = newValue
+        currentGroup.value.items[idx].config_value = config.is_secret ? null : newValue
+        currentGroup.value.items[idx].has_value = config.is_secret ? true : Boolean(newValue.trim())
       }
+    }
+    if (config.is_secret) {
+      editForm.value[config.id] = ''
     }
     ElMessage.success('保存成功')
   } catch (error) {
@@ -154,7 +157,17 @@ onMounted(() => {
             <el-table-column label="值" min-width="240">
               <template #default="{ row }">
                 <template v-if="row.is_secret">
-                  <el-tag type="danger" size="small">敏感配置</el-tag>
+                  <div class="secret-cell">
+                    <el-input
+                      v-model="editForm[row.id]"
+                      size="small"
+                      type="password"
+                      show-password
+                      :disabled="!canUpdateConfig"
+                      :placeholder="row.has_value ? '留空则保留旧值，输入新值则覆盖' : '请输入敏感配置值'"
+                    />
+                    <el-tag :type="row.has_value ? 'danger' : 'info'" size="small">{{ row.has_value ? '已配置' : '未配置' }}</el-tag>
+                  </div>
                 </template>
                 <template v-else>
                   <el-switch
@@ -186,7 +199,7 @@ onMounted(() => {
             <el-table-column label="操作" width="100" align="center">
               <template #default="{ row }">
                 <el-button
-                  v-if="!row.is_secret && canUpdateConfig"
+                  v-if="canUpdateConfig"
                   type="primary"
                   size="small"
                   :loading="saving"
@@ -221,5 +234,10 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.secret-cell {
+  display: grid;
+  gap: 8px;
 }
 </style>

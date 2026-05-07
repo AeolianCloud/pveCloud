@@ -20,7 +20,7 @@ description: Frontend implementation guardrails for pveCloud. Use when working o
 ## 当前仓库状态
 
 - `admin/` 已存在，是当前实际前端实现。
-- 如果仓库里还没有 `web/` 目录，`docs/web/` 仅代表规划和契约，不代表已有用户端代码。
+- `web/` 已存在，是当前实际用户端前端实现。
 - 在没有文档更新和维护者确认前，不要擅自把已移除的后台页面重新加回菜单、路由或占位页。
 
 ## 结构原则
@@ -62,4 +62,9 @@ cd admin
 bun run build
 ```
 
-如果未来 `web/` 存在，则对该应用执行等价构建验证。
+修改 `web/` 时执行：
+
+```powershell
+cd web
+bun run build
+```

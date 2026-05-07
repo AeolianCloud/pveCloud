@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
-	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/mail"
@@ -23,6 +22,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	jwtpkg "github.com/AeolianCloud/pveCloud/server/internal/shared/jwt"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/requestcontext"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/web/dto"
 	websupport "github.com/AeolianCloud/pveCloud/server/internal/web/support"
@@ -137,7 +137,7 @@ func (s *UserAuthService) PasswordResetConfirmCaptcha(ctx context.Context) (webd
  * Login 校验用户账号密码并签发用户端 JWT。
  */
 func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (webdto.LoginResponse, error) {
-	request := audit.RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	account := strings.ToLower(strings.TrimSpace(req.Account))
 	if account == "" {
 		return webdto.LoginResponse{}, apperrors.ErrValidation.WithMessage("账号不能为空")
@@ -193,7 +193,7 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
  * Register 创建用户端账号并签发登录会话。
  */
 func (s *UserAuthService) Register(ctx context.Context, req webdto.RegisterRequest) (webdto.LoginResponse, error) {
-	request := audit.RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	username := strings.ToLower(strings.TrimSpace(req.Username))
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	displayName := trimOptional(req.DisplayName)
@@ -272,7 +272,7 @@ func (s *UserAuthService) Logout(ctx context.Context, userID uint64, sessionID s
  * Refresh 轮换当前用户端 token。
  */
 func (s *UserAuthService) Refresh(ctx context.Context, userID uint64, sessionID string) (webdto.LoginResponse, error) {
-	request := audit.RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	if strings.TrimSpace(sessionID) == "" {
 		return webdto.LoginResponse{}, apperrors.ErrUnauthorized
 	}
@@ -340,7 +340,7 @@ func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.P
 		return apperrors.ErrInternal.WithMessage("密码找回服务暂不可用，请稍后再试")
 	}
 
-	request := audit.RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	if err := s.ensurePasswordResetAllowed(ctx, request.IP, email); err != nil {
 		return err
@@ -591,7 +591,7 @@ func (s *UserAuthService) generateCaptcha(ctx context.Context, scene userCaptcha
 		return webdto.CaptchaResponse{}, apperrors.ErrInternal.WithMessage("验证码服务暂不可用，请稍后再试")
 	}
 
-	request := audit.RequestContextFrom(ctx)
+	request := requestcontext.RequestContextFrom(ctx)
 	if err := s.ensureCaptchaAllowed(ctx, scene, request.IP); err != nil {
 		return webdto.CaptchaResponse{}, err
 	}

@@ -3,8 +3,8 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/admin/modules/audit"
 	httpmiddleware "github.com/AeolianCloud/pveCloud/server/internal/shared/httpmiddleware"
+	"github.com/AeolianCloud/pveCloud/server/internal/shared/requestcontext"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 )
 
@@ -16,7 +16,7 @@ import (
 func AdminAuditContext() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID, _ := c.Get(httpmiddleware.RequestIDKey)
-		ctx := audit.WithRequestContext(c.Request.Context(), audit.RequestContext{
+		ctx := requestcontext.WithRequestContext(c.Request.Context(), requestcontext.RequestContext{
 			RequestID:     stringValue(requestID),
 			RequestMethod: c.Request.Method,
 			RequestPath:   c.Request.URL.Path,

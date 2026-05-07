@@ -2,52 +2,74 @@ package realname
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
-	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/cache"
+	realnameintegration "github.com/AeolianCloud/pveCloud/server/internal/platform/integrations/realname"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/web/dto"
 )
 
 const (
-	statusUnverified    = "unverified"
-	statusPending       = "pending"
-	statusApproved      = "approved"
-	statusRejected      = "rejected"
-	refTypeRealName     = "user_real_name_application"
-	multipartOverheadMB = int64(1 << 20)
+	statusUnverified = "unverified"
+	statusPending    = "pending"
+	statusApproved   = "approved"
+	statusRejected   = "rejected"
+
+	providerAlipay = "alipay"
+	providerWechat = "wechat"
+
+	digestVersionHMACSHA256 = "hmac-sha256-v1"
+	digestVersionLegacy     = "sha256-legacy"
+
+	providerStatusCreated  = "created"
+	providerStatusApproved = "approved"
+	providerStatusRejected = "rejected"
+	providerStatusPending  = "pending"
+
+	providerStatusCreating = "creating"
+
+	legacyDigestCacheTTL = 7 * 24 * time.Hour
+	callbackReplayTTL    = 15 * time.Minute
+	callbackAcceptWindow = 10 * time.Minute
 )
 
 var idCardPattern = regexp.MustCompile(`^[0-9]{17}[0-9Xx]$`)
 
 type RealNameService struct {
-	db      *gorm.DB
-	storage bootstrap.StorageConfig
+	db             *gorm.DB
+	redis          *cache.Redis
+	providerClient *realnameintegration.Client
 }
 
-func NewRealNameService(db *gorm.DB, storage bootstrap.StorageConfig) *RealNameService {
-	return &RealNameService{db: db, storage: storage}
+type SyncApplicationHook func(tx *gorm.DB, before models.UserRealNameApplication, after models.UserRealNameApplication) error
+
+func NewRealNameService(db *gorm.DB, redis *cache.Redis) *RealNameService {
+	return &RealNameService{
+		db:             db,
+		redis:          redis,
+		providerClient: realnameintegration.NewClient(&http.Client{Timeout: 10 * time.Second}),
+	}
 }
 
 func (s *RealNameService) Status(ctx context.Context, userID uint64) (webdto.RealNameStatusResponse, error) {
-	config, err := s.config(ctx, s.db)
+	config, _, err := s.config(ctx, s.db)
 	if err != nil {
 		return webdto.RealNameStatusResponse{}, err
 	}
@@ -56,117 +78,24 @@ func (s *RealNameService) Status(ctx context.Context, userID uint64) (webdto.Rea
 		return webdto.RealNameStatusResponse{}, err
 	}
 	if !ok {
-		return webdto.RealNameStatusResponse{Status: statusUnverified, Config: config}, nil
+		return webdto.RealNameStatusResponse{Status: statusUnverified, Config: config.Public()}, nil
 	}
 	summary := applicationSummary(latest)
-	return webdto.RealNameStatusResponse{Status: latest.Status, Application: &summary, Config: config}, nil
+	return webdto.RealNameStatusResponse{Status: latest.Status, Application: &summary, Config: config.Public()}, nil
 }
 
-func (s *RealNameService) UploadFile(ctx context.Context, userID uint64, file multipart.File, header *multipart.FileHeader) (webdto.RealNameFileUploadResponse, error) {
-	config, err := s.config(ctx, s.db)
-	if err != nil {
-		return webdto.RealNameFileUploadResponse{}, err
-	}
-	if !config.Enabled {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrForbidden.WithMessage("实名功能暂未开放")
-	}
-	originalName := sanitizeOriginalName(header.Filename)
-	if originalName == "" {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件名不能为空")
-	}
-	maxSize := int64(config.ImageMaxSizeMB) * 1024 * 1024
-	if header.Size > maxSize {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d MB", config.ImageMaxSizeMB))
-	}
-
-	sniff := make([]byte, 512)
-	sniffSize, err := io.ReadFull(file, sniff)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("读取文件失败")
-	}
-	if sniffSize == 0 {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件内容不能为空")
-	}
-	sniff = sniff[:sniffSize]
-	mimeType := http.DetectContentType(sniff)
-	if !allowedString(config.AllowedImageTypes, mimeType) || !allowedString(s.storage.AllowedTypes, mimeType) {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件类型不允许")
-	}
-	declaredMimeType := strings.TrimSpace(header.Header.Get("Content-Type"))
-	if declaredMimeType != "" && (!allowedString(config.AllowedImageTypes, declaredMimeType) || !allowedString(s.storage.AllowedTypes, declaredMimeType) || !strings.EqualFold(declaredMimeType, mimeType)) {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件声明类型与内容不匹配")
-	}
-	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(originalName)), ".")
-	if !extensionMatchesMime(ext, mimeType) {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage("文件扩展名与内容不匹配")
-	}
-	storedUUID, err := randomHex(16)
-	if err != nil {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("生成文件名失败")
-	}
-	now := time.Now()
-	storagePath := filepath.Join(fmt.Sprintf("%04d", now.Year()), fmt.Sprintf("%02d", now.Month()), fmt.Sprintf("%02d", now.Day()), storedUUID+"."+ext)
-	absolutePath := filepath.Join(s.storage.LocalPath, storagePath)
-	if err := os.MkdirAll(filepath.Dir(absolutePath), 0755); err != nil {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("创建存储目录失败")
-	}
-	out, err := os.OpenFile(absolutePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
-	}
-	hash := sha256.New()
-	writer := io.MultiWriter(out, hash)
-	writtenBytes, err := writer.Write(sniff)
-	written := int64(writtenBytes)
-	if err == nil {
-		var copied int64
-		copied, err = io.Copy(writer, io.LimitReader(file, maxSize-written+1))
-		written += copied
-	}
-	closeErr := out.Close()
-	if err != nil || closeErr != nil {
-		_ = os.Remove(absolutePath)
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrInternal.WithMessage("保存文件失败")
-	}
-	if written > maxSize {
-		_ = os.Remove(absolutePath)
-		return webdto.RealNameFileUploadResponse{}, apperrors.ErrValidation.WithMessage(fmt.Sprintf("文件大小超过限制，最大允许 %d MB", config.ImageMaxSizeMB))
-	}
-	attachment := models.FileAttachment{
-		OriginalName:   originalName,
-		StoredName:     storedUUID + "." + ext,
-		MimeType:       mimeType,
-		Extension:      ext,
-		Size:           uint64(written),
-		StoragePath:    storagePath,
-		StorageDriver:  "local",
-		Checksum:       hex.EncodeToString(hash.Sum(nil)),
-		UploaderUserID: &userID,
-		Status:         "active",
-	}
-	if err := s.db.WithContext(ctx).Omit("uploader_id").Create(&attachment).Error; err != nil {
-		_ = os.Remove(absolutePath)
-		return webdto.RealNameFileUploadResponse{}, err
-	}
-	return webdto.RealNameFileUploadResponse{ID: attachment.ID, OriginalName: attachment.OriginalName, MimeType: attachment.MimeType, Size: attachment.Size, CreatedAt: attachment.CreatedAt}, nil
-}
-
-func (s *RealNameService) MaxUploadRequestBytes(ctx context.Context) (int64, error) {
-	config, err := s.config(ctx, s.db)
-	if err != nil {
-		return 0, err
-	}
-	return int64(config.ImageMaxSizeMB)*1024*1024 + multipartOverheadMB, nil
-}
-
-func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.RealNameSubmitRequest) (webdto.RealNameApplicationSummary, error) {
+func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.RealNameSubmitRequest) (webdto.RealNameSubmitResponse, error) {
 	realName := strings.TrimSpace(req.RealName)
+	idType := strings.TrimSpace(req.IDType)
 	idNumber := strings.ToUpper(strings.TrimSpace(req.IDNumber))
 	if !idCardPattern.MatchString(idNumber) {
-		return webdto.RealNameApplicationSummary{}, apperrors.ErrValidation.WithMessage("身份证号码格式错误")
+		return webdto.RealNameSubmitResponse{}, apperrors.ErrValidation.WithMessage("身份证号码格式错误")
 	}
-	digest := digestIDNumber(req.IDType, idNumber)
+
+	var cfg realNameConfig
+	var provider providerConfig
 	var created models.UserRealNameApplication
+	var legacyDigest string
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var user models.User
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(&user).Error
@@ -176,13 +105,28 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 		if err != nil {
 			return err
 		}
-		config, err := s.config(ctx, tx)
+
+		currentConfig, secretRows, err := s.config(ctx, tx)
 		if err != nil {
 			return err
 		}
-		if !config.Enabled {
+		cfg = currentConfig
+		if !cfg.Enabled {
 			return apperrors.ErrForbidden.WithMessage("实名功能暂未开放")
 		}
+		if strings.TrimSpace(cfg.IdentityDigestSecret) == "" {
+			return apperrors.ErrForbidden.WithMessage("实名摘要密钥尚未配置")
+		}
+
+		resolvedProvider, err := cfg.ResolveProvider(req.Provider)
+		if err != nil {
+			return err
+		}
+		provider = cfg.Provider(resolvedProvider)
+		if !provider.Complete(secretRows, cfg.CallbackBaseURL) {
+			return apperrors.ErrForbidden.WithMessage("实名供应商配置不完整")
+		}
+
 		latest, ok, err := s.latestForUpdate(ctx, tx, userID)
 		if err != nil {
 			return err
@@ -192,60 +136,157 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 			attempt = latest.SubmitAttempt + 1
 			switch latest.Status {
 			case statusPending:
-				return apperrors.ErrConflict.WithMessage("实名申请审核中，请勿重复提交")
+				return apperrors.ErrConflict.WithMessage("实名核验中，请勿重复提交")
 			case statusApproved:
 				return apperrors.ErrConflict.WithMessage("实名已通过，不能重复提交")
 			case statusRejected:
-				if !config.ResubmitEnabled {
-					return apperrors.ErrForbidden.WithMessage("实名被拒绝后暂不允许重新提交")
+				if !cfg.ResubmitEnabled {
+					return apperrors.ErrForbidden.WithMessage("实名核验失败后暂不允许重新提交")
 				}
-				if int(attempt) > config.MaxSubmitAttempts {
+				if int(attempt) > cfg.MaxSubmitAttempts {
 					return apperrors.ErrForbidden.WithMessage("实名提交次数已达上限")
 				}
 			}
 		}
-		if err := s.ensureRequiredFiles(ctx, tx, userID, config, req); err != nil {
+
+		digest := hmacIDNumber(idType, idNumber, cfg.IdentityDigestSecret)
+		legacyDigest = legacyIDNumberDigest(idType, idNumber)
+		if err := s.ensureNoDuplicateApproved(ctx, tx, userID, digest, legacyDigest); err != nil {
 			return err
 		}
-		var duplicate int64
-		if err := tx.Model(&models.UserRealNameApplication{}).
-			Where("id_number_digest = ? AND status = ? AND user_id <> ?", digest, statusApproved, userID).
-			Count(&duplicate).Error; err != nil {
-			return err
-		}
-		if duplicate > 0 {
-			return apperrors.ErrConflict.WithMessage("该证件号码已完成实名")
-		}
+
 		applicationNo, err := applicationNo()
 		if err != nil {
 			return err
 		}
+		providerName := provider.Provider
+		providerStatus := providerStatusCreating
+		responseDigest := responseDigest(providerName, applicationNo, digest)
 		created = models.UserRealNameApplication{
-			ApplicationNo:     applicationNo,
-			UserID:            userID,
-			RealName:          realName,
-			IDType:            req.IDType,
-			IDNumberDigest:    digest,
-			IDNumberMasked:    maskIDNumber(idNumber),
-			IDCardFrontFileID: req.IDCardFrontFileID,
-			IDCardBackFileID:  req.IDCardBackFileID,
-			HoldCardFileID:    req.HoldCardFileID,
-			Status:            statusPending,
-			SubmitAttempt:     attempt,
+			ApplicationNo:          applicationNo,
+			UserID:                 userID,
+			RealName:               realName,
+			IDType:                 idType,
+			IDNumberDigest:         digest,
+			IDNumberDigestVersion:  digestVersionHMACSHA256,
+			IDNumberMasked:         maskIDNumber(idNumber),
+			VerificationProvider:   &providerName,
+			ProviderStatus:         &providerStatus,
+			ProviderResponseDigest: &responseDigest,
+			Status:                 statusPending,
+			SubmitAttempt:          attempt,
 		}
-		if err := tx.Create(&created).Error; err != nil {
-			return err
-		}
-		return s.createFileReferences(ctx, tx, created)
+		return tx.Create(&created).Error
 	}); err != nil {
-		return webdto.RealNameApplicationSummary{}, err
+		return webdto.RealNameSubmitResponse{}, err
 	}
-	summary := applicationSummary(created)
-	return summary, nil
+
+	s.cacheLegacyDigest(ctx, created.ApplicationNo, legacyDigest)
+	session, err := s.providerClient.CreateSession(ctx, provider.IntegrationConfig(cfg.CallbackBaseURL), realnameintegration.CreateSessionInput{
+		ApplicationNo: created.ApplicationNo,
+		RealName:      realName,
+		IDType:        idType,
+		IDNumber:      idNumber,
+	})
+	if err != nil {
+		if updateErr := s.markProviderCreationFailed(ctx, created.ID, err); updateErr != nil {
+			return webdto.RealNameSubmitResponse{}, updateErr
+		}
+		return webdto.RealNameSubmitResponse{}, apperrors.ErrRealNameProviderUnavailable.WithMessage("实名供应商暂不可用，请稍后重试")
+	}
+	if err := s.bindProviderSession(ctx, created.ID, session); err != nil {
+		return webdto.RealNameSubmitResponse{}, err
+	}
+	if updated, ok, err := s.applicationByID(ctx, created.ID); err == nil && ok {
+		created = updated
+	}
+	return webdto.RealNameSubmitResponse{
+		Application: applicationSummary(created),
+		ProviderAction: webdto.RealNameProviderAction{
+			Provider:    session.Provider,
+			ActionType:  session.ActionType,
+			RedirectURL: session.RedirectURL,
+			ExpiresAt:   session.ExpiresAt,
+		},
+	}, nil
+}
+
+func (s *RealNameService) Sync(ctx context.Context, userID uint64, req webdto.RealNameSyncRequest) (webdto.RealNameStatusResponse, error) {
+	app, err := s.userApplicationForSync(ctx, userID, req.ApplicationNo)
+	if err != nil {
+		return webdto.RealNameStatusResponse{}, err
+	}
+	app, err = s.syncApplicationByID(ctx, app.ID, nil, true)
+	if err != nil {
+		return webdto.RealNameStatusResponse{}, err
+	}
+	config, _, err := s.config(ctx, s.db)
+	if err != nil {
+		return webdto.RealNameStatusResponse{}, err
+	}
+	summary := applicationSummary(app)
+	return webdto.RealNameStatusResponse{Status: app.Status, Application: &summary, Config: config.Public()}, nil
+}
+
+func (s *RealNameService) ProviderCallback(ctx context.Context, provider string, request realnameintegration.CallbackRequest) error {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider != providerAlipay && provider != providerWechat {
+		return apperrors.ErrValidation.WithMessage("实名供应商不支持")
+	}
+	if provider == providerWechat {
+		return apperrors.ErrValidation.WithMessage("微信实名回调暂未开放，请使用服务端同步查询")
+	}
+	config, secretRows, err := s.config(ctx, s.db)
+	if err != nil {
+		return err
+	}
+	providerConfig := config.Provider(provider)
+	if !providerConfig.Complete(secretRows, config.CallbackBaseURL) {
+		return apperrors.ErrRealNameProviderUnavailable.WithMessage("实名供应商配置不完整")
+	}
+	callback, err := s.providerClient.ParseCallback(ctx, providerConfig.IntegrationConfig(config.CallbackBaseURL), request)
+	if err != nil {
+		if realnameintegration.IsInvalidCallback(err) {
+			return apperrors.ErrValidation.WithMessage(err.Error())
+		}
+		return apperrors.ErrRealNameProviderUnavailable.WithMessage("实名供应商回调暂不可用")
+	}
+	if callback.Timestamp != nil {
+		age := time.Since(*callback.Timestamp)
+		if age > callbackAcceptWindow || age < -callbackAcceptWindow {
+			return apperrors.ErrValidation.WithMessage("实名供应商回调已过期")
+		}
+	}
+	replayAllowed, err := s.allowCallbackReplay(ctx, provider, callback.ReplayKey, callback.PayloadDigest)
+	if err != nil {
+		return err
+	}
+	if !replayAllowed {
+		return nil
+	}
+	replayCommitted := false
+	defer func() {
+		if !replayCommitted {
+			s.forgetCallbackReplay(ctx, provider, callback.ReplayKey)
+		}
+	}()
+	app, err := s.applicationByProviderSession(ctx, provider, callback.ProviderApplicationID)
+	if err != nil {
+		return err
+	}
+	_, err = s.syncApplicationByID(ctx, app.ID, nil, false)
+	if realnameintegration.IsUnavailable(err) {
+		return apperrors.ErrRealNameProviderUnavailable.WithMessage("实名供应商结果暂不可确认")
+	}
+	if err != nil {
+		return err
+	}
+	replayCommitted = true
+	return nil
 }
 
 func (s *RealNameService) RequireApprovedForOrder(ctx context.Context, userID uint64) error {
-	config, err := s.config(ctx, s.db)
+	config, _, err := s.config(ctx, s.db)
 	if err != nil {
 		return err
 	}
@@ -262,60 +303,265 @@ func (s *RealNameService) RequireApprovedForOrder(ctx context.Context, userID ui
 	return nil
 }
 
-func (s *RealNameService) ensureRequiredFiles(ctx context.Context, tx *gorm.DB, userID uint64, config webdto.RealNameConfig, req webdto.RealNameSubmitRequest) error {
-	if config.IDCardFrontRequired && req.IDCardFrontFileID == nil {
-		return apperrors.ErrValidation.WithMessage("请上传身份证人像面")
+func (s *RealNameService) SyncApplicationByID(ctx context.Context, id uint64, hook SyncApplicationHook) (models.UserRealNameApplication, error) {
+	return s.syncApplicationByID(ctx, id, hook, false)
+}
+
+func (s *RealNameService) syncApplicationByID(ctx context.Context, id uint64, hook SyncApplicationHook, allowUnavailable bool) (models.UserRealNameApplication, error) {
+	app, ok, err := s.applicationByID(ctx, id)
+	if err != nil {
+		return models.UserRealNameApplication{}, err
 	}
-	if config.IDCardBackRequired && req.IDCardBackFileID == nil {
-		return apperrors.ErrValidation.WithMessage("请上传身份证国徽面")
+	if !ok {
+		return models.UserRealNameApplication{}, apperrors.ErrNotFound.WithMessage("实名申请不存在")
 	}
-	if config.HoldCardRequired && req.HoldCardFileID == nil {
-		return apperrors.ErrValidation.WithMessage("请上传手持证件照片")
+	if app.VerificationProvider == nil || app.ProviderApplicationID == nil {
+		return models.UserRealNameApplication{}, apperrors.ErrConflict.WithMessage("实名申请缺少供应商会话")
 	}
-	ids := []uint64{}
-	for _, id := range []*uint64{req.IDCardFrontFileID, req.IDCardBackFileID, req.HoldCardFileID} {
-		if id != nil && *id > 0 {
-			ids = append(ids, *id)
+	result, err := s.queryApplicationResult(ctx, app)
+	if err != nil {
+		if allowUnavailable && realnameintegration.IsUnavailable(err) {
+			return app, nil
 		}
+		return models.UserRealNameApplication{}, err
 	}
-	if len(ids) == 0 {
+	var updated models.UserRealNameApplication
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current models.UserRealNameApplication
+		lockErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&current).Error
+		if errors.Is(lockErr, gorm.ErrRecordNotFound) {
+			return apperrors.ErrNotFound.WithMessage("实名申请不存在")
+		}
+		if lockErr != nil {
+			return lockErr
+		}
+		before := current
+		if err := s.applyProviderResult(ctx, tx, &current, result); err != nil {
+			return err
+		}
+		updated = current
+		if hook != nil {
+			return hook(tx, before, updated)
+		}
+		return nil
+	})
+	if err != nil {
+		return models.UserRealNameApplication{}, err
+	}
+	return updated, nil
+}
+
+func (s *RealNameService) queryApplicationResult(ctx context.Context, app models.UserRealNameApplication) (providerResult, error) {
+	if app.VerificationProvider == nil || app.ProviderApplicationID == nil {
+		return providerResult{}, apperrors.ErrConflict.WithMessage("实名申请缺少供应商会话")
+	}
+	config, secretRows, err := s.config(ctx, s.db)
+	if err != nil {
+		return providerResult{}, err
+	}
+	providerConfig := config.Provider(*app.VerificationProvider)
+	if !providerConfig.Complete(secretRows, config.CallbackBaseURL) {
+		return providerResult{}, apperrors.ErrRealNameProviderUnavailable.WithMessage("实名供应商配置不完整")
+	}
+	result, err := s.providerClient.QueryResult(ctx, providerConfig.IntegrationConfig(config.CallbackBaseURL), *app.ProviderApplicationID)
+	if err != nil {
+		return providerResult{}, err
+	}
+	return providerResult{
+		ProviderStatus: result.ProviderStatus,
+		FinalStatus:    result.FinalStatus,
+		ResultCode:     result.ResultCode,
+		ResultMessage:  result.ResultMessage,
+		ResponseDigest: result.ResponseDigest,
+		TraceID:        result.TraceID,
+	}, nil
+}
+
+func (s *RealNameService) applyProviderResult(ctx context.Context, tx *gorm.DB, app *models.UserRealNameApplication, result providerResult) error {
+	if app.Status != statusPending {
 		return nil
 	}
-	if len(uniqueUint64s(ids)) != len(ids) {
-		return apperrors.ErrValidation.WithMessage("实名图片不能重复使用同一附件")
+	now := time.Now()
+	updates := map[string]any{
+		"provider_status":          result.ProviderStatus,
+		"provider_result_code":     textutil.NormalizeOptionalString(&result.ResultCode),
+		"provider_result_message":  textutil.NormalizeOptionalString(&result.ResultMessage),
+		"provider_response_digest": textutil.NormalizeOptionalString(&result.ResponseDigest),
+		"provider_trace_id":        textutil.NormalizeOptionalString(&result.TraceID),
 	}
-	var attachments []models.FileAttachment
-	if err := tx.WithContext(ctx).Model(&models.FileAttachment{}).
-		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("id IN ? AND uploader_user_id = ? AND status = ?", ids, userID, "active").
-		Find(&attachments).Error; err != nil {
+	switch result.FinalStatus {
+	case statusApproved:
+		legacyDigest := s.loadLegacyDigest(ctx, app.ApplicationNo)
+		if err := s.ensureNoDuplicateApproved(ctx, tx, app.UserID, app.IDNumberDigest, legacyDigest); err != nil {
+			updates["status"] = statusRejected
+			updates["reject_reason"] = "证件号码已被其它用户实名"
+			updates["provider_status"] = providerStatusRejected
+			updates["provider_finished_at"] = now
+			if err := tx.Model(app).Updates(updates).Error; err != nil {
+				return err
+			}
+			app.Status = statusRejected
+			reason := "证件号码已被其它用户实名"
+			app.RejectReason = &reason
+			app.ProviderFinishedAt = &now
+			return nil
+		}
+		updates["status"] = statusApproved
+		updates["reject_reason"] = nil
+		updates["provider_finished_at"] = now
+		updates["provider_status"] = providerStatusApproved
+	case statusRejected:
+		updates["status"] = statusRejected
+		updates["reject_reason"] = result.UserMessage()
+		updates["provider_finished_at"] = now
+		updates["provider_status"] = providerStatusRejected
+	default:
+		updates["status"] = statusPending
+		updates["provider_status"] = providerStatusPending
+	}
+	if err := tx.Model(app).Updates(updates).Error; err != nil {
+		if result.FinalStatus == statusApproved && isDuplicateApprovedDigest(err) {
+			updates["status"] = statusRejected
+			updates["reject_reason"] = "证件号码已被其它用户实名"
+			updates["provider_finished_at"] = now
+			updates["provider_status"] = providerStatusRejected
+			if rejectErr := tx.Model(app).Updates(updates).Error; rejectErr != nil {
+				return rejectErr
+			}
+			return tx.Where("id = ?", app.ID).First(app).Error
+		}
 		return err
 	}
-	if len(attachments) != len(ids) {
-		return apperrors.ErrValidation.WithMessage("实名图片不存在或不属于当前用户")
-	}
-	maxSize := uint64(config.ImageMaxSizeMB) * 1024 * 1024
-	for _, attachment := range attachments {
-		if !allowedString(config.AllowedImageTypes, attachment.MimeType) || !allowedString(s.storage.AllowedTypes, attachment.MimeType) || attachment.Size > maxSize {
-			return apperrors.ErrValidation.WithMessage("实名图片不符合当前配置要求")
-		}
+	if err := tx.Where("id = ?", app.ID).First(app).Error; err != nil {
+		return err
 	}
 	return nil
 }
 
-func (s *RealNameService) createFileReferences(ctx context.Context, tx *gorm.DB, app models.UserRealNameApplication) error {
-	refName := textutil.StringPtr("实名申请 " + app.ApplicationNo)
-	refID := fmt.Sprintf("%d", app.ID)
-	refs := []models.FileAttachmentReference{}
-	for _, id := range []*uint64{app.IDCardFrontFileID, app.IDCardBackFileID, app.HoldCardFileID} {
-		if id != nil && *id > 0 {
-			refs = append(refs, models.FileAttachmentReference{FileID: *id, RefType: refTypeRealName, RefID: refID, RefName: refName})
+func (s *RealNameService) markProviderCreationFailed(ctx context.Context, id uint64, providerErr error) error {
+	now := time.Now()
+	providerStatus := providerStatusRejected
+	resultCode := "CREATE_FAILED"
+	resultMessage := "实名供应商暂不可用，请稍后重试"
+	_ = providerErr
+	return s.db.WithContext(ctx).Model(&models.UserRealNameApplication{}).Where("id = ?", id).Updates(map[string]any{
+		"status":                  statusRejected,
+		"reject_reason":           resultMessage,
+		"provider_status":         &providerStatus,
+		"provider_result_code":    &resultCode,
+		"provider_result_message": &resultMessage,
+		"provider_finished_at":    &now,
+		"provider_trace_id":       nil,
+	}).Error
+}
+
+func (s *RealNameService) bindProviderSession(ctx context.Context, id uint64, session realnameintegration.Session) error {
+	now := time.Now()
+	providerStatus := providerStatusCreated
+	responseDigest := strings.TrimSpace(session.ResponseDigest)
+	traceID := strings.TrimSpace(session.TraceID)
+	return s.db.WithContext(ctx).Model(&models.UserRealNameApplication{}).Where("id = ?", id).Updates(map[string]any{
+		"provider_application_id":  session.ProviderApplicationID,
+		"provider_status":          &providerStatus,
+		"provider_started_at":      &now,
+		"provider_response_digest": textutil.NormalizeOptionalString(&responseDigest),
+		"provider_trace_id":        textutil.NormalizeOptionalString(&traceID),
+	}).Error
+}
+
+func (s *RealNameService) userApplicationForSync(ctx context.Context, userID uint64, applicationNo string) (models.UserRealNameApplication, error) {
+	query := s.db.WithContext(ctx).Where("user_id = ?", userID)
+	trimmedNo := strings.TrimSpace(applicationNo)
+	if trimmedNo != "" {
+		query = query.Where("application_no = ?", trimmedNo)
+	} else {
+		query = query.Where("status = ?", statusPending).Order("id DESC")
+	}
+	var app models.UserRealNameApplication
+	if err := query.First(&app).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return models.UserRealNameApplication{}, apperrors.ErrNotFound.WithMessage("实名申请不存在")
 		}
+		return models.UserRealNameApplication{}, err
 	}
-	if len(refs) == 0 {
-		return nil
+	if app.Status != statusPending {
+		return models.UserRealNameApplication{}, apperrors.ErrConflict.WithMessage("当前实名申请无需同步")
 	}
-	return tx.WithContext(ctx).Create(&refs).Error
+	return app, nil
+}
+
+func (s *RealNameService) applicationByProviderSession(ctx context.Context, provider string, providerApplicationID string) (models.UserRealNameApplication, error) {
+	var app models.UserRealNameApplication
+	err := s.db.WithContext(ctx).
+		Where("verification_provider = ? AND provider_application_id = ?", provider, providerApplicationID).
+		First(&app).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return models.UserRealNameApplication{}, apperrors.ErrNotFound.WithMessage("实名申请不存在")
+	}
+	return app, err
+}
+
+func (s *RealNameService) applicationByID(ctx context.Context, id uint64) (models.UserRealNameApplication, bool, error) {
+	var app models.UserRealNameApplication
+	err := s.db.WithContext(ctx).Where("id = ?", id).First(&app).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return models.UserRealNameApplication{}, false, nil
+	}
+	return app, err == nil, err
+}
+
+func (s *RealNameService) cacheLegacyDigest(ctx context.Context, applicationNo string, legacyDigest string) {
+	if s.redis == nil || strings.TrimSpace(applicationNo) == "" || strings.TrimSpace(legacyDigest) == "" {
+		return
+	}
+	_ = s.redis.Client().Set(ctx, s.redis.Key("web", "real_name", "legacy_digest", applicationNo), legacyDigest, legacyDigestCacheTTL).Err()
+}
+
+func (s *RealNameService) loadLegacyDigest(ctx context.Context, applicationNo string) string {
+	if s.redis == nil || strings.TrimSpace(applicationNo) == "" {
+		return ""
+	}
+	value, err := s.redis.Client().Get(ctx, s.redis.Key("web", "real_name", "legacy_digest", applicationNo)).Result()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func (s *RealNameService) allowCallbackReplay(ctx context.Context, provider string, replayKey string, payloadDigest string) (bool, error) {
+	if s.redis == nil || strings.TrimSpace(replayKey) == "" {
+		return true, nil
+	}
+	key := s.redis.Key("web", "real_name", "callback", provider, replayKey)
+	ok, err := s.redis.Client().SetNX(ctx, key, payloadDigest, callbackReplayTTL).Result()
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
+func (s *RealNameService) forgetCallbackReplay(ctx context.Context, provider string, replayKey string) {
+	if s.redis == nil || strings.TrimSpace(replayKey) == "" {
+		return
+	}
+	_ = s.redis.Client().Del(ctx, s.redis.Key("web", "real_name", "callback", provider, replayKey)).Err()
+}
+
+func (s *RealNameService) ensureNoDuplicateApproved(ctx context.Context, tx *gorm.DB, userID uint64, digest string, legacyDigest string) error {
+	digests := []string{digest}
+	if legacyDigest != "" && legacyDigest != digest {
+		digests = append(digests, legacyDigest)
+	}
+	var duplicate int64
+	if err := tx.WithContext(ctx).Model(&models.UserRealNameApplication{}).
+		Where("id_number_digest IN ? AND status = ? AND user_id <> ?", digests, statusApproved, userID).
+		Count(&duplicate).Error; err != nil {
+		return err
+	}
+	if duplicate > 0 {
+		return apperrors.ErrConflict.WithMessage("该证件号码已完成实名")
+	}
+	return nil
 }
 
 func (s *RealNameService) latest(ctx context.Context, db *gorm.DB, userID uint64) (models.UserRealNameApplication, bool, error) {
@@ -336,62 +582,60 @@ func (s *RealNameService) latestForUpdate(ctx context.Context, db *gorm.DB, user
 	return app, err == nil, err
 }
 
-func (s *RealNameService) config(ctx context.Context, db *gorm.DB) (webdto.RealNameConfig, error) {
-	config := webdto.RealNameConfig{RequiredForOrder: true, ResubmitEnabled: true, MaxSubmitAttempts: 3, IDCardFrontRequired: true, IDCardBackRequired: true, ImageMaxSizeMB: 5, AllowedImageTypes: []string{"image/jpeg", "image/png", "image/webp"}}
+func (s *RealNameService) config(ctx context.Context, db *gorm.DB) (realNameConfig, map[string]bool, error) {
+	config := defaultRealNameConfig()
 	var rows []models.SystemConfig
-	if err := db.WithContext(ctx).Where("config_key LIKE ? AND is_secret = 0", "real_name.%").Find(&rows).Error; err != nil {
-		return config, err
+	if err := db.WithContext(ctx).Where("config_key LIKE ?", "real_name.%").Find(&rows).Error; err != nil {
+		return config, nil, err
 	}
+	secretRows := make(map[string]bool)
+	values := make(map[string]string)
 	for _, row := range rows {
 		value := ""
 		if row.ConfigValue != nil {
 			value = strings.TrimSpace(*row.ConfigValue)
 		}
-		switch row.ConfigKey {
-		case "real_name.enabled":
-			config.Enabled = strings.EqualFold(value, "true")
-		case "real_name.required_for_order":
-			config.RequiredForOrder = strings.EqualFold(value, "true")
-		case "real_name.resubmit_enabled":
-			config.ResubmitEnabled = strings.EqualFold(value, "true")
-		case "real_name.max_submit_attempts":
-			config.MaxSubmitAttempts = positiveInt(value, config.MaxSubmitAttempts)
-		case "real_name.id_card_front_required":
-			config.IDCardFrontRequired = strings.EqualFold(value, "true")
-		case "real_name.id_card_back_required":
-			config.IDCardBackRequired = strings.EqualFold(value, "true")
-		case "real_name.hold_card_required":
-			config.HoldCardRequired = strings.EqualFold(value, "true")
-		case "real_name.image_max_size_mb":
-			config.ImageMaxSizeMB = positiveInt(value, config.ImageMaxSizeMB)
-		case "real_name.allowed_image_types":
-			config.AllowedImageTypes = csv(value, config.AllowedImageTypes)
-		case "real_name.review_notice":
-			config.ReviewNotice = value
+		values[row.ConfigKey] = value
+		if row.IsSecret && value != "" {
+			secretRows[row.ConfigKey] = true
 		}
 	}
-	return s.effectiveConfig(config), nil
-}
-
-func (s *RealNameService) effectiveConfig(config webdto.RealNameConfig) webdto.RealNameConfig {
-	if s.storage.MaxSize > 0 {
-		storageMaxMB := int(s.storage.MaxSize / (1024 * 1024))
-		if storageMaxMB <= 0 {
-			storageMaxMB = 1
-		}
-		if config.ImageMaxSizeMB <= 0 || config.ImageMaxSizeMB > storageMaxMB {
-			config.ImageMaxSizeMB = storageMaxMB
+	config.Apply(values)
+	config.AllowedProviders = filterSupportedProviders(config.AllowedProviders)
+	config.AvailableProviders = config.availableProviders(secretRows)
+	if !containsString(config.AvailableProviders, config.DefaultProvider) {
+		if len(config.AvailableProviders) > 0 {
+			config.DefaultProvider = config.AvailableProviders[0]
+		} else {
+			config.DefaultProvider = ""
 		}
 	}
-	config.AllowedImageTypes = intersectStrings(config.AllowedImageTypes, s.storage.AllowedTypes)
-	return config
+	return config, secretRows, nil
 }
 
 func applicationSummary(app models.UserRealNameApplication) webdto.RealNameApplicationSummary {
-	return webdto.RealNameApplicationSummary{ApplicationNo: app.ApplicationNo, RealName: app.RealName, IDType: app.IDType, IDNumberMasked: app.IDNumberMasked, Status: app.Status, RejectReason: app.RejectReason, SubmitAttempt: app.SubmitAttempt, CreatedAt: app.CreatedAt, ReviewedAt: app.ReviewedAt}
+	return webdto.RealNameApplicationSummary{
+		ApplicationNo:        app.ApplicationNo,
+		RealName:             app.RealName,
+		IDType:               app.IDType,
+		IDNumberMasked:       app.IDNumberMasked,
+		VerificationProvider: app.VerificationProvider,
+		ProviderStatus:       app.ProviderStatus,
+		Status:               app.Status,
+		FailureReason:        app.RejectReason,
+		SubmitAttempt:        app.SubmitAttempt,
+		CreatedAt:            app.CreatedAt,
+		VerifiedAt:           app.ProviderFinishedAt,
+	}
 }
 
-func digestIDNumber(idType, idNumber string) string {
+func hmacIDNumber(idType, idNumber, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(strings.ToLower(strings.TrimSpace(idType)) + ":" + strings.ToUpper(strings.TrimSpace(idNumber))))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func legacyIDNumberDigest(idType, idNumber string) string {
 	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(idType)) + ":" + strings.ToUpper(strings.TrimSpace(idNumber))))
 	return hex.EncodeToString(sum[:])
 }
@@ -419,31 +663,231 @@ func randomHex(bytes int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func sanitizeOriginalName(name string) string {
-	name = strings.ReplaceAll(filepath.Base(name), "\x00", "")
-	return strings.TrimSpace(name)
+func isDuplicateApprovedDigest(err error) bool {
+	var mysqlErr *mysql.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
 
-func allowedString(items []string, target string) bool {
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item), strings.TrimSpace(target)) {
-			return true
+type realNameConfig struct {
+	Enabled              bool
+	RequiredForOrder     bool
+	AllowedProviders     []string
+	AvailableProviders   []string
+	DefaultProvider      string
+	IdentityDigestSecret string
+	CallbackBaseURL      string
+	ResubmitEnabled      bool
+	MaxSubmitAttempts    int
+	ReviewNotice         string
+	Alipay               providerConfig
+	Wechat               providerConfig
+}
+
+func defaultRealNameConfig() realNameConfig {
+	return realNameConfig{
+		RequiredForOrder:  true,
+		AllowedProviders:  []string{providerAlipay, providerWechat},
+		DefaultProvider:   providerAlipay,
+		ResubmitEnabled:   true,
+		MaxSubmitAttempts: 3,
+		Alipay:            providerConfig{Provider: providerAlipay, GatewayURL: "https://openapi.alipay.com/gateway.do"},
+		Wechat:            providerConfig{Provider: providerWechat, Region: "ap-guangzhou", Endpoint: "faceid.tencentcloudapi.com"},
+	}
+}
+
+func (c *realNameConfig) Apply(values map[string]string) {
+	c.Enabled = parseBool(values["real_name.enabled"])
+	if value, ok := values["real_name.required_for_order"]; ok {
+		c.RequiredForOrder = parseBool(value)
+	}
+	c.AllowedProviders = csv(values["real_name.allowed_providers"], c.AllowedProviders)
+	if value := strings.TrimSpace(values["real_name.default_provider"]); value != "" {
+		c.DefaultProvider = value
+	}
+	c.IdentityDigestSecret = values["real_name.identity_digest_secret"]
+	c.CallbackBaseURL = values["real_name.callback_base_url"]
+	if value, ok := values["real_name.resubmit_enabled"]; ok {
+		c.ResubmitEnabled = parseBool(value)
+	}
+	if value := strings.TrimSpace(values["real_name.max_submit_attempts"]); value != "" {
+		c.MaxSubmitAttempts = positiveInt(value, c.MaxSubmitAttempts)
+	}
+	c.ReviewNotice = values["real_name.review_notice"]
+	c.Alipay.Apply(values)
+	c.Wechat.Apply(values)
+}
+
+func (c realNameConfig) Public() webdto.RealNameConfig {
+	return webdto.RealNameConfig{
+		Enabled:           c.Enabled,
+		RequiredForOrder:  c.RequiredForOrder,
+		AllowedProviders:  append([]string(nil), c.AvailableProviders...),
+		DefaultProvider:   c.DefaultProvider,
+		ResubmitEnabled:   c.ResubmitEnabled,
+		MaxSubmitAttempts: c.MaxSubmitAttempts,
+		ReviewNotice:      c.ReviewNotice,
+	}
+}
+
+func (c realNameConfig) ResolveProvider(requested string) (string, error) {
+	provider := strings.ToLower(strings.TrimSpace(requested))
+	if provider == "" {
+		provider = c.DefaultProvider
+	}
+	if provider == "" || !containsString(c.AvailableProviders, provider) {
+		return "", apperrors.ErrValidation.WithMessage("实名供应商不可用")
+	}
+	return provider, nil
+}
+
+func (c realNameConfig) Provider(provider string) providerConfig {
+	switch provider {
+	case providerAlipay:
+		return c.Alipay
+	case providerWechat:
+		return c.Wechat
+	default:
+		return providerConfig{Provider: provider}
+	}
+}
+
+func (c realNameConfig) availableProviders(secretRows map[string]bool) []string {
+	result := make([]string, 0, len(c.AllowedProviders))
+	for _, provider := range c.AllowedProviders {
+		cfg := c.Provider(provider)
+		if cfg.Enabled && cfg.Complete(secretRows, c.CallbackBaseURL) {
+			result = append(result, provider)
 		}
 	}
-	return false
+	sort.Strings(result)
+	return result
 }
 
-func extensionMatchesMime(ext, mimeType string) bool {
-	switch mimeType {
-	case "image/jpeg":
-		return ext == "jpg" || ext == "jpeg"
-	case "image/png":
-		return ext == "png"
-	case "image/webp":
-		return ext == "webp"
+type providerConfig struct {
+	Provider        string
+	Enabled         bool
+	AppID           string
+	GatewayURL      string
+	AppPrivateKey   string
+	AlipayPublicKey string
+	ReturnURL       string
+	NotifyURL       string
+	SecretID        string
+	SecretKey       string
+	Region          string
+	Endpoint        string
+	RuleID          string
+	RedirectURL     string
+}
+
+func (p *providerConfig) Apply(values map[string]string) {
+	prefix := "real_name." + p.Provider + "."
+	p.Enabled = parseBool(values[prefix+"enabled"])
+	switch p.Provider {
+	case providerAlipay:
+		p.AppID = values[prefix+"app_id"]
+		if value := strings.TrimSpace(values[prefix+"gateway_url"]); value != "" {
+			p.GatewayURL = value
+		}
+		p.AppPrivateKey = values[prefix+"app_private_key"]
+		p.AlipayPublicKey = values[prefix+"alipay_public_key"]
+		p.ReturnURL = values[prefix+"return_url"]
+		p.NotifyURL = values[prefix+"notify_url"]
+	case providerWechat:
+		p.SecretID = values[prefix+"secret_id"]
+		p.SecretKey = values[prefix+"secret_key"]
+		if value := strings.TrimSpace(values[prefix+"region"]); value != "" {
+			p.Region = value
+		}
+		if value := strings.TrimSpace(values[prefix+"endpoint"]); value != "" {
+			p.Endpoint = value
+		}
+		p.RuleID = values[prefix+"rule_id"]
+		p.RedirectURL = values[prefix+"redirect_url"]
+	}
+}
+
+func (p providerConfig) IntegrationConfig(callbackBaseURL string) realnameintegration.ProviderConfig {
+	notifyURL := strings.TrimSpace(p.NotifyURL)
+	if notifyURL == "" {
+		notifyURL = defaultProviderCallbackURL(callbackBaseURL, p.Provider)
+	}
+	return realnameintegration.ProviderConfig{
+		Provider:        p.Provider,
+		AppID:           p.AppID,
+		GatewayURL:      p.GatewayURL,
+		AppPrivateKey:   p.AppPrivateKey,
+		AlipayPublicKey: p.AlipayPublicKey,
+		ReturnURL:       p.ReturnURL,
+		NotifyURL:       notifyURL,
+		CallbackBaseURL: callbackBaseURL,
+		SecretID:        p.SecretID,
+		SecretKey:       p.SecretKey,
+		Region:          p.Region,
+		Endpoint:        p.Endpoint,
+		RuleID:          p.RuleID,
+		RedirectURL:     p.RedirectURL,
+	}
+}
+
+func (p providerConfig) Complete(secretRows map[string]bool, callbackBaseURL string) bool {
+	if !p.Enabled {
+		return false
+	}
+	switch p.Provider {
+	case providerAlipay:
+		return strings.TrimSpace(p.AppID) != "" &&
+			strings.TrimSpace(p.GatewayURL) != "" &&
+			strings.TrimSpace(p.ReturnURL) != "" &&
+			(strings.TrimSpace(p.NotifyURL) != "" || strings.TrimSpace(callbackBaseURL) != "") &&
+			secretRows["real_name.alipay.app_private_key"] &&
+			secretRows["real_name.alipay.alipay_public_key"]
+	case providerWechat:
+		return strings.TrimSpace(p.Region) != "" &&
+			strings.TrimSpace(p.Endpoint) != "" &&
+			strings.TrimSpace(p.RuleID) != "" &&
+			strings.TrimSpace(p.RedirectURL) != "" &&
+			secretRows["real_name.wechat.secret_id"] &&
+			secretRows["real_name.wechat.secret_key"]
 	default:
 		return false
 	}
+}
+
+type providerResult struct {
+	ProviderStatus string
+	FinalStatus    string
+	ResultCode     string
+	ResultMessage  string
+	ResponseDigest string
+	TraceID        string
+}
+
+func (r providerResult) UserMessage() string {
+	if strings.TrimSpace(r.ResultMessage) != "" {
+		return strings.TrimSpace(r.ResultMessage)
+	}
+	if strings.TrimSpace(r.ResultCode) != "" {
+		return "实名供应商核验失败：" + strings.TrimSpace(r.ResultCode)
+	}
+	return "实名供应商核验失败"
+}
+
+func responseDigest(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
+	return hex.EncodeToString(sum[:])
+}
+
+func defaultProviderCallbackURL(base string, provider string) string {
+	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	if base == "" {
+		return ""
+	}
+	return base + "/" + strings.Trim(strings.ToLower(provider), "/")
+}
+
+func parseBool(value string) bool {
+	return strings.EqualFold(strings.TrimSpace(value), "true")
 }
 
 func positiveInt(value string, fallback int) int {
@@ -461,7 +905,7 @@ func csv(value string, fallback []string) []string {
 	parts := strings.Split(value, ",")
 	result := make([]string, 0, len(parts))
 	for _, part := range parts {
-		item := strings.TrimSpace(part)
+		item := strings.ToLower(strings.TrimSpace(part))
 		if item != "" {
 			result = append(result, item)
 		}
@@ -472,42 +916,21 @@ func csv(value string, fallback []string) []string {
 	return result
 }
 
-func uniqueUint64s(values []uint64) []uint64 {
-	seen := make(map[uint64]struct{}, len(values))
-	result := make([]uint64, 0, len(values))
-	for _, value := range values {
-		if _, ok := seen[value]; ok {
-			continue
+func filterSupportedProviders(providers []string) []string {
+	result := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		if (provider == providerAlipay || provider == providerWechat) && !containsString(result, provider) {
+			result = append(result, provider)
 		}
-		seen[value] = struct{}{}
-		result = append(result, value)
 	}
 	return result
 }
 
-func intersectStrings(left []string, right []string) []string {
-	rightSet := make(map[string]struct{}, len(right))
-	for _, item := range right {
-		trimmed := strings.ToLower(strings.TrimSpace(item))
-		if trimmed != "" {
-			rightSet[trimmed] = struct{}{}
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(target)) {
+			return true
 		}
 	}
-	result := make([]string, 0, len(left))
-	seen := map[string]struct{}{}
-	for _, item := range left {
-		trimmed := strings.ToLower(strings.TrimSpace(item))
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := rightSet[trimmed]; !ok {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		result = append(result, trimmed)
-	}
-	return result
+	return false
 }

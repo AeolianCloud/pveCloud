@@ -66,6 +66,10 @@ var (
 	ErrTooManyRequests = New(42901, "请求过于频繁，请稍后再试", http.StatusTooManyRequests)
 	/** ErrInternal 表示服务端内部错误。 */
 	ErrInternal = New(50001, "系统内部错误", http.StatusInternalServerError)
+	/** ErrRealNameProviderFailed 表示外部实名供应商返回业务失败。 */
+	ErrRealNameProviderFailed = New(60001, "实名供应商核验失败", http.StatusBadGateway)
+	/** ErrRealNameProviderUnavailable 表示外部实名供应商不可用或结果无法确认。 */
+	ErrRealNameProviderUnavailable = New(70001, "实名供应商暂不可用", http.StatusBadGateway)
 )
 
 /**
