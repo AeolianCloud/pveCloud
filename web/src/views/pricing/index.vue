@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { getServerCatalog, type ServerCatalogPlan } from '../../api/product-catalog'
+import { getRealNameStatus, type RealNameStatusResponse } from '../../api/real-name'
+import { useWebAppStore } from '../../store/modules/app'
 import { useWebAuthStore } from '../../store/modules/auth'
 
 const loading = ref(false)
 const plans = ref<ServerCatalogPlan[]>([])
+const realNameLoading = ref(false)
+const realNameStatus = ref<RealNameStatusResponse | null>(null)
+const appStore = useWebAppStore()
 const authStore = useWebAuthStore()
 const { isLoggedIn } = storeToRefs(authStore)
 
@@ -22,11 +27,23 @@ const cycleLabels: Record<string, string> = {
 onMounted(async () => {
   loading.value = true
   try {
-    const catalog = await getServerCatalog()
+    const [catalog] = await Promise.all([
+      getServerCatalog(),
+      appStore.loadSiteConfig(),
+      loadRealNameStatus(),
+    ])
     plans.value = catalog.products.flatMap(p => p.plans)
   } finally {
     loading.value = false
   }
+})
+
+watch(isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    void loadRealNameStatus()
+    return
+  }
+  realNameStatus.value = null
 })
 
 function yuan(cents: number) {
@@ -54,6 +71,46 @@ const displayPlans = computed(() => {
   // Just show 4 prominent plans for the pricing comparison
   return sorted.slice(0, 4)
 })
+
+async function loadRealNameStatus() {
+  if (!isLoggedIn.value) {
+    realNameStatus.value = null
+    return
+  }
+  realNameLoading.value = true
+  try {
+    realNameStatus.value = await getRealNameStatus()
+  } catch {
+    realNameStatus.value = null
+  } finally {
+    realNameLoading.value = false
+  }
+}
+
+function getAction(plan: ServerCatalogPlan) {
+  if (plan.status === 'sold_out') {
+    return { label: '暂时售罄', to: '', disabled: true }
+  }
+  if (!isLoggedIn.value) {
+    return { label: '登录查看购买入口', to: '/login', disabled: false }
+  }
+
+  const config = realNameStatus.value?.config || appStore.realNameConfig
+  const status = realNameStatus.value?.status
+  if (config.required_for_order && config.enabled) {
+    if (realNameLoading.value) {
+      return { label: '同步实名状态...', to: '', disabled: true }
+    }
+    if (status !== 'approved') {
+      if (status === 'pending') return { label: '查看实名审核进度', to: '/user/real-name', disabled: false }
+      if (status === 'rejected') return { label: '重新提交实名', to: '/user/real-name', disabled: false }
+      return { label: '查看实名要求', to: '/user/real-name', disabled: false }
+    }
+    return { label: '已完成实名，购买功能即将开放', to: '', disabled: true }
+  }
+
+  return { label: '购买功能即将开放', to: '', disabled: true }
+}
 </script>
 
 <template>
@@ -108,7 +165,19 @@ const displayPlans = computed(() => {
             </div>
 
             <div class="pc-action">
-              <RouterLink :to="isLoggedIn ? '/user/real-name' : '/login'" class="btn btn-block" :class="plan.is_featured ? 'btn-primary' : 'btn-outline'">{{ isLoggedIn ? '查看实名要求' : '登录查看实名要求' }}</RouterLink>
+              <RouterLink
+                v-if="getAction(plan).to"
+                :to="getAction(plan).to"
+                class="btn btn-block"
+                :class="plan.is_featured ? 'btn-primary' : 'btn-outline'"
+              >{{ getAction(plan).label }}</RouterLink>
+              <button
+                v-else
+                class="btn btn-block"
+                :class="plan.is_featured ? 'btn-primary' : 'btn-outline'"
+                type="button"
+                :disabled="getAction(plan).disabled"
+              >{{ getAction(plan).label }}</button>
             </div>
 
             <ul class="pc-specs">
