@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
-	platformhttp "github.com/AeolianCloud/pveCloud/server/internal/platform/http"
+	"github.com/AeolianCloud/pveCloud/server/internal/app/api"
+	platformhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/router"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	app, err := bootstrap.NewApp(ctx, *configPath)
+	app, err := api.NewApp(ctx, *configPath)
 	if err != nil {
 		log.Fatalf("初始化 API 应用失败：%v", err)
 	}

@@ -19,9 +19,10 @@
 - 表结构契约最终来自 `server/migrations/`，不是口头约定。
 - 配置项契约最终来自 `server/config.example.yaml`。
 - 业务规则、状态机、事务边界和幂等规则写进 `docs/server/`。
-- 管理端接口落在 `server/internal/admin/*`，用户端接口落在 `server/internal/web/*`。
+- 管理端接口由 `server/internal/delivery/http/admin/*` 聚合路由，用户端接口由 `server/internal/delivery/http/web/*` 聚合路由。
+- 管理端业务编排落在 `server/internal/usecase/admin/*`，用户端业务编排落在 `server/internal/usecase/web/*`，领域规则落在 `server/internal/domain/*`，GORM model 和可复用查询对象落在 `server/internal/repository/mysql/*`。
 - `admin-api` 和 `api` 不要混在同一组 handler 路径里。
-- 真正跨端复用的领域规则才进入 `server/internal/domain/*`。
+- 真正跨端复用的领域规则进入对应 `domain`，不要复制到 admin/web 两份实现，也不要为了复用把业务流程放回 `usecase` 根目录。
 
 ## SDK 与依赖优先
 
@@ -32,10 +33,11 @@
 ## 代码守则
 
 - 服务负责业务规则，handler 负责请求解析、权限声明和响应。
-- 目录先按边界分到 `internal/admin`、`internal/web`、`internal/job`，再在边界内按模块分目录。
-- 管理端与用户端模块不要继续落在扁平共享目录里。
-- 真正跨端复用的核心规则才进入 `internal/domain`。
-- 外部系统协议适配放在 `platform/integrations/`，业务裁决放在模块服务或领域服务。
+- 目录按技术层分为 `delivery`、`usecase`、`domain`、`repository`、`integration`、`platform`、`shared`，每层下再按领域子包分组。
+- 管理端和用户端不仅是不同 HTTP delivery，应用用例也必须拆到 `usecase/admin/*` 和 `usecase/web/*`，不要继续落在扁平共享目录里。
+- `usecase/admin/*` 和 `usecase/web/*` 不互相导入；共享规则进入对应 `domain`，共享外部协议进入 `integration`。
+- 真正跨端复用的核心规则进入对应 `domain`。
+- 外部系统协议适配放在 `integration/`，业务裁决放在 usecase 或 domain。
 - auth、session 和 RBAC 的最终裁决必须在后端完成；前端权限判断只能用于可见性和体验优化。
 - 不把长耗时外部调用放进长事务。
 - 幂等必须依赖业务唯一键、状态检查或任务键，不能只依赖前端防重复点击。

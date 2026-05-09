@@ -28,6 +28,15 @@
 - 不创建跨前端共享运行时代码包
 - 不依赖管理端权限、菜单、状态或请求封装
 
+## 前后端边界配套
+
+用户端前端的 API 消费边界，对应后端的用户端实现边界：
+
+- 前端调用边界：`/api/*`
+- 后端实现边界：`server/internal/delivery/http/web/*` 聚合路由，业务编排落在 `server/internal/usecase/web/*`，GORM model 和可复用查询对象落在 `server/internal/repository/mysql/*`
+
+不要把用户端页面契约建立在管理端 `/admin-api/*`、`server/internal/delivery/http/admin/*` 或 `server/internal/usecase/admin/*` 之上。
+
 ## 安全边界
 
 通用安全基线见 `docs/security.md`。

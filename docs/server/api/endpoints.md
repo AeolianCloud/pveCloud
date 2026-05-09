@@ -6,8 +6,8 @@
 
 接口契约按访问边界区分：
 
-- `/admin-api/*`：对应管理端后端实现边界 `server/internal/admin/*`
-- `/api/*`：对应用户端后端实现边界 `server/internal/web/*`
+- `/admin-api/*`：由 `server/internal/delivery/http/admin/*` 聚合路由，业务编排落在 `server/internal/usecase/admin/*`，GORM model 和可复用查询对象落在 `server/internal/repository/mysql/*`
+- `/api/*`：由 `server/internal/delivery/http/web/*` 聚合路由，业务编排落在 `server/internal/usecase/web/*`，GORM model 和可复用查询对象落在 `server/internal/repository/mysql/*`
 
 这里描述的是 API 契约，不直接替代具体代码结构；但当接口重新开放、迁移或新增时，路由注册、权限校验和实现目录应与上述边界保持一致。
 

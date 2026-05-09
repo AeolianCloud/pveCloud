@@ -61,7 +61,7 @@
 管理端前端的 API 消费边界，对应后端的管理端实现边界：
 
 - 前端调用边界：`/admin-api/*`
-- 后端实现边界：`server/internal/admin/*`
+- 后端实现边界：`server/internal/delivery/http/admin/*` 聚合路由，业务编排落在 `server/internal/usecase/admin/*`，GORM model 和可复用查询对象落在 `server/internal/repository/mysql/*`
 
 因此新增管理端页面、菜单、权限码、请求封装或页面行为时，应同步检查：
 
@@ -69,7 +69,7 @@
 - `docs/server/api/*`
 - `docs/server/architecture.md`
 
-不要把管理端页面契约建立在 `server/internal/web/*` 或用户端 `/api/*` 之上。
+不要把管理端页面契约建立在用户端 `/api/*` 或 `server/internal/delivery/http/web/*` 之上。
 
 ## 架构原则
 

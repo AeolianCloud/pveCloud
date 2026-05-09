@@ -8,14 +8,20 @@
 | --- | --- |
 | Go | 1.26.2 |
 | HTTP | Gin |
-| ORM | GORM |
+| 架构形态 | 分层架构 + 领域子包 |
+| ORM | GORM；GORM model 和可复用查询对象放在 `repository/mysql`，handler 不直接使用 GORM |
+| DB | MariaDB |
 | DB driver | `gorm.io/driver/mysql` |
-| Config | YAML |
+| Migration | `server/migrations/*.sql` 作为可执行数据库契约 |
+| Transaction | 应用用例层声明事务边界；迁移期可直接使用 GORM 事务，后续再收口事务封装 |
+| Config | YAML，使用 `KnownFields` 拒绝未知字段 |
 | Redis client | `github.com/redis/go-redis/v9` |
 | JWT | `github.com/golang-jwt/jwt/v5` |
 | Validation | `github.com/go-playground/validator/v10` |
 | Logging | `log/slog` JSON logs |
-| Tests | `github.com/stretchr/testify` |
+| DI | 手写构造和 provider 装配，不引入反射式 DI 容器 |
+| Tests | `github.com/stretchr/testify`；数据库集成测试可引入 `testcontainers-go` |
+| Observability | `log/slog`、request ID；后续跨服务追踪再引入 OpenTelemetry |
 | Dev reload | Air |
 
 ## 目录结构
@@ -26,70 +32,152 @@ server/
     api/
     setup-admin/
   internal/
-    admin/
-      routes/
-      middleware/
-      modules/
+    app/
+      api/
+      setupadmin/
+    delivery/
+      http/
+        router/
+        middleware/
+        admin/
+        web/
+    usecase/
+      admin/
+        auth/
+        dashboard/
+        adminuser/
+        adminrole/
+        adminsession/
+        webuser/
+        audit/
+        systemconfig/
+        fileattachment/
+        realname/
+        productcatalog/
+        dto/
+        support/
+      web/
+        auth/
+        userprofile/
+        siteconfig/
+        realname/
+        catalog/
+        dto/
+        support/
     domain/
+      iam/
+      user/
+      audit/
+      systemconfig/
+      file/
+      realname/
+      catalog/
+    repository/
+      mysql/
+        iam/
+        user/
+        audit/
+        systemconfig/
+        file/
+        realname/
+        catalog/
+    integration/
+      realname/
+      mail/
+      storage/
     platform/
-      bootstrap/
+      config/
       database/
       cache/
       logger/
-      integrations/
     shared/
   migrations/
   storage/logs/
   config.example.yaml
 ```
 
-后端不再保留“入口分端、业务层扁平堆放”的过渡结构。统一采用“先按边界分，再按模块分”的目录方案；当前只保留 `admin` 管理端边界；跨端核心业务进入 `domain`；基础设施进入 `platform`；仅稳定通用能力进入 `shared`。
+后端不再保留“入口分端、业务层扁平堆放”的过渡结构。统一采用“按技术层分目录，每层下按领域子包分组”的目录方案；HTTP 管理端和用户端作为传输边界，应用用例层也按 `usecase/admin/*` 和 `usecase/web/*` 分离；基础设施进入 `platform`；仅稳定通用能力进入 `shared`。
 
 ## 结构原则
 
 - `cmd/api`：API 入口
 - `cmd/setup-admin`：初始化管理员工具
-- `internal/admin`：管理端边界
-- `internal/domain`：跨端核心业务领域
-- `internal/platform`：基础设施与外部适配
+- `internal/app`：应用装配和进程启动依赖图
+- `internal/delivery/http`：Gin、路由、中间件、管理端和用户端 HTTP 边界
+- `internal/usecase`：业务用例、事务边界、权限裁决和编排
+- `internal/domain`：领域实体、状态机、值对象和纯业务规则
+- `internal/repository`：持久化实现，当前以 `repository/mysql` 为主
+- `internal/integration`：外部系统协议适配
+- `internal/platform`：配置、数据库、事务、缓存和日志基础设施
 - `internal/shared`：稳定通用能力
 
 ## 领域拆分基线
 
 大型业务新增前，先完成对应文档中的领域边界和事务边界确认。代码拆分应遵守：
 
-- 每个端内模块拥有自己的 handler、service、repository、dto 和测试
-- 跨端共用且不带页面语义的规则，才允许进入 `domain`
-- 跨领域写操作由明确的编排服务承接
-- 外部系统适配放入 `platform/integrations/`，业务裁决留在模块或领域服务
+- 每一层都按领域子包组织；其中 `usecase` 必须先按访问边界拆为 `usecase/admin/*` 与 `usecase/web/*`，例如 `usecase/admin/realname`、`usecase/web/realname`、`domain/realname`、`repository/mysql/realname`
+- 管理端和用户端能力通过 `delivery/http/admin/<domain>` 与 `delivery/http/web/<domain>` 暴露
+- 管理端和用户端业务编排分别放在 `usecase/admin/<domain>` 与 `usecase/web/<domain>`，两边不得互相导入
+- 用例输入输出类型放在 `usecase/admin/dto`、`usecase/web/dto` 或对应边界内的具体用例包，delivery handler 只负责请求绑定、校验和响应写入
+- 跨端共用且不带页面语义的规则，优先进入对应 `domain/<domain>`；不要为了复用把 admin/web 流程混放到 `usecase` 根目录
+- 跨领域写操作由明确的 usecase 编排服务承接
+- 外部系统适配放入 `integration/`，业务裁决留在 usecase 或 domain
 - 通用工具进入 `shared/` 前必须具备稳定复用语义，不能把业务逻辑放入泛名目录
+- GORM model 和可复用 SQL 查询对象放在 `repository/mysql`；迁移期事务密集型 usecase 可直接使用 GORM，但不得把 GORM 暴露到 handler
+- Handler 不直接调用 GORM，不直接拼 SQL，不直接写业务状态机
 
-## 模块目录建议
+## 领域子包建议
 
-模块默认先保持紧凑结构：
+每个领域按需要在各层建立同名子包，不强制一次建满。以实名为例：
 
 ```text
-module_xxx/
+delivery/http/admin/realname/
   handler.go
+  routes.go
+delivery/http/web/realname/
+  handler.go
+  routes.go
+usecase/admin/realname/
   service.go
-  repository.go
+  ports.go
   dto.go
-  types.go
-  service_test.go
+usecase/web/realname/
+  service.go
+  ports.go
+  dto.go
+domain/realname/
+  entity.go
+  policy.go
+  value.go
+repository/mysql/realname/
+  model.go
+  repository.go
+integration/realname/
+  client.go
 ```
 
-当模块继续膨胀，再在模块内部拆分：
+较小领域可以只建立需要的层。例如公开站点配置可先落在 `delivery/http/web/siteconfig` 与 `usecase/web/siteconfig`，不单独创建 `domain/siteconfig`。
+
+当某一层继续膨胀，再按用例拆分：
 
 ```text
-module_xxx/
-  handlers/
-  services/
+usecase/admin/realname/
+  commands/
+  queries/
+  policies/
+usecase/web/realname/
+  commands/
+  queries/
+repository/mysql/realname/
   repositories/
-  dto/
-  tests/
+  readmodels/
+delivery/http/admin/realname/
+  handlers/
+  requests/
+  responses/
 ```
 
-优先保证“进入模块目录就能找到该模块所有实现”，而不是把所有 service、dto、repository 平铺到全局根目录。
+优先保证“看层能明白职责，看子包能定位领域”，而不是把所有 handler、service、repository 或 GORM model 平铺到全局根目录。
 
 ## 配置原则
 

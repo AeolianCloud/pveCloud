@@ -9,8 +9,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
-	"github.com/AeolianCloud/pveCloud/server/internal/platform/bootstrap"
+	"github.com/AeolianCloud/pveCloud/server/internal/app/api"
+	mysqliam "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/iam"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
 )
 
@@ -35,7 +35,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	app, err := bootstrap.NewApp(ctx, *configPath)
+	app, err := api.NewApp(ctx, *configPath)
 	if err != nil {
 		log.Fatalf("初始化应用失败：%v", err)
 	}
@@ -61,7 +61,7 @@ func createAdmin(ctx context.Context, db *gorm.DB, username string, email string
 	}
 
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var existing models.AdminUser
+		var existing mysqliam.AdminUser
 		err := tx.Where("username = ?", username).First(&existing).Error
 		if err == nil {
 			return errors.New("管理员用户名已存在")
@@ -82,7 +82,7 @@ func createAdmin(ctx context.Context, db *gorm.DB, username string, email string
 			emailPtr = &email
 		}
 
-		admin := models.AdminUser{
+		admin := mysqliam.AdminUser{
 			Username:     username,
 			Email:        emailPtr,
 			PasswordHash: hash,
@@ -93,7 +93,7 @@ func createAdmin(ctx context.Context, db *gorm.DB, username string, email string
 			return err
 		}
 
-		var role models.AdminRole
+		var role mysqliam.AdminRole
 		if err := tx.Where("code = ?", "super_admin").First(&role).Error; err != nil {
 			return err
 		}
