@@ -59,7 +59,7 @@ gofmt -w .
 go test ./...
 ```
 
-说明：修改 handler、service、路由、DTO、错误码、鉴权、权限、审计、事务、幂等、外部集成或安全校验时，必须补正式 `*_test.go` 回归测试；测试范围按 `docs/server/go-technical.md` 的 API 测试要求执行。只构建或手工点接口不算完整验收。
+说明：修改 handler、service、路由、DTO、错误码、鉴权、权限、审计、事务、幂等、外部集成或安全校验时，必须评估是否需要正式 `*_test.go` 回归测试；测试范围和测试文件保留口径按 `docs/server/go-technical.md` 执行。只构建或手工点接口不算完整验收。
 
 管理端：
 

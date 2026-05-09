@@ -58,6 +58,7 @@
 当前阶段系统配置至少包含以下实名配置：
 
 - `real_name.enabled`
+- `real_name.manual_review_enabled`
 - `real_name.required_for_order`
 - `real_name.allowed_providers`
 - `real_name.default_provider`
@@ -86,7 +87,8 @@
 - `real_name.allowed_providers` 只控制用户端可选列表，具体供应商还必须满足对应 `real_name.<provider>.enabled=true`。
 - 启用支付宝前，必须填写支付宝应用 ID、网关、私钥、公钥、返回地址，以及全局回调基础地址或支付宝异步通知地址。
 - 启用微信侧实名前，必须填写腾讯云 SecretId、SecretKey、地域、端点、规则 ID 和返回地址；当前微信/腾讯云结果通过服务端同步查询确认，不开放异步回调。
-- `real_name.identity_digest_secret` 启用实名前必须填写；已有当前 HMAC 版本实名申请后，页面不允许通过普通系统设置直接修改该密钥。
+- `real_name.manual_review_enabled=true` 时，支付宝/微信侧实名不可用后用户端默认进入人工审核。
+- `real_name.identity_digest_secret` 只作为外部供应商实名和证件摘要重复校验配置；缺失时外部供应商不可用，但不影响人工审核实名入口。已有当前 HMAC 版本实名申请后，页面不允许通过普通系统设置直接修改该密钥。
 
 权限建议：
 

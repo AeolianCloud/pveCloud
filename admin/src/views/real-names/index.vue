@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
-import { getRealNameApplication, getRealNameApplications, syncRealNameApplication, type RealNameApplicationItem } from '../../api/real-name'
+import { getRealNameApplication, getRealNameApplications, reviewRealNameApplication, syncRealNameApplication, type RealNameApplicationItem } from '../../api/real-name'
 import { hasPermissionCode } from '../../utils/permission'
 import { usePermissionStore } from '../../store/modules/permission'
 
@@ -31,10 +31,23 @@ const statusMap: Record<string, { label: string; type: 'warning' | 'success' | '
 const providerMap: Record<string, string> = {
   alipay: '支付宝',
   wechat: '微信',
+  manual: '人工审核',
 }
 
 function canSync() {
   return hasPermissionCode(permissionStore.permissionCodes, 'real-name:sync')
+}
+
+function canReview() {
+  return hasPermissionCode(permissionStore.permissionCodes, 'real-name:review')
+}
+
+function isManualPending(row: RealNameApplicationItem) {
+  return row.status === 'pending' && row.verification_provider === 'manual'
+}
+
+function isExternalPending(row: RealNameApplicationItem) {
+  return row.status === 'pending' && row.verification_provider !== 'manual'
 }
 
 function providerLabel(provider: string | null) {
@@ -69,8 +82,53 @@ async function openDetail(row: RealNameApplicationItem) {
 }
 
 async function sync(row: RealNameApplicationItem) {
-  await syncRealNameApplication(row.id)
-  ElMessage.success('已触发供应商结果同步')
+  try {
+    await syncRealNameApplication(row.id)
+    ElMessage.success('已触发供应商结果同步')
+  } catch (error) {
+    const message = error instanceof Error && error.message.trim() ? error.message : '请稍后重试'
+    ElMessage.error(`同步失败：${message}`)
+    return
+  }
+  if (current.value?.id === row.id) {
+    current.value = await getRealNameApplication(row.id)
+  }
+  await loadApplications()
+}
+
+async function review(row: RealNameApplicationItem, status: 'approved' | 'rejected') {
+  let reason = ''
+  if (status === 'rejected') {
+    try {
+      const result = await ElMessageBox.prompt('请输入拒绝原因', '拒绝人工实名申请', {
+        confirmButtonText: '拒绝',
+        cancelButtonText: '取消',
+        inputPattern: /.+/,
+        inputErrorMessage: '拒绝原因不能为空',
+      })
+      reason = result.value.trim()
+    } catch {
+      return
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm('确认通过该人工实名申请？', '通过人工实名申请', {
+        confirmButtonText: '通过',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+    } catch {
+      return
+    }
+  }
+  try {
+    await reviewRealNameApplication(row.id, { status, reason })
+    ElMessage.success(status === 'approved' ? '已通过人工实名申请' : '已拒绝人工实名申请')
+  } catch (error) {
+    const message = error instanceof Error && error.message.trim() ? error.message : '请稍后重试'
+    ElMessage.error(`审核失败：${message}`)
+    return
+  }
   if (current.value?.id === row.id) {
     current.value = await getRealNameApplication(row.id)
   }
@@ -99,6 +157,7 @@ onMounted(loadApplications)
         <el-select v-model="query.provider" clearable placeholder="供应商" style="width: 120px">
           <el-option label="支付宝" value="alipay" />
           <el-option label="微信" value="wechat" />
+          <el-option label="人工审核" value="manual" />
         </el-select>
         <el-input v-model="query.provider_status" clearable placeholder="供应商状态" style="width: 140px" @keyup.enter="loadApplications" />
         <el-button type="primary" @click="loadApplications">查询</el-button>
@@ -121,7 +180,9 @@ onMounted(loadApplications)
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 'pending' && canSync()" link type="success" @click="sync(row)">同步结果</el-button>
+            <el-button v-if="isExternalPending(row) && canSync()" link type="success" @click="sync(row)">同步结果</el-button>
+            <el-button v-if="isManualPending(row) && canReview()" link type="success" @click="review(row, 'approved')">通过</el-button>
+            <el-button v-if="isManualPending(row) && canReview()" link type="danger" @click="review(row, 'rejected')">拒绝</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -145,8 +206,12 @@ onMounted(loadApplications)
         <p v-if="current.failure_reason"><b>失败原因：</b>{{ current.failure_reason }}</p>
         <p><b>核验开始时间：</b>{{ current.provider_started_at || '-' }}</p>
         <p><b>核验完成时间：</b>{{ current.provider_finished_at || '-' }}</p>
-        <div v-if="current.status === 'pending' && canSync()" class="drawer-actions">
+        <div v-if="isExternalPending(current) && canSync()" class="drawer-actions">
           <el-button type="success" @click="sync(current)">同步供应商结果</el-button>
+        </div>
+        <div v-if="isManualPending(current) && canReview()" class="drawer-actions">
+          <el-button type="success" @click="review(current, 'approved')">通过人工审核</el-button>
+          <el-button type="danger" @click="review(current, 'rejected')">拒绝人工审核</el-button>
         </div>
       </div>
     </el-drawer>

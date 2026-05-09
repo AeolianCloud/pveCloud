@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/admin/dto"
 	"github.com/AeolianCloud/pveCloud/server/internal/admin/models"
@@ -18,8 +19,10 @@ import (
 )
 
 const (
-	realNameObjectType = "user_real_name"
-	realNameSyncAction = "real_name.sync"
+	realNameObjectType   = "user_real_name"
+	realNameSyncAction   = "real_name.sync"
+	realNameReviewAction = "real_name.review"
+	providerManual       = "manual"
 )
 
 type RealNameService struct {
@@ -90,6 +93,83 @@ func (s *RealNameService) Sync(ctx context.Context, operatorID uint64, id uint64
 		return admindto.RealNameApplicationItem{}, err
 	}
 	return s.Detail(ctx, id)
+}
+
+func (s *RealNameService) Review(ctx context.Context, operatorID uint64, id uint64, req admindto.RealNameReviewRequest) (admindto.RealNameApplicationItem, error) {
+	var updated models.UserRealNameApplication
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current models.UserRealNameApplication
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&current).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return apperrors.ErrNotFound.WithMessage("实名申请不存在")
+			}
+			return err
+		}
+		if current.VerificationProvider == nil || *current.VerificationProvider != providerManual {
+			return apperrors.ErrConflict.WithMessage("当前实名申请不支持人工审核")
+		}
+		if current.Status != "pending" {
+			return apperrors.ErrConflict.WithMessage("当前实名申请不是待审核状态")
+		}
+		before := current
+		now := time.Now()
+		updates := map[string]any{
+			"status":                  req.Status,
+			"provider_finished_at":    now,
+			"provider_status":         req.Status,
+			"provider_result_code":    nil,
+			"provider_result_message": nil,
+			"provider_trace_id":       nil,
+		}
+		hasReviewColumns, err := hasManualReviewColumns(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if hasReviewColumns {
+			updates["review_admin_id"] = operatorID
+			updates["reviewed_at"] = now
+		}
+		if req.Status == "approved" {
+			updates["reject_reason"] = nil
+		} else {
+			reason := strings.TrimSpace(req.Reason)
+			if reason == "" {
+				return apperrors.ErrValidation.WithMessage("拒绝原因不能为空")
+			}
+			updates["reject_reason"] = reason
+		}
+		if err := tx.Model(&current).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ?", id).First(&updated).Error; err != nil {
+			return err
+		}
+		return s.auditService.Record(ctx, tx, AdminAuditWriteInput{
+			AdminID:    &operatorID,
+			Action:     realNameReviewAction,
+			ObjectType: realNameObjectType,
+			ObjectID:   textutil.Uint64String(id),
+			BeforeData: auditSnapshot(before),
+			AfterData:  auditSnapshot(updated),
+			Remark:     "人工实名审核",
+		})
+	})
+	if err != nil {
+		return admindto.RealNameApplicationItem{}, err
+	}
+	return s.Detail(ctx, id)
+}
+
+func hasManualReviewColumns(ctx context.Context, tx *gorm.DB) (bool, error) {
+	var count int64
+	err := tx.WithContext(ctx).Raw(`
+		SELECT COUNT(*)
+		FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		  AND TABLE_NAME = 'user_real_name_applications'
+		  AND COLUMN_NAME IN ('review_admin_id', 'reviewed_at')
+	`).Scan(&count).Error
+	return count == 2, err
 }
 
 func (s *RealNameService) recordSyncFailureAudit(ctx context.Context, operatorID uint64, id uint64, syncErr error) error {

@@ -191,7 +191,7 @@
 - 作用：更新系统配置
 - 约束：
   - 更新 `is_secret=1` 配置时，仅非空新值会覆盖旧值；空值表示保留旧敏感值
-  - `real_name.identity_digest_secret` 在已有当前 HMAC 版本实名申请后不得通过普通系统设置直接修改
+  - `real_name.identity_digest_secret` 是外部供应商实名申请和证件摘要重复校验的敏感配置；缺少时外部供应商不可用，但不影响人工审核实名入口；已有当前 HMAC 版本实名申请后不得通过普通系统设置直接修改
   - 更新实名供应商启用开关时，服务端必须校验对应供应商必要后台配置是否完整
 
 ## 用户端公开配置域
@@ -211,8 +211,9 @@
   - `real_name`：实名公开配置对象，来自实名公开配置白名单，包含 `enabled`、`required_for_order`、`allowed_providers`、`default_provider`、`resubmit_enabled`、`max_submit_attempts`、`review_notice`
 - 约束：
   - 不得返回 `is_secret=1` 的配置项，不得返回供应商密钥、网关、回调地址、返回地址、规则 ID 或任意配置键列表
-  - `real_name.allowed_providers` 对外返回时必须过滤未启用或必要后台配置不完整的外部供应商
-  - `real_name.default_provider` 对外返回时必须是过滤后的可用供应商；无可用供应商时返回空字符串
+  - `real_name.allowed_providers` 对外返回时必须过滤未启用、必要后台配置不完整或缺少证件摘要密钥的外部供应商；无可用外部供应商且人工审核兜底已启用时返回 `manual`
+  - `real_name.default_provider` 对外返回时必须是过滤后的可用实名方式；无可用外部供应商时返回 `manual`
+  - `real_name.enabled` 对外返回时必须满足后台 `real_name.enabled=true` 且至少存在一个可用实名方式；缺少外部供应商、证件摘要密钥或回调地址时不得关闭已启用的人工审核实名入口
 
 ## 用户端认证域
 
@@ -395,26 +396,27 @@
 ### `POST /api/user/real-name`
 
 - 鉴权：用户端 Bearer Token
-- 作用：当前登录用户创建个人实名核验申请，并获取支付宝或微信侧核验入口
+- 作用：当前登录用户创建个人实名核验申请；有可用支付宝/微信侧供应商时返回外部核验入口，没有可用外部供应商时创建人工审核申请
 - 请求字段：
   - `real_name`：真实姓名
   - `id_type`：证件类型，当前仅允许 `id_card`
   - `id_number`：证件号码
-  - `provider`：实名供应商，允许值来自服务端过滤后的 `real_name.allowed_providers`，当前支持 `alipay`、`wechat`；为空时使用 `real_name.default_provider`
+  - `provider`：实名方式，允许值来自服务端过滤后的 `real_name.allowed_providers`，当前支持 `alipay`、`wechat`、`manual`；为空时使用 `real_name.default_provider`
 - 成功数据包含：
   - `application`：最新实名申请摘要
-  - `provider_action`：供应商核验动作，包含 `provider`、`action_type`、`redirect_url`、`expires_at`；不得包含供应商密钥、完整签名参数或证件号码明文
+  - `provider_action`：核验动作，包含 `provider`、`action_type`、`redirect_url`、`expires_at`；外部供应商模式不得包含供应商密钥、完整签名参数或证件号码明文；人工审核模式 `provider=manual`、`action_type=manual_review`、`redirect_url` 为空
 - 约束：
   - 仅当 `real_name.enabled=true` 时允许创建申请
-  - `provider` 必须已在后台系统配置中启用，且对应供应商必要配置完整
+  - `provider=manual` 时创建人工审核申请
+  - `provider=alipay` 或 `provider=wechat` 时，供应商必须已在后台系统配置中启用、对应供应商必要配置完整，且 `real_name.identity_digest_secret` 已配置
   - 当前用户存在 `pending` 申请时拒绝重复创建；用户返回页面后应调用同步接口查询结果
   - 当前用户已 `approved` 时拒绝用户端覆盖实名资料
   - 拒绝后是否允许重新提交由 `real_name.resubmit_enabled` 和 `real_name.max_submit_attempts` 决定
-  - 证件号码必须通过格式校验，且不得与其它已通过实名用户重复；兼容历史数据期间，重复校验必须同时覆盖当前 HMAC 摘要和历史 `sha256-legacy` 摘要
-  - 证件号码不得明文落库，只保存带后台敏感配置密钥的查询摘要和脱敏展示值，接口不得返回明文
+  - 证件号码必须通过格式校验；外部供应商模式下不得与其它已通过实名用户重复，兼容历史数据期间重复校验必须同时覆盖当前 HMAC 摘要和历史 `sha256-legacy` 摘要
+  - 证件号码不得明文落库；外部供应商模式保存带后台敏感配置密钥的查询摘要和脱敏展示值，人工审核模式在未配置摘要密钥时只保存脱敏展示值，接口不得返回明文
   - 创建外部供应商会话失败时，不得把申请误标记为可继续核验或已通过
   - 服务端调用支付宝或微信/腾讯云接口时不得记录供应商密钥、证件号码明文、真实姓名明文或完整响应
-  - 当前实名流程不接收实名图片附件，提交请求不得包含图片附件字段
+  - 当前人工审核流程不接收实名图片附件，提交请求不得包含图片附件字段
 
 ### `GET /api/user/real-name`
 
@@ -555,6 +557,20 @@
   - 只有外部供应商申请允许同步
   - 同步调用不得放入长事务；供应商查询完成后再以本地事务更新状态和审计
   - 同步操作必须写入 `admin_audit_logs`，动作使用 `real_name.sync`
+
+### `POST /admin-api/real-name-applications/{id}/review`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`real-name:review` 或 `real-name:*`
+- 作用：后台通过或拒绝人工审核实名申请
+- 请求字段：
+  - `status`：固定允许 `approved` 或 `rejected`
+  - `reason`：拒绝原因；`status=rejected` 时必填
+- 成功数据包含最新实名申请详情
+- 约束：
+  - 只有 `verification_provider=manual` 且 `status=pending` 的申请允许审核
+  - 审核通过时不得补写证件号码明文
+  - 审核操作必须写入 `admin_audit_logs`，动作使用 `real_name.review`
 
 ## 日志管理域
 

@@ -32,7 +32,7 @@ export interface RealNameSubmitRequest {
   real_name: string
   id_type: 'id_card'
   id_number: string
-  provider?: 'alipay' | 'wechat'
+  provider?: 'alipay' | 'wechat' | 'manual'
 }
 
 export interface RealNameSubmitResponse {

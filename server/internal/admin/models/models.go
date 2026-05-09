@@ -285,8 +285,8 @@ type UserRealNameApplication struct {
 	UserID                 uint64     `gorm:"column:user_id"`
 	RealName               string     `gorm:"column:real_name"`
 	IDType                 string     `gorm:"column:id_type"`
-	IDNumberDigest         string     `gorm:"column:id_number_digest"`
-	IDNumberDigestVersion  string     `gorm:"column:id_number_digest_version"`
+	IDNumberDigest         *string    `gorm:"column:id_number_digest"`
+	IDNumberDigestVersion  *string    `gorm:"column:id_number_digest_version"`
 	IDNumberMasked         string     `gorm:"column:id_number_masked"`
 	VerificationProvider   *string    `gorm:"column:verification_provider"`
 	ProviderApplicationID  *string    `gorm:"column:provider_application_id"`

@@ -34,6 +34,7 @@ const (
 
 	providerAlipay = "alipay"
 	providerWechat = "wechat"
+	providerManual = "manual"
 
 	digestVersionHMACSHA256 = "hmac-sha256-v1"
 	digestVersionLegacy     = "sha256-legacy"
@@ -96,6 +97,7 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 	var provider providerConfig
 	var created models.UserRealNameApplication
 	var legacyDigest string
+	var providerName string
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var user models.User
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(&user).Error
@@ -114,17 +116,21 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 		if !cfg.Enabled {
 			return apperrors.ErrForbidden.WithMessage("实名功能暂未开放")
 		}
-		if strings.TrimSpace(cfg.IdentityDigestSecret) == "" {
-			return apperrors.ErrForbidden.WithMessage("实名摘要密钥尚未配置")
-		}
 
 		resolvedProvider, err := cfg.ResolveProvider(req.Provider)
 		if err != nil {
 			return err
 		}
-		provider = cfg.Provider(resolvedProvider)
-		if !provider.Complete(secretRows, cfg.CallbackBaseURL) {
-			return apperrors.ErrForbidden.WithMessage("实名供应商配置不完整")
+		providerName = resolvedProvider
+		isManual := providerName == providerManual
+		if !isManual {
+			if strings.TrimSpace(cfg.IdentityDigestSecret) == "" {
+				return apperrors.ErrForbidden.WithMessage("实名摘要密钥尚未配置")
+			}
+			provider = cfg.Provider(resolvedProvider)
+			if !provider.Complete(secretRows, cfg.CallbackBaseURL) {
+				return apperrors.ErrForbidden.WithMessage("实名供应商配置不完整")
+			}
 		}
 
 		latest, ok, err := s.latestForUpdate(ctx, tx, userID)
@@ -149,36 +155,58 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 			}
 		}
 
-		digest := hmacIDNumber(idType, idNumber, cfg.IdentityDigestSecret)
-		legacyDigest = legacyIDNumberDigest(idType, idNumber)
-		if err := s.ensureNoDuplicateApproved(ctx, tx, userID, digest, legacyDigest); err != nil {
-			return err
+		digest := ""
+		digestVersion := ""
+		if strings.TrimSpace(cfg.IdentityDigestSecret) != "" {
+			digest = hmacIDNumber(idType, idNumber, cfg.IdentityDigestSecret)
+			digestVersion = digestVersionHMACSHA256
+			legacyDigest = legacyIDNumberDigest(idType, idNumber)
+			if err := s.ensureNoDuplicateApproved(ctx, tx, userID, digest, legacyDigest); err != nil {
+				return err
+			}
 		}
 
 		applicationNo, err := applicationNo()
 		if err != nil {
 			return err
 		}
-		providerName := provider.Provider
-		providerStatus := providerStatusCreating
-		responseDigest := responseDigest(providerName, applicationNo, digest)
+		var providerStatus *string
+		if !isManual {
+			statusValue := providerStatusCreating
+			providerStatus = &statusValue
+		}
+		var responseDigestValue *string
+		if digest != "" {
+			value := responseDigest(providerName, applicationNo, digest)
+			responseDigestValue = &value
+		}
 		created = models.UserRealNameApplication{
 			ApplicationNo:          applicationNo,
 			UserID:                 userID,
 			RealName:               realName,
 			IDType:                 idType,
-			IDNumberDigest:         digest,
-			IDNumberDigestVersion:  digestVersionHMACSHA256,
+			IDNumberDigest:         textutil.StringPtr(digest),
+			IDNumberDigestVersion:  textutil.StringPtr(digestVersion),
 			IDNumberMasked:         maskIDNumber(idNumber),
 			VerificationProvider:   &providerName,
-			ProviderStatus:         &providerStatus,
-			ProviderResponseDigest: &responseDigest,
+			ProviderStatus:         providerStatus,
+			ProviderResponseDigest: responseDigestValue,
 			Status:                 statusPending,
 			SubmitAttempt:          attempt,
 		}
 		return tx.Create(&created).Error
 	}); err != nil {
 		return webdto.RealNameSubmitResponse{}, err
+	}
+
+	if providerName == providerManual {
+		return webdto.RealNameSubmitResponse{
+			Application: applicationSummary(created),
+			ProviderAction: webdto.RealNameProviderAction{
+				Provider:   providerManual,
+				ActionType: "manual_review",
+			},
+		}, nil
 	}
 
 	s.cacheLegacyDigest(ctx, created.ApplicationNo, legacyDigest)
@@ -392,7 +420,25 @@ func (s *RealNameService) applyProviderResult(ctx context.Context, tx *gorm.DB, 
 	switch result.FinalStatus {
 	case statusApproved:
 		legacyDigest := s.loadLegacyDigest(ctx, app.ApplicationNo)
-		if err := s.ensureNoDuplicateApproved(ctx, tx, app.UserID, app.IDNumberDigest, legacyDigest); err != nil {
+		digest := ""
+		if app.IDNumberDigest != nil {
+			digest = *app.IDNumberDigest
+		}
+		if strings.TrimSpace(digest) == "" {
+			updates["status"] = statusRejected
+			updates["reject_reason"] = "实名申请缺少证件摘要"
+			updates["provider_status"] = providerStatusRejected
+			updates["provider_finished_at"] = now
+			if err := tx.Model(app).Updates(updates).Error; err != nil {
+				return err
+			}
+			app.Status = statusRejected
+			reason := "实名申请缺少证件摘要"
+			app.RejectReason = &reason
+			app.ProviderFinishedAt = &now
+			return nil
+		}
+		if err := s.ensureNoDuplicateApproved(ctx, tx, app.UserID, digest, legacyDigest); err != nil {
 			updates["status"] = statusRejected
 			updates["reject_reason"] = "证件号码已被其它用户实名"
 			updates["provider_status"] = providerStatusRejected
@@ -601,15 +647,7 @@ func (s *RealNameService) config(ctx context.Context, db *gorm.DB) (realNameConf
 		}
 	}
 	config.Apply(values)
-	config.AllowedProviders = filterSupportedProviders(config.AllowedProviders)
-	config.AvailableProviders = config.availableProviders(secretRows)
-	if !containsString(config.AvailableProviders, config.DefaultProvider) {
-		if len(config.AvailableProviders) > 0 {
-			config.DefaultProvider = config.AvailableProviders[0]
-		} else {
-			config.DefaultProvider = ""
-		}
-	}
+	config.Finalize(secretRows)
 	return config, secretRows, nil
 }
 
@@ -674,6 +712,7 @@ type realNameConfig struct {
 	AllowedProviders     []string
 	AvailableProviders   []string
 	DefaultProvider      string
+	ManualReviewEnabled  bool
 	IdentityDigestSecret string
 	CallbackBaseURL      string
 	ResubmitEnabled      bool
@@ -685,13 +724,14 @@ type realNameConfig struct {
 
 func defaultRealNameConfig() realNameConfig {
 	return realNameConfig{
-		RequiredForOrder:  true,
-		AllowedProviders:  []string{providerAlipay, providerWechat},
-		DefaultProvider:   providerAlipay,
-		ResubmitEnabled:   true,
-		MaxSubmitAttempts: 3,
-		Alipay:            providerConfig{Provider: providerAlipay, GatewayURL: "https://openapi.alipay.com/gateway.do"},
-		Wechat:            providerConfig{Provider: providerWechat, Region: "ap-guangzhou", Endpoint: "faceid.tencentcloudapi.com"},
+		RequiredForOrder:    true,
+		AllowedProviders:    []string{providerAlipay, providerWechat},
+		DefaultProvider:     providerAlipay,
+		ManualReviewEnabled: true,
+		ResubmitEnabled:     true,
+		MaxSubmitAttempts:   3,
+		Alipay:              providerConfig{Provider: providerAlipay, GatewayURL: "https://openapi.alipay.com/gateway.do"},
+		Wechat:              providerConfig{Provider: providerWechat, Region: "ap-guangzhou", Endpoint: "faceid.tencentcloudapi.com"},
 	}
 }
 
@@ -703,6 +743,9 @@ func (c *realNameConfig) Apply(values map[string]string) {
 	c.AllowedProviders = csv(values["real_name.allowed_providers"], c.AllowedProviders)
 	if value := strings.TrimSpace(values["real_name.default_provider"]); value != "" {
 		c.DefaultProvider = value
+	}
+	if value, ok := values["real_name.manual_review_enabled"]; ok {
+		c.ManualReviewEnabled = parseBool(value)
 	}
 	c.IdentityDigestSecret = values["real_name.identity_digest_secret"]
 	c.CallbackBaseURL = values["real_name.callback_base_url"]
@@ -729,6 +772,24 @@ func (c realNameConfig) Public() webdto.RealNameConfig {
 	}
 }
 
+func (c *realNameConfig) Finalize(secretRows map[string]bool) {
+	c.AllowedProviders = filterSupportedProviders(c.AllowedProviders)
+	if strings.TrimSpace(c.IdentityDigestSecret) != "" {
+		c.AvailableProviders = c.availableProviders(secretRows)
+	}
+	if len(c.AvailableProviders) == 0 && c.ManualReviewEnabled {
+		c.AvailableProviders = []string{providerManual}
+	}
+	c.Enabled = c.Enabled && len(c.AvailableProviders) > 0
+	if !containsString(c.AvailableProviders, c.DefaultProvider) {
+		if len(c.AvailableProviders) > 0 {
+			c.DefaultProvider = c.AvailableProviders[0]
+		} else {
+			c.DefaultProvider = ""
+		}
+	}
+}
+
 func (c realNameConfig) ResolveProvider(requested string) (string, error) {
 	provider := strings.ToLower(strings.TrimSpace(requested))
 	if provider == "" {
@@ -746,6 +807,8 @@ func (c realNameConfig) Provider(provider string) providerConfig {
 		return c.Alipay
 	case providerWechat:
 		return c.Wechat
+	case providerManual:
+		return providerConfig{Provider: providerManual, Enabled: true}
 	default:
 		return providerConfig{Provider: provider}
 	}
@@ -919,7 +982,7 @@ func csv(value string, fallback []string) []string {
 func filterSupportedProviders(providers []string) []string {
 	result := make([]string, 0, len(providers))
 	for _, provider := range providers {
-		if (provider == providerAlipay || provider == providerWechat) && !containsString(result, provider) {
+		if (provider == providerAlipay || provider == providerWechat || provider == providerManual) && !containsString(result, provider) {
 			result = append(result, provider)
 		}
 	}

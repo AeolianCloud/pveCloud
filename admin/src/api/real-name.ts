@@ -44,6 +44,11 @@ export interface RealNameListQuery {
   date_to?: string
 }
 
+export interface RealNameReviewRequest {
+  status: 'approved' | 'rejected'
+  reason?: string
+}
+
 export async function getRealNameApplications(query?: RealNameListQuery) {
   const response = await http.get<ApiEnvelope<PaginatedData<RealNameApplicationItem>>>('/real-name-applications', { params: query })
   return response.data.data
@@ -56,5 +61,10 @@ export async function getRealNameApplication(id: number) {
 
 export async function syncRealNameApplication(id: number) {
   const response = await http.post<ApiEnvelope<RealNameApplicationItem>>(`/real-name-applications/${id}/sync`)
+  return response.data.data
+}
+
+export async function reviewRealNameApplication(id: number, payload: RealNameReviewRequest) {
+  const response = await http.post<ApiEnvelope<RealNameApplicationItem>>(`/real-name-applications/${id}/review`, payload)
   return response.data.data
 }

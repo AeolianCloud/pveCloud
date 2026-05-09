@@ -36,7 +36,7 @@ type RealNameSubmitRequest struct {
 	RealName string `json:"real_name" validate:"required,min=2,max=64"`
 	IDType   string `json:"id_type" validate:"required,oneof=id_card"`
 	IDNumber string `json:"id_number" validate:"required,min=6,max=32"`
-	Provider string `json:"provider" validate:"omitempty,oneof=alipay wechat"`
+	Provider string `json:"provider" validate:"omitempty,oneof=alipay wechat manual"`
 }
 
 type RealNameProviderAction struct {

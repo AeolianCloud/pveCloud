@@ -153,22 +153,12 @@ func (s *SystemConfigService) validateRealNameConfigUpdate(ctx context.Context, 
 			}
 		}
 	case "real_name.default_provider":
-		if trimmedValue != "" && trimmedValue != "alipay" && trimmedValue != "wechat" {
-			return apperrors.ErrValidation.WithMessage("默认实名供应商只允许 alipay 或 wechat")
+		if trimmedValue != "" && trimmedValue != "alipay" && trimmedValue != "wechat" && trimmedValue != "manual" {
+			return apperrors.ErrValidation.WithMessage("默认实名方式只允许 alipay、wechat 或 manual")
 		}
 	case "real_name.identity_digest_secret":
 		if err := ensureIdentityDigestSecretMutable(ctx, tx, current, trimmedValue); err != nil {
 			return err
-		}
-	case "real_name.enabled":
-		if trimmedValue == "true" {
-			configs, err := systemConfigValueMap(ctx, tx, current, value)
-			if err != nil {
-				return err
-			}
-			if strings.TrimSpace(configs["real_name.identity_digest_secret"]) == "" {
-				return apperrors.ErrValidation.WithMessage("启用实名前必须先配置证件摘要密钥")
-			}
 		}
 	case "real_name.alipay.enabled":
 		if trimmedValue == "true" {

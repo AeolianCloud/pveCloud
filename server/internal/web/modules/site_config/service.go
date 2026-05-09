@@ -94,19 +94,27 @@ func defaultRealNameConfig() webdto.RealNameConfig {
 
 func publicRealNameConfig(values map[string]string, secrets map[string]bool) webdto.RealNameConfig {
 	config := defaultRealNameConfig()
-	config.Enabled = strings.EqualFold(values["real_name.enabled"], "true")
+	entryEnabled := strings.EqualFold(values["real_name.enabled"], "true")
 	if value, ok := values["real_name.required_for_order"]; ok {
 		config.RequiredForOrder = strings.EqualFold(value, "true")
 	}
 	allowed := filterSupportedProviders(parseCSVConfigValue(textPtr(values["real_name.allowed_providers"]), []string{"alipay", "wechat"}))
 	available := make([]string, 0, len(allowed))
 	for _, provider := range allowed {
-		if providerComplete(provider, values, secrets) {
+		if secrets["real_name.identity_digest_secret"] && providerComplete(provider, values, secrets) {
 			available = append(available, provider)
 		}
 	}
 	sort.Strings(available)
+	manualEnabled := true
+	if value, ok := values["real_name.manual_review_enabled"]; ok {
+		manualEnabled = strings.EqualFold(value, "true")
+	}
+	if len(available) == 0 && manualEnabled {
+		available = append(available, "manual")
+	}
 	config.AllowedProviders = available
+	config.Enabled = entryEnabled && len(available) > 0
 	config.DefaultProvider = strings.ToLower(strings.TrimSpace(values["real_name.default_provider"]))
 	if !containsString(available, config.DefaultProvider) {
 		if len(available) > 0 {

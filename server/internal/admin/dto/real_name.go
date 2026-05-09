@@ -8,10 +8,15 @@ type RealNameApplicationListQuery struct {
 	Keyword        string `form:"keyword" validate:"omitempty,max=96"`
 	Status         string `form:"status" validate:"omitempty,oneof=pending approved rejected"`
 	IDType         string `form:"id_type" validate:"omitempty,oneof=id_card"`
-	Provider       string `form:"provider" validate:"omitempty,oneof=alipay wechat"`
+	Provider       string `form:"provider" validate:"omitempty,oneof=alipay wechat manual"`
 	ProviderStatus string `form:"provider_status" validate:"omitempty,max=64"`
 	DateFrom       string `form:"date_from" validate:"omitempty,max=32"`
 	DateTo         string `form:"date_to" validate:"omitempty,max=32"`
+}
+
+type RealNameReviewRequest struct {
+	Status string `json:"status" validate:"required,oneof=approved rejected"`
+	Reason string `json:"reason" validate:"omitempty,max=500"`
 }
 
 type RealNameUserSummary struct {

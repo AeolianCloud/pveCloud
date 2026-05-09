@@ -87,6 +87,7 @@ func RegisterAdminRoutes(group *gin.RouterGroup, app *bootstrap.App) {
 	protected.GET("/real-name-applications", middleware.AdminPermission("page.real-name-management"), realNameHandler.Applications)
 	protected.GET("/real-name-applications/:id", middleware.AdminPermission("page.real-name-management"), realNameHandler.Detail)
 	protected.POST("/real-name-applications/:id/sync", middleware.AdminPermission("real-name:sync"), realNameHandler.Sync)
+	protected.POST("/real-name-applications/:id/review", middleware.AdminPermission("real-name:review"), realNameHandler.Review)
 	protected.GET("/products", middleware.AdminPermission("page.products"), productCatalogHandler.Products)
 	protected.POST("/products", middleware.AdminPermission("product:create"), productCatalogHandler.CreateProduct)
 	protected.PUT("/products/:id", middleware.AdminPermission("product:update"), productCatalogHandler.UpdateProduct)

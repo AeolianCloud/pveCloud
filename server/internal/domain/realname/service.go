@@ -133,7 +133,25 @@ func (s *RealNameService) applyProviderResult(ctx context.Context, tx *gorm.DB, 
 	switch result.FinalStatus {
 	case statusApproved:
 		legacyDigest := s.loadLegacyDigest(ctx, app.ApplicationNo)
-		if err := s.ensureNoDuplicateApproved(ctx, tx, app.UserID, app.IDNumberDigest, legacyDigest); err != nil {
+		digest := ""
+		if app.IDNumberDigest != nil {
+			digest = *app.IDNumberDigest
+		}
+		if strings.TrimSpace(digest) == "" {
+			updates["status"] = statusRejected
+			updates["reject_reason"] = "实名申请缺少证件摘要"
+			updates["provider_status"] = providerStatusRejected
+			updates["provider_finished_at"] = now
+			if err := tx.Model(app).Updates(updates).Error; err != nil {
+				return err
+			}
+			app.Status = statusRejected
+			reason := "实名申请缺少证件摘要"
+			app.RejectReason = &reason
+			app.ProviderFinishedAt = &now
+			return nil
+		}
+		if err := s.ensureNoDuplicateApproved(ctx, tx, app.UserID, digest, legacyDigest); err != nil {
 			updates["status"] = statusRejected
 			updates["reject_reason"] = "证件号码已被其它用户实名"
 			updates["provider_status"] = providerStatusRejected
