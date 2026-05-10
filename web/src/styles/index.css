@@ -59,6 +59,61 @@ textarea {
   box-shadow: 10px 10px 0 #111111;
 }
 
+.page-reveal {
+  animation: page-reveal 360ms ease both;
+}
+
+.interactive-card {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+
+.interactive-card:hover {
+  border-color: #111111;
+  transform: translateY(-3px);
+  box-shadow: 8px 8px 0 #111111;
+}
+
+.soft-lift {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+
+.soft-lift:hover {
+  border-color: #111111;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgb(17 17 17 / 8%);
+}
+
+.chip-hover:hover {
+  border-color: #111111;
+  background-color: #111111;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.stagger-reveal > * {
+  animation: page-reveal 360ms ease both;
+}
+
+.stagger-reveal > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.stagger-reveal > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.stagger-reveal > *:nth-child(4) {
+  animation-delay: 120ms;
+}
+
 .field-focus:focus {
   box-shadow: 0 0 0 4px rgb(17 17 17 / 8%);
 }
@@ -85,11 +140,15 @@ textarea {
   transform-origin: left;
 }
 
-.page-fade-slide-enter-active,
-.page-fade-slide-leave-active {
+.page-fade-slide-enter-active {
   transition:
     opacity 180ms ease,
     transform 180ms ease;
+}
+
+.page-fade-slide-leave-active {
+  display: none;
+  pointer-events: none;
 }
 
 .page-fade-slide-enter-from {
@@ -106,6 +165,18 @@ textarea {
   from {
     opacity: 0;
     transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
 
   to {

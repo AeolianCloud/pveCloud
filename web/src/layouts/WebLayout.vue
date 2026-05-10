@@ -42,9 +42,9 @@ const isCompactAuthPage = computed(() =>
       </div>
     </header>
 
-    <main :class="isCompactAuthPage ? 'min-h-0' : 'min-h-[calc(100vh-4rem)]'">
+    <main class="relative">
       <RouterView v-slot="{ Component, route: currentRoute }">
-        <Transition name="page-fade-slide" mode="out-in">
+        <Transition name="page-fade-slide">
           <component :is="Component" :key="currentRoute.fullPath" />
         </Transition>
       </RouterView>

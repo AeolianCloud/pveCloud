@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
+  <div class="page-reveal flex min-h-screen flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-lg">
       <div class="text-center">
         <h1 class="text-9xl font-black text-neutral-950">404</h1>
@@ -20,14 +20,14 @@
         <div class="mt-4">
           <RouterLink
             to="/products"
-            class="font-black text-neutral-950 underline decoration-2 underline-offset-4"
+            class="link-underline font-black text-neutral-950"
           >
             查看产品
           </RouterLink>
           <span class="mx-2 text-neutral-300">|</span>
           <RouterLink
             to="/pricing"
-            class="font-black text-neutral-950 underline decoration-2 underline-offset-4"
+            class="link-underline font-black text-neutral-950"
           >
             查看价格
           </RouterLink>

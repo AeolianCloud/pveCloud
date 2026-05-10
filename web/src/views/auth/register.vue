@@ -1,14 +1,56 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { getRegisterCaptcha } from '../../api/auth'
+import { getApiErrorMessage } from '../../api/request'
+import { getSiteConfig } from '../../api/site-config'
+import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const username = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
+const captchaEnabled = ref(false)
+const captchaId = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
+const captchaLoading = ref(false)
+
+const refreshCaptcha = async () => {
+  if (!captchaEnabled.value) {
+    captchaId.value = ''
+    captchaCode.value = ''
+    captchaImage.value = ''
+    return
+  }
+
+  captchaLoading.value = true
+  try {
+    const captcha = await getRegisterCaptcha()
+    captchaId.value = captcha.captcha_id
+    captchaImage.value = captcha.image
+    captchaCode.value = ''
+  } catch (err) {
+    error.value = getApiErrorMessage(err, '验证码加载失败，请稍后重试')
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  try {
+    const config = await getSiteConfig()
+    captchaEnabled.value = config.register_captcha_enabled
+  } catch {
+    captchaEnabled.value = false
+  }
+
+  await refreshCaptcha()
+})
 
 const handleRegister = async () => {
   if (!username.value || !email.value || !password.value || !confirmPassword.value) {
@@ -19,12 +61,24 @@ const handleRegister = async () => {
     error.value = '密码不一致'
     return
   }
+  if (captchaEnabled.value && (!captchaId.value || !captchaCode.value)) {
+    error.value = '请输入验证码'
+    return
+  }
+
   loading.value = true
   error.value = ''
   try {
-    router.push('/user')
+    await authStore.registerAccount({
+      username: username.value,
+      email: email.value,
+      password: password.value,
+      ...(captchaEnabled.value ? { captcha_id: captchaId.value, captcha_code: captchaCode.value } : {}),
+    })
+    await router.push('/user')
   } catch (err) {
-    error.value = '注册失败'
+    error.value = getApiErrorMessage(err, '注册失败')
+    await refreshCaptcha()
   } finally {
     loading.value = false
   }
@@ -81,6 +135,27 @@ const handleRegister = async () => {
               class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请再次输入密码"
             />
+          </div>
+
+          <div v-if="captchaEnabled">
+            <div class="mb-2 flex items-center justify-between gap-3 text-sm font-black text-neutral-800">
+              <label>验证码</label>
+              <button type="button" class="text-neutral-500 hover:text-neutral-950" :disabled="captchaLoading" @click="refreshCaptcha">
+                {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
+              </button>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-[1fr_11rem]">
+              <input
+                v-model="captchaCode"
+                type="text"
+                class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+                placeholder="请输入验证码"
+              />
+              <div class="flex h-12 items-center justify-center overflow-hidden rounded-xl border border-neutral-300 bg-neutral-50">
+                <img v-if="captchaImage" :src="captchaImage" alt="验证码" class="h-full w-full object-cover" />
+                <span v-else class="text-xs text-neutral-400">验证码加载中</span>
+              </div>
+            </div>
           </div>
 
           <button

@@ -1,24 +1,86 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getSiteConfig } from '../../api/site-config'
+import { getApiErrorMessage } from '../../api/request'
+import { getLoginCaptcha } from '../../api/auth'
+import { useAuthStore } from '../../stores/auth'
 
 const router = useRouter()
-const username = ref('')
+const route = useRoute()
+const authStore = useAuthStore()
+
+const account = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const captchaEnabled = ref(false)
+const captchaId = ref('')
+const captchaCode = ref('')
+const captchaImage = ref('')
+const captchaLoading = ref(false)
+
+const refreshCaptcha = async () => {
+  if (!captchaEnabled.value) {
+    captchaId.value = ''
+    captchaCode.value = ''
+    captchaImage.value = ''
+    return
+  }
+
+  captchaLoading.value = true
+  try {
+    const captcha = await getLoginCaptcha()
+    captchaId.value = captcha.captcha_id
+    captchaImage.value = captcha.image
+    captchaCode.value = ''
+  } catch (err) {
+    error.value = getApiErrorMessage(err, '验证码加载失败，请稍后重试')
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+const normalizeRedirect = (value: unknown) => {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+    return '/user'
+  }
+  return value
+}
+
+onMounted(async () => {
+  try {
+    const config = await getSiteConfig()
+    captchaEnabled.value = config.login_captcha_enabled
+  } catch {
+    captchaEnabled.value = false
+  }
+
+  await refreshCaptcha()
+})
 
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
+  if (!account.value || !password.value) {
     error.value = '请输入用户名和密码'
     return
   }
+  if (captchaEnabled.value && (!captchaId.value || !captchaCode.value)) {
+    error.value = '请输入验证码'
+    return
+  }
+
   loading.value = true
   error.value = ''
   try {
-    router.push('/user')
+    await authStore.loginWithPassword({
+      account: account.value,
+      password: password.value,
+      ...(captchaEnabled.value ? { captcha_id: captchaId.value, captcha_code: captchaCode.value } : {}),
+    })
+    await router.push(normalizeRedirect(route.query.redirect))
   } catch (err) {
-    error.value = '登录失败'
+    error.value = getApiErrorMessage(err, '登录失败')
+    await refreshCaptcha()
   } finally {
     loading.value = false
   }
@@ -38,12 +100,12 @@ const handleLogin = async () => {
           </div>
 
           <div>
-            <label class="mb-2 block text-sm font-black text-neutral-800">用户名</label>
+            <label class="mb-2 block text-sm font-black text-neutral-800">用户名或邮箱</label>
             <input
-              v-model="username"
+              v-model="account"
               type="text"
               class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
-              placeholder="请输入用户名"
+              placeholder="请输入用户名或邮箱"
             />
           </div>
 
@@ -55,6 +117,27 @@ const handleLogin = async () => {
               class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入密码"
             />
+          </div>
+
+          <div v-if="captchaEnabled">
+            <div class="mb-2 flex items-center justify-between gap-3 text-sm font-black text-neutral-800">
+              <label>验证码</label>
+              <button type="button" class="text-neutral-500 hover:text-neutral-950" :disabled="captchaLoading" @click="refreshCaptcha">
+                {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
+              </button>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-[1fr_11rem]">
+              <input
+                v-model="captchaCode"
+                type="text"
+                class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+                placeholder="请输入验证码"
+              />
+              <div class="flex h-12 items-center justify-center overflow-hidden rounded-xl border border-neutral-300 bg-neutral-50">
+                <img v-if="captchaImage" :src="captchaImage" alt="验证码" class="h-full w-full object-cover" />
+                <span v-else class="text-xs text-neutral-400">验证码加载中</span>
+              </div>
+            </div>
           </div>
 
           <div class="flex items-center justify-between text-sm">
