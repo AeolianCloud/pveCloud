@@ -22,6 +22,7 @@
 - 真实配置：`server/config.yaml`
 - `server/config.yaml` 默认不提交；维护者明确要求时可纳入提交
 - 新增配置项时先更新示例配置
+- `app.timezone` 使用 IANA 时区名；API 启动后以该配置设置 Go 进程默认时区，不依赖宿主机系统时区
 - 用户端密码找回依赖 `mail` 配置；本地未配置 SMTP 时，密码找回申请应返回服务不可用提示，不应生成可用重置 token
 - 支付宝/微信侧实名依赖后台系统设置中的实名供应商配置；本地未配置供应商密钥时，应保持 `real_name.enabled=false`、关闭对应 `real_name.<provider>.enabled`，或不把对应供应商加入 `real_name.allowed_providers`
 

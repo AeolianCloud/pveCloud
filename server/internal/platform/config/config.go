@@ -34,6 +34,7 @@ type AppConfig struct {
 	Env                    string `yaml:"env"`
 	Addr                   string `yaml:"addr"`
 	ShutdownTimeoutSeconds int    `yaml:"shutdown_timeout_seconds"`
+	Timezone               string `yaml:"timezone"`
 }
 
 /**
@@ -155,6 +156,9 @@ func LoadConfig(path string) (*Config, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if err := cfg.ApplyTimezone(); err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
 }
@@ -166,6 +170,7 @@ func defaultConfig() *Config {
 			Env:                    "local",
 			Addr:                   ":8080",
 			ShutdownTimeoutSeconds: 10,
+			Timezone:               "Asia/Shanghai",
 		},
 		Database: DatabaseConfig{
 			Host:                   "127.0.0.1",
@@ -225,6 +230,12 @@ func defaultConfig() *Config {
 func (cfg *Config) Validate() error {
 	if cfg.App.Addr == "" {
 		return fmt.Errorf("app.addr 不能为空")
+	}
+	if strings.TrimSpace(cfg.App.Timezone) == "" {
+		return fmt.Errorf("app.timezone 不能为空")
+	}
+	if _, err := time.LoadLocation(cfg.App.Timezone); err != nil {
+		return fmt.Errorf("app.timezone 必须是有效 IANA 时区名：%w", err)
 	}
 	if cfg.Database.Name == "" {
 		return fmt.Errorf("database.name 不能为空")
@@ -321,6 +332,20 @@ func (cfg DatabaseConfig) DSN() string {
 		cfg.ParseTime,
 		loc,
 	)
+}
+
+/**
+ * ApplyTimezone 将应用配置的时区设置为 Go 进程默认时区。
+ *
+ * @return error 时区加载失败原因
+ */
+func (cfg *Config) ApplyTimezone() error {
+	loc, err := time.LoadLocation(cfg.App.Timezone)
+	if err != nil {
+		return fmt.Errorf("加载应用时区失败：%s：%w", cfg.App.Timezone, err)
+	}
+	time.Local = loc
+	return nil
 }
 
 /**

@@ -43,6 +43,7 @@ import {
 } from '../../api/file-attachment'
 import { usePermissionStore } from '../../store/modules/permission'
 import { confirm, message } from '../../utils/feedback'
+import { formatDateTime } from '../../utils/datetime'
 
 const permissionStore = usePermissionStore()
 const loading = ref(false)
@@ -169,21 +170,6 @@ function formatBytes(value: number) {
     index += 1
   }
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[index]}`
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
 }
 
 function uploaderLabel(item: FileItem) {

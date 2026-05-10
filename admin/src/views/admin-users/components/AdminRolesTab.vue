@@ -20,6 +20,7 @@ import { computed, h } from 'vue'
 import EmptyState from '../../../components/EmptyState.vue'
 import type { AdminRoleItem } from '../../../api/admin-role'
 import type { PaginationState, RoleQueryFormState } from '../types'
+import { formatDateTime } from '../../../utils/datetime'
 
 const props = defineProps<{
   loading: boolean
@@ -51,21 +52,6 @@ function formatStatusLabel(status: string) {
 
 function statusTagType(status: string): 'success' | 'default' {
   return status === 'active' ? 'success' : 'default'
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
 }
 
 const statusOptions = [

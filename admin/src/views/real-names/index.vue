@@ -24,6 +24,7 @@ import {
 import { hasPermissionCode } from '../../utils/permission'
 import { usePermissionStore } from '../../store/modules/permission'
 import { confirm, getDialog, message } from '../../utils/feedback'
+import { formatDateTime } from '../../utils/datetime'
 
 const permissionStore = usePermissionStore()
 const loading = ref(false)
@@ -223,7 +224,12 @@ const columns = computed<DataTableColumns<RealNameApplicationItem>>(() => [
         { default: () => statusMap[row.status]?.label || row.status },
       ),
   },
-  { key: 'created_at', title: '提交时间', minWidth: 170 },
+  {
+    key: 'created_at',
+    title: '提交时间',
+    minWidth: 170,
+    render: (row) => formatDateTime(row.created_at),
+  },
   {
     key: 'actions',
     title: '操作',
@@ -320,8 +326,8 @@ onMounted(loadApplications)
           <p><b>链路号：</b>{{ current.provider_trace_id || '-' }}</p>
           <p><b>实名状态：</b>{{ statusMap[current.status]?.label || current.status }}</p>
           <p v-if="current.failure_reason"><b>失败原因：</b>{{ current.failure_reason }}</p>
-          <p><b>核验开始时间：</b>{{ current.provider_started_at || '-' }}</p>
-          <p><b>核验完成时间：</b>{{ current.provider_finished_at || '-' }}</p>
+          <p><b>核验开始时间：</b>{{ formatDateTime(current.provider_started_at) }}</p>
+          <p><b>核验完成时间：</b>{{ formatDateTime(current.provider_finished_at) }}</p>
           <div v-if="isExternalPending(current) && canSync()" class="drawer-actions">
             <NButton type="success" @click="sync(current)">同步供应商结果</NButton>
           </div>

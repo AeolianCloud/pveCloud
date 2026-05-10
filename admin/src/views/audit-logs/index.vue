@@ -24,6 +24,7 @@ import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
 import { getAuditLogs, type AuditLogItem, type AuditLogListQuery } from '../../api/audit-log'
 import { usePermissionStore } from '../../store/modules/permission'
+import { formatDateTime } from '../../utils/datetime'
 
 const permissionStore = usePermissionStore()
 const loading = ref(false)
@@ -162,21 +163,6 @@ function handlePageSizeChange(perPage: number) {
 function formatAction(value: string) {
   const option = loginActionOptions.find((item) => item.value === value)
   return option ? option.label : value
-}
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
 }
 
 function actorName(row: AuditLogItem) {

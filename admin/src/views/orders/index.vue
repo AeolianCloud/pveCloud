@@ -30,6 +30,7 @@ import {
 import { usePermissionStore } from '../../store/modules/permission'
 import { hasPermissionCode } from '../../utils/permission'
 import { confirm, getDialog, message } from '../../utils/feedback'
+import { formatDateTime } from '../../utils/datetime'
 
 const permissionStore = usePermissionStore()
 const loading = ref(false)
@@ -193,7 +194,12 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
     width: 100,
     render: (row) => h(NTag, { size: 'small' }, { default: () => statusText[row.status] || row.status }),
   },
-  { key: 'created_at', title: '创建时间', minWidth: 170 },
+  {
+    key: 'created_at',
+    title: '创建时间',
+    minWidth: 170,
+    render: (row) => formatDateTime(row.created_at),
+  },
   {
     key: 'actions',
     title: '操作',

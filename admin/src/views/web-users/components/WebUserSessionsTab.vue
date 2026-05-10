@@ -14,6 +14,7 @@ import { computed, h } from 'vue'
 
 import type { WebUserSessionItem } from '../../../api/web-user'
 import type { PaginationState, SessionQueryState } from '../types'
+import { formatDateTime } from '../../../utils/datetime'
 
 const props = defineProps<{
   sessions: WebUserSessionItem[]
@@ -51,8 +52,18 @@ const columns = computed<DataTableColumns<WebUserSessionItem>>(() => [
     align: 'center',
     render: (row) => h(NTag, { type: props.statusType(row.status), size: 'small' }, { default: () => row.status }),
   },
-  { key: 'issued_at', title: '签发时间', minWidth: 180 },
-  { key: 'expires_at', title: '过期时间', minWidth: 180 },
+  {
+    key: 'issued_at',
+    title: '签发时间',
+    minWidth: 180,
+    render: (row) => formatDateTime(row.issued_at),
+  },
+  {
+    key: 'expires_at',
+    title: '过期时间',
+    minWidth: 180,
+    render: (row) => formatDateTime(row.expires_at),
+  },
   {
     key: 'last_seen_ip',
     title: '最近 IP',

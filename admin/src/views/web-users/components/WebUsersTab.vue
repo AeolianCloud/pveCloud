@@ -15,6 +15,7 @@ import { computed, h } from 'vue'
 
 import type { WebUserItem } from '../../../api/web-user'
 import type { PaginationState, UserQueryState } from '../types'
+import { formatDateTime } from '../../../utils/datetime'
 
 const props = defineProps<{
   users: WebUserItem[]
@@ -56,7 +57,12 @@ const columns = computed<DataTableColumns<WebUserItem>>(() => [
     align: 'center',
     render: (row) => h(NTag, { type: props.statusType(row.status), size: 'small' }, { default: () => row.status }),
   },
-  { key: 'created_at', title: '创建时间', minWidth: 180 },
+  {
+    key: 'created_at',
+    title: '创建时间',
+    minWidth: 180,
+    render: (row) => formatDateTime(row.created_at),
+  },
   {
     key: 'actions',
     title: '操作',

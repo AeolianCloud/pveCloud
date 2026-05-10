@@ -20,6 +20,7 @@ import { computed, h } from 'vue'
 import EmptyState from '../../../components/EmptyState.vue'
 import type { AdminSessionItem } from '../../../api/admin-session'
 import type { AdminSessionQueryFormState, PaginationState } from '../types'
+import { formatDateTime } from '../../../utils/datetime'
 
 const props = defineProps<{
   loading: boolean
@@ -64,21 +65,6 @@ function formatRevokeReason(reason: string | null) {
     expired: '会话过期',
   }
   return map[reason] || reason
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
 }
 
 const statusOptions = [
