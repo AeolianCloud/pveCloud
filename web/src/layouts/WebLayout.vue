@@ -1,217 +1,83 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-
-import { useWebAppStore } from '../store/modules/app'
-import { useWebAuthStore } from '../store/modules/auth'
-
-const route = useRoute()
-const router = useRouter()
-const appStore = useWebAppStore()
-const authStore = useWebAuthStore()
-
-const siteName = computed(() => appStore.siteName)
-const logoUrl = computed(() => appStore.logoUrl)
-const isLoggedIn = computed(() => authStore.isLoggedIn)
-const displayName = computed(() => authStore.displayName)
-const currentYear = new Date().getFullYear()
-
-const navItems = [
-  { path: '/', label: '首页' },
-  { path: '/products', label: '产品' },
-  { path: '/pricing', label: '价格' },
-]
-
-onMounted(() => {
-  void appStore.loadSiteConfig()
-})
-
-async function handleLogout() {
-  await authStore.logout()
-  if (route.path.startsWith('/user')) {
-    await router.replace('/login')
-  }
-}
+import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <template>
-  <div class="web-shell">
-    <header class="site-header">
-      <div class="container header-inner">
-        <RouterLink to="/" class="brand">
-          <span class="brand-mark">
-            <img v-if="logoUrl" :src="logoUrl" :alt="siteName" />
-            <span v-else>{{ siteName.slice(0, 1).toUpperCase() }}</span>
-          </span>
-          <span class="brand-text">{{ siteName }}</span>
-        </RouterLink>
-
-        <nav class="desktop-nav">
-          <RouterLink v-for="item in navItems" :key="item.path" :to="item.path" class="nav-link" :class="{ active: route.path === item.path }">
-            {{ item.label }}
+  <div class="min-h-screen bg-white text-neutral-950">
+    <header class="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 items-center justify-between">
+          <RouterLink to="/" class="flex items-center gap-3">
+            <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-950 bg-white">
+              <svg class="h-5 w-5 text-neutral-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
+            </span>
+            <span class="text-lg font-black tracking-tight">PVECloud</span>
           </RouterLink>
-        </nav>
-
-        <div class="header-actions">
-          <template v-if="!isLoggedIn">
-            <RouterLink to="/login" class="btn btn-text">登录</RouterLink>
-            <RouterLink to="/register" class="btn btn-primary btn-sm">注册</RouterLink>
-          </template>
-          <template v-else>
-            <span class="user-chip">{{ displayName }}</span>
-            <RouterLink to="/user" class="btn btn-outline btn-sm">控制台</RouterLink>
-            <button class="btn btn-text" type="button" @click="handleLogout">退出</button>
-          </template>
+          <nav class="hidden items-center gap-8 md:flex">
+            <RouterLink to="/products" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+              产品中心
+            </RouterLink>
+            <RouterLink to="/pricing" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+              价格方案
+            </RouterLink>
+            <RouterLink to="/login" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+              登录
+            </RouterLink>
+            <RouterLink
+              to="/register"
+              class="btn-dark rounded-full border px-5 py-2 text-sm font-bold"
+            >
+              免费注册
+            </RouterLink>
+          </nav>
         </div>
       </div>
     </header>
 
-    <main class="site-main">
+    <main class="min-h-[calc(100vh-4rem)]">
       <RouterView />
     </main>
 
-    <footer class="site-footer">
-      <div class="container footer-inner">
-        <div>
-          <p class="footer-title">{{ siteName }}</p>
-          <p class="footer-text">公开产品展示、账号自助和个人实名入口。</p>
+    <footer class="mt-20 border-t border-neutral-200 bg-white">
+      <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div class="grid gap-8 md:grid-cols-4">
+          <div>
+            <div class="mb-4 flex items-center gap-2 text-neutral-950">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-950 text-xs font-black">P</span>
+              <span class="font-black">PVECloud</span>
+            </div>
+            <p class="max-w-xs text-sm leading-6 text-neutral-500">面向游戏开服、轻量应用和独立开发者的云服务器展示站。</p>
+          </div>
+          <div>
+            <h4 class="mb-4 text-sm font-black text-neutral-950">产品</h4>
+            <ul class="space-y-2 text-sm text-neutral-500">
+              <li><RouterLink to="/products" class="hover:text-neutral-950">游戏云服务器</RouterLink></li>
+              <li><RouterLink to="/products" class="hover:text-neutral-950">高主频实例</RouterLink></li>
+              <li><RouterLink to="/products" class="hover:text-neutral-950">大带宽节点</RouterLink></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="mb-4 text-sm font-black text-neutral-950">支持</h4>
+            <ul class="space-y-2 text-sm text-neutral-500">
+              <li><a href="#" class="hover:text-neutral-950">帮助中心</a></li>
+              <li><a href="#" class="hover:text-neutral-950">工单系统</a></li>
+              <li><a href="#" class="hover:text-neutral-950">联系客服</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="mb-4 text-sm font-black text-neutral-950">联系</h4>
+            <ul class="space-y-2 text-sm text-neutral-500">
+              <li>客服电话：400-888-8888</li>
+              <li>客服邮箱：support@pvecloud.com</li>
+            </ul>
+          </div>
         </div>
-        <p class="footer-copy">© {{ currentYear }} {{ siteName }}</p>
+        <div class="mt-8 border-t border-neutral-200 pt-8 text-center text-sm text-neutral-500">
+          © 2024 PVECloud. All rights reserved.
+        </div>
       </div>
     </footer>
   </div>
 </template>
-
-<style scoped>
-.web-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-header-bg);
-  backdrop-filter: blur(16px);
-}
-
-.header-inner {
-  min-height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  font-weight: 800;
-}
-
-.brand-mark {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--c-primary), var(--c-primary-strong));
-  overflow: hidden;
-}
-
-.brand-mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.brand-text {
-  min-width: 0;
-  font-size: 1rem;
-  letter-spacing: -0.03em;
-}
-
-.desktop-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nav-link {
-  padding: 8px 12px;
-  border-radius: 10px;
-  color: var(--c-text-2);
-  font-weight: 700;
-}
-
-.nav-link.active {
-  color: var(--c-primary);
-  background: var(--c-primary-soft);
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.user-chip {
-  max-width: 160px;
-  padding: 8px 12px;
-  border: 1px solid var(--c-border);
-  border-radius: 999px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--c-text-2);
-}
-
-.site-main {
-  flex: 1;
-}
-
-.site-footer {
-  border-top: 1px solid var(--c-border);
-  background: var(--c-surface);
-}
-
-.footer-inner {
-  min-height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.footer-title {
-  font-weight: 800;
-}
-
-.footer-text,
-.footer-copy {
-  color: var(--c-text-2);
-}
-
-@media (max-width: 860px) {
-  .header-inner,
-  .footer-inner {
-    flex-direction: column;
-    align-items: flex-start;
-    padding-block: 14px;
-  }
-
-  .desktop-nav {
-    flex-wrap: wrap;
-  }
-
-  .header-actions {
-    flex-wrap: wrap;
-  }
-}
-</style>

@@ -1,57 +1,38 @@
 <template>
-  <section class="not-found-page">
-    <div class="not-found-card">
-      <p class="label">404</p>
-      <h1>页面不存在</h1>
-      <p>你访问的路径没有匹配到当前路由。</p>
-      <RouterLink to="/" class="btn btn-primary">返回首页</RouterLink>
+  <div class="flex min-h-screen flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-lg">
+      <div class="text-center">
+        <h1 class="text-9xl font-black text-neutral-950">404</h1>
+        <h2 class="mt-4 text-3xl font-black text-neutral-950 sm:text-4xl">
+          页面未找到
+        </h2>
+        <p class="mt-4 text-lg text-neutral-500">
+          抱歉，您访问的页面不存在或已被移除。
+        </p>
+        <div class="mt-8">
+          <RouterLink
+            to="/"
+            class="btn-dark inline-flex items-center rounded-full border px-7 py-3 text-sm font-black"
+          >
+            返回首页
+          </RouterLink>
+        </div>
+        <div class="mt-4">
+          <RouterLink
+            to="/products"
+            class="font-black text-neutral-950 underline decoration-2 underline-offset-4"
+          >
+            查看产品
+          </RouterLink>
+          <span class="mx-2 text-neutral-300">|</span>
+          <RouterLink
+            to="/pricing"
+            class="font-black text-neutral-950 underline decoration-2 underline-offset-4"
+          >
+            查看价格
+          </RouterLink>
+        </div>
+      </div>
     </div>
-  </section>
+  </div>
 </template>
-
-<style scoped>
-.not-found-page {
-  min-height: calc(100vh - 96px);
-  display: grid;
-  place-items: center;
-  padding: 32px 20px 56px;
-}
-
-.not-found-card {
-  width: min(100%, 560px);
-  display: grid;
-  gap: 18px;
-  justify-items: start;
-  padding: clamp(30px, 5vw, 52px);
-  border: 1px solid var(--c-border);
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.16), transparent 40%),
-    var(--c-card);
-  box-shadow: var(--shadow-lg);
-}
-
-.label {
-  color: var(--c-primary);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-
-.not-found-card h1 {
-  font-size: clamp(2.25rem, 4vw, 3.6rem);
-  line-height: 1;
-  letter-spacing: -0.06em;
-}
-
-.not-found-card p {
-  color: var(--c-text-2);
-  line-height: 1.8;
-}
-
-@media (max-width: 620px) {
-  .not-found-page {
-    min-height: calc(100vh - 72px);
-  }
-}
-</style>

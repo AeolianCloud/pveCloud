@@ -4,16 +4,28 @@
 
 ## 当前状态
 
-- Web 基础前台阶段已经落地用户端前端壳、路由、静态页面、站点基础展示配置和请求边界准备。
-- 当前在服务器产品目录能力之上开放用户注册、密码找回、自动刷新、用户资料编辑和支付宝/微信侧个人实名；订单、支付、实例或工单等业务 API 仍不开放。
+- Web 用户端前端页面准备清空重做。
+- 清空后 `web/` 仅保留独立请求边界和后续重做所需目录基础，不保留 Vue 应用入口。
+- 当前不开放用户端页面、公开路由、用户账号自助页面、产品目录展示页、用户中心或实名页。
+- 已存在的用户端接口、后端能力和历史页面契约不等于当前前端开放页面；重新开放任何页面前必须先更新本文档和对应页面契约。
 
 ## 文档入口
 
-- Web 登录页契约：`docs/web/pages/login.md`
-- Web 忘记密码页契约：`docs/web/pages/forgot-password.md`
-- Web 重置密码页契约：`docs/web/pages/reset-password.md`
-- Web 用户资料页契约：`docs/web/pages/account-profile.md`
-- Web 实名页契约：`docs/web/pages/real-name.md`
+当前开放的页面契约：
+
+- `docs/web/pages/home.md` - 首页
+- `docs/web/pages/products.md` - 产品展示页
+- `docs/web/pages/pricing.md` - 价格页
+- `docs/web/pages/login.md` - 登录页
+- `docs/web/pages/register.md` - 注册页
+- `docs/web/pages/forgot-password.md` - 忘记密码页
+- `docs/web/pages/reset-password.md` - 重置密码页
+- `docs/web/pages/user-center.md` - 用户中心页
+- `docs/web/pages/account-profile.md` - 账号资料页
+- `docs/web/pages/real-name.md` - 实名认证页
+- `docs/web/pages/not-found.md` - 404页面
+
+后续重新设计页面时，先更新本文档和对应页面契约，再实现页面与路由。
 
 ## 定位
 
@@ -48,27 +60,37 @@
 
 ## 当前阶段范围
 
-当前阶段在基础前台和服务器产品目录之上开放用户账号自助和支付宝/微信侧个人实名能力：
+当前阶段开放官网展示和用户账号自助页面，不开放订单、支付、实例、工单等业务流程。
 
-- Home
-- Products 服务器产品展示页
-- Pricing 服务器套餐价格展示页
-- Login / Register / Forgot Password / Reset Password 用户认证页
-- User Center 控制台入口页
-- Account Profile 用户资料页
-- Real Name 个人实名页，支持支付宝/微信侧实名核验
-- 404
+开放页面：
+- 首页（Home）
+- 产品展示页（Products）
+- 价格页（Pricing）
+- 登录页（Login）
+- 注册页（Register）
+- 忘记密码页（Forgot Password）
+- 重置密码页（Reset Password）
+- 用户中心页（User Center）
+- 账号资料页（Account Profile）
+- 实名认证页（Real Name）
+- 404 页面
 
-这些页面承载信息架构、服务器产品目录展示、用户登录态、账号自助和未来接入点，不承载下单、支付、实例或工单流程。
+不开放页面：
+- 订单创建页
+- 订单列表页
+- 支付页
+- 实例管理页
+- 工单页
+- 钱包页
 
 ## 本阶段不开放能力
 
-- 用户端业务接口（公开站点配置、用户账号自助、用户实名和服务器产品目录接口除外）
 - 订单、支付、实例或工单流程
 - 订单创建和订单列表
 - 支付发起、回调和支付结果确认
 - 实例列表、实例开通和实例操作
 - 工单创建、回复和列表
+- 钱包、发票、SSH密钥管理
 - 与 `admin/` 的任何运行时代码共享
 
 ## 技术倾向
@@ -82,8 +104,9 @@
 - Vue Router
 - Pinia
 - Axios
+- Tailwind CSS
 
-`web/` 已沿用上述技术栈。后续如需引入 UI 组件库、CSS 框架或 SSR/SSG 能力，必须先更新本文档并确认。
+后续如需再引入其它 UI 组件库、CSS 框架或 SSR/SSG 能力，必须先更新本文档并确认。
 
 ## 目标目录口径
 
@@ -92,110 +115,87 @@ web/src/
   api/
   assets/
   components/
+  composables/
   layouts/
   router/
-  store/
+  stores/
   styles/
   views/
+  App.vue
+  main.ts
 ```
 
 说明：
 
-- `api/`：只放 `/api/*` 请求封装，本阶段接公开站点配置、用户账号自助、用户实名和服务器产品目录接口
-- `router/`：用户端路由定义
-- `store/`：跨页面 concern，本阶段只保留必要基础状态
-- `views/`：页面入口
-- `layouts/`：用户端页面壳
-- `components/`：仅限 `web/` 内部复用组件
-- `styles/`：用户端 tokens、reset 和页面基础样式
+- `api/`：`/api/*` 请求封装，按业务域拆分。
+- `assets/`：静态资源目录。
+- `components/`：全局共享组件。
+- `composables/`：组合式函数。
+- `layouts/`：布局组件。
+- `router/`：路由配置。
+- `stores/`：Pinia 状态管理。
+- `styles/`：全局样式。
+- `views/`：页面组件，按路由结构组织。
+- `App.vue`：应用根组件。
+- `main.ts`：应用入口。
 
 ## 路由口径
 
-本阶段目标路由：
+当前开放以下路由：
 
-| 路由 | 页面 | 说明 |
-| --- | --- | --- |
-| `/` | Home | 用户端首页和推荐服务器套餐展示 |
-| `/products` | Products | 服务器产品能力、销售地域和系统模板展示 |
-| `/pricing` | Pricing | 服务器套餐规格和周期价格展示 |
-| `/login` | Login | 用户登录入口，已登录时跳转 `/user` |
-| `/register` | Register | 用户注册入口，已登录时跳转 `/user` |
-| `/forgot-password` | Forgot Password | 申请密码重置邮件 |
-| `/reset-password` | Reset Password | 通过一次性 token 重置密码 |
-| `/user` | User Center | 控制台入口，要求用户登录态，未登录跳转 `/login` |
-| `/user/profile` | Account Profile | 用户资料编辑页，要求用户登录态 |
-| `/user/real-name` | Real Name | 个人实名页，要求用户登录态 |
-| `/:pathMatch(.*)*` | 404 | 未匹配路由 |
+- `/` - 首页
+- `/products` - 产品展示页
+- `/pricing` - 价格页
+- `/login` - 登录页
+- `/register` - 注册页
+- `/forgot-password` - 忘记密码页
+- `/reset-password` - 重置密码页
+- `/user` - 用户中心页（受保护）
+- `/user/profile` - 账号资料页（受保护）
+- `/user/real-name` - 实名认证页（受保护）
+- `/:pathMatch(.*)*` - 404页面
 
-本阶段 `/user`、`/user/profile` 和 `/user/real-name` 为用户登录保护路由，未登录跳转 `/login`；其它路由公开访问。本阶段不做用户权限判断。
-
-未登录访问 `/user` 时可以携带站内 `redirect` 参数；登录成功后仅允许跳转合法站内路径，非法或缺失时回退 `/user`。
+路由元信息必须包含标题、图标、权限、菜单可见性等页面契约。
 
 ## 站点基础展示配置
 
-Web 左上角品牌区域由后台系统配置驱动：
+官网展示站点名称、Logo、验证码区域和实名入口。
 
-- `site.name`：站点显示名称，默认 `pveCloud`。
-- `site.logo_url`：站点 Logo 图片 URL，默认空；为空时使用前端默认字母标识。
-- `web.auth.login_captcha_enabled`：是否为登录页开启图形验证码，默认 `false`。
-- `web.auth.register_captcha_enabled`：是否为注册页开启图形验证码，默认 `false`。
-- `web.auth.password_reset_request_captcha_enabled`：是否为忘记密码申请页开启图形验证码，默认 `false`。
-- `web.auth.password_reset_confirm_captcha_enabled`：是否为重置密码确认页开启图形验证码，默认 `false`。
-- `real_name.*`：用户实名开关、供应商选择、提交要求和说明文案，业务开关和供应商接入参数由后台系统配置维护；支付宝、微信/腾讯云密钥属于后台敏感配置，不对前端暴露。
-
-展示规则：
-
-- Web 顶部品牌区域同时支持文字和图片。
-- 文字来自 `site.name`，为空时回退为 `pveCloud`。
-- 图片来自 `site.logo_url`，为空时展示前端默认标识。
-- 4 个用户认证验证码开关由 `GET /api/site-config` 暴露为布尔字段，前端按页面独立决定是否显示验证码区域。
-- 用户实名公开配置由 `GET /api/site-config` 暴露为 `real_name` 对象，用于控制实名入口、可选供应商、默认供应商和说明文案；可选供应商必须是服务端过滤后的已启用且配置完整的供应商。
-- `real_name.enabled` 跟随后台实名入口开关和可用实名方式；支付宝/微信侧供应商不可用、证件摘要密钥缺失或回调地址缺失时，不关闭已启用的人工审核入口，而是由服务端返回 `manual` 作为人工审核实名方式。
-- 该配置为公开展示信息，不包含敏感配置。
+可继续复用现有公开配置接口 `GET /api/site-config`，但必须先恢复对应页面契约。
 
 ## 请求边界
 
 - 请求基础路径为 `/api/*`。
-- 本阶段允许 Web 调用 `GET /api/site-config` 获取公开站点基础展示配置。
-- 本阶段允许 Web 调用用户认证验证码接口：`GET /api/auth/login-captcha`、`GET /api/auth/register-captcha`、`GET /api/auth/password-reset-request-captcha`、`GET /api/auth/password-reset-confirm-captcha`。
-- 本阶段允许 Web 调用用户账号自助接口：`POST /api/auth/login`、`POST /api/auth/register`、`GET /api/auth/me`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password-reset/request`、`POST /api/auth/password-reset/confirm`、`PATCH /api/user/profile`、`POST /api/user/password`。
-- 本阶段允许 Web 调用用户实名接口：`GET /api/user/real-name`、`POST /api/user/real-name`、`POST /api/user/real-name/sync`。
-- 本阶段允许 Web 调用 `GET /api/server-catalog` 获取公开服务器产品目录。
-- 本阶段可以创建用户端请求封装骨架，但不得调用 `/admin-api/*`。
-- 本阶段不新增站点配置、用户账号自助、用户实名和服务器产品目录以外的用户端业务接口契约。
+- 当前可调用的接口：
+  - 站点配置：`GET /api/site-config`
+  - 认证相关：登录、注册、密码找回、密码重置、登录态恢复、刷新、退出
+  - 用户资料：`GET /api/auth/me`、`PATCH /api/user/profile`、`POST /api/user/password`
+  - 实名认证：`GET /api/user/real-name`、`POST /api/user/real-name`、`POST /api/user/real-name/sync`
+  - 产品目录：`GET /api/server-catalog`
 - 后续接入真实业务接口时，必须先更新 `docs/server/api/` 和必要的数据库契约。
 
 ## 状态边界
 
-- 用户端登录态由用户端 JWT access token 和服务端 `user_sessions` 共同决定。
-- Web 可以将用户端 access token 保存到浏览器本地存储，用于页面刷新后恢复登录态。
-- Web 启动和进入 `/user` 前通过 `GET /api/auth/me` 恢复登录态；失败时清理本地 token。
-- 用户退出时调用 `POST /api/auth/logout`，无论接口成功失败都清理本地 token 并回到登录入口。
-- 登录成功后保存用户摘要和当前会话摘要；登录失败停留在 `/login`，账号不存在或密码错误使用统一提示，禁用账号展示明确禁用提示。
-- 当 `login_captcha_enabled=true` 时，登录页首屏拉取 `GET /api/auth/login-captcha` 并在提交 `POST /api/auth/login` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
-- 注册成功后直接创建用户端会话并进入 `/user`；用户名和邮箱重复时返回明确重复提示。
-- 当 `register_captcha_enabled=true` 时，注册页首屏拉取 `GET /api/auth/register-captcha` 并在提交 `POST /api/auth/register` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
-- 忘记密码通过邮箱发送一次性重置链接；申请接口不得暴露账号是否存在。
-- 当 `password_reset_request_captcha_enabled=true` 时，忘记密码页首屏拉取 `GET /api/auth/password-reset-request-captcha` 并在提交 `POST /api/auth/password-reset/request` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
-- 当 `password_reset_confirm_captcha_enabled=true` 时，重置密码页首屏拉取 `GET /api/auth/password-reset-confirm-captcha` 并在提交 `POST /api/auth/password-reset/confirm` 时额外提交 `captcha_id`、`captcha_code`；验证码错误、过期或缺失时刷新当前验证码。
-- 4 个认证流程的验证码互不通用，场景关闭时前端不得请求对应验证码接口。
-- 用户资料编辑仅允许当前登录用户修改邮箱、显示名称和密码，不开放用户名修改。
-- 用户实名仅允许当前登录用户提交个人实名资料、选择支付宝/微信侧供应商或人工审核方式、同步自己的外部供应商实名结果和查看自己的实名状态；实名状态不作为用户端权限码。
-- `real_name.enabled=false` 时用户端不得提交实名申请。
-- `pending` 和 `approved` 状态不得重复提交；`pending` 状态只允许同步供应商结果；`rejected` 状态是否允许重提由后台配置和提交次数决定。
-- 前端不得根据支付宝、微信或腾讯云返回的 URL 参数直接判定实名通过；必须调用服务端同步接口，由服务端查询供应商结果。
-- 用户端人工审核实名不展示证件图片上传，不能调用旧人工实名上传接口。
-- `real_name.required_for_order=true` 时，用户购买机器前必须实名通过；未实名、核验中或被拒绝时引导到 `/user/real-name`。
-- 已登录用户访问 `/login` 时跳转 `/user`。
-- `401xx` 按未登录、token 无效、token 过期或会话失效处理，前端必须清理本地登录态；受保护路由访问失败时回到 `/login`。
-- `403xx` 不作为未登录处理；当前阶段用户端不引入权限码。
-- 请求层遇到 HTTP 401 或响应包业务码 `401xx` 时清理本地 token；HTTP 403 或业务码 `403xx` 不触发本地 token 清理。
-- 当前阶段开放自动调用 `POST /api/auth/refresh`；当前 token 接近过期且当前会话仍有效时轮换新 token，刷新失败时回到登录流程。
-- 本阶段不持久化订单、实例或工单状态。
+当前支持登录态恢复、token 刷新、用户资料展示和实名申请。
+
+登录态恢复：
+- Web 本地可保存用户端 access token，用于页面刷新后恢复登录态。
+- Web 启动和进入受保护路由前，如果本地存在 token，必须调用 `GET /api/auth/me` 恢复用户摘要和会话摘要。
+- `GET /api/auth/me` 成功后视为登录态有效，成功响应中的用户摘要为服务端当前真实摘要。
+- `GET /api/auth/me` 失败时必须清理本地 token、用户摘要和会话摘要。
+
+token 刷新：
+- 当前阶段自动调用 `POST /api/auth/refresh`；当前 token 接近过期且会话仍有效时轮换新 token 和新会话。
+- 自动刷新成功后更新本地 access token、用户摘要和当前会话摘要。
+- 自动刷新失败时清理本地 token、用户摘要和会话摘要；如果当前访问受保护路由，跳转 `/login`。
+
+实名状态：
+- 实名状态以后端返回为准，前端展示当前状态：未实名、核验中、已通过、已拒绝。
+- 实名功能开关和配置来自 `GET /api/site-config`。
 
 ## 服务器产品目录展示
 
-Web 通过 `GET /api/server-catalog` 展示服务器产品目录。
+官网展示服务器产品目录，调用 `GET /api/server-catalog`。
 
 展示范围：
 
@@ -235,15 +235,10 @@ Web 通过 `GET /api/server-catalog` 展示服务器产品目录。
 
 ## 验收口径
 
-- `web/` 与 `admin/` 独立，不共享运行时代码
-- `web/` 不调用 `/admin-api/*`
-- 本阶段只新增公开站点配置、用户账号自助、用户实名和服务器产品目录接口，不新增订单、支付、实例或工单接口
-- Home、Products 和 Pricing 通过公开服务器产品目录展示产品、套餐、价格、销售地域、服务器系统模板、简介和状态
-- Web 左上角品牌区域可展示后台配置的站点名称和 Logo 图片，配置为空时有默认回退
-- 顶部导航“登录”和“控制台”指向同一用户登录体系；未登录访问控制台进入 `/login`，登录成功进入 `/user`
-- 登录、注册、密码找回、重置密码、自动刷新和用户资料编辑流程可用，且不调用 `/admin-api/*`
-- 用户实名页可按后台配置展示实名要求、供应商选择和供应商跳转/同步状态，且不调用 `/admin-api/*`
-- 4 个认证页面根据 `GET /api/site-config` 返回的布尔开关独立显示或隐藏验证码区域；开关关闭时不请求验证码接口
-- 基础路由和 404 可访问
-- 用户端静态页面在桌面和移动端可用
-- `web` 构建通过
+- `web/` 与 `admin/` 独立，不共享运行时代码。
+- `web/` 不调用 `/admin-api/*`。
+- 官网页面实现完整，路由注册正确，Vue 应用入口正常。
+- 页面行为符合对应页面契约。
+- 登录态恢复、token 刷新、401/403 处理正确。
+- 产品目录展示符合契约限制。
+- `web` 构建通过。

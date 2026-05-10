@@ -1,157 +1,48 @@
-<script setup lang="ts">
-import { storeToRefs } from 'pinia'
-
-import { useWebAuthStore } from '../../store/modules/auth'
-
-const authStore = useWebAuthStore()
-const { displayName, user } = storeToRefs(authStore)
-
-const actions = [
-  { title: '账号资料', tag: '已开放', desc: '维护邮箱、显示名称和登录密码。', to: '/user/profile', tone: 'success' },
-  { title: '实名认证', tag: '购买准备', desc: '提交个人实名，状态以后端核验为准。', to: '/user/real-name', tone: 'primary' },
-  { title: '价格方案', tag: '公开展示', desc: '查看当前公开服务器套餐和周期价格。', to: '/pricing', tone: 'primary' },
-  { title: '购买与实例', tag: '待开放', desc: '订单、支付、实例和工单后续阶段开放。', to: '', tone: 'warning' },
-]
-</script>
-
 <template>
-  <section class="user-page page-shell">
-    <div class="user-hero surface">
-      <div>
-        <p class="section-label">User Console</p>
-        <h1 class="page-title">{{ displayName }}，欢迎回来</h1>
-        <p class="page-copy">当前控制台开放账号资料和实名认证，购买与实例交付入口会在业务契约开放后接入。</p>
+  <div class="bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div class="mb-10 flex flex-col justify-between gap-4 border-b border-neutral-200 pb-8 md:flex-row md:items-end">
+        <div>
+          <p class="text-sm font-black uppercase tracking-[0.18em] text-neutral-500">User Center</p>
+          <h1 class="mt-3 text-4xl font-black tracking-tight text-neutral-950">用户中心</h1>
+        </div>
+        <span class="rounded-full border border-neutral-950 px-4 py-2 text-xs font-black">展示骨架</span>
       </div>
-      <div class="profile-box">
-        <span>{{ user?.username?.slice(0, 1).toUpperCase() || 'U' }}</span>
-        <strong>{{ user?.username }}</strong>
-        <small>{{ user?.email }}</small>
+
+      <div class="grid gap-5 lg:grid-cols-3">
+        <section class="rounded-[1.5rem] border border-neutral-950 bg-white p-6 shadow-[8px_8px_0_#111]">
+          <h2 class="text-lg font-black text-neutral-950">用户信息</h2>
+          <div class="mt-6 flex items-center gap-4">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl border border-neutral-950 bg-neutral-950 text-xl font-black text-white">U</div>
+            <div>
+              <div class="text-sm font-black text-neutral-950">用户名</div>
+              <div class="text-sm text-neutral-500">user@example.com</div>
+            </div>
+          </div>
+          <div class="mt-6 grid gap-3 text-sm">
+            <div class="flex justify-between border-t border-neutral-200 pt-3"><span class="text-neutral-500">账户状态</span><span class="font-black">正常</span></div>
+            <div class="flex justify-between border-t border-neutral-200 pt-3"><span class="text-neutral-500">实名状态</span><span class="font-black">未实名</span></div>
+          </div>
+        </section>
+
+        <section class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6">
+          <h2 class="text-lg font-black text-neutral-950">快速入口</h2>
+          <div class="mt-5 space-y-3">
+            <RouterLink to="/user/profile" class="block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">账号资料</RouterLink>
+            <RouterLink to="/user/real-name" class="block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">实名认证</RouterLink>
+            <div class="block rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-black text-neutral-400">订单管理（即将开放）</div>
+            <div class="block rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-black text-neutral-400">实例管理（即将开放）</div>
+          </div>
+        </section>
+
+        <section class="rounded-[1.5rem] border border-neutral-200 bg-white p-6">
+          <h2 class="text-lg font-black text-neutral-950">账户概览</h2>
+          <dl class="mt-6 space-y-4 text-sm">
+            <div><dt class="text-neutral-500">最近登录</dt><dd class="mt-1 font-black text-neutral-950">2024-01-01 12:00:00</dd></div>
+            <div><dt class="text-neutral-500">注册时间</dt><dd class="mt-1 font-black text-neutral-950">2024-01-01</dd></div>
+          </dl>
+        </section>
       </div>
     </div>
-
-    <div class="summary-grid">
-      <div class="summary-card card"><span>会话状态</span><strong>已登录</strong></div>
-      <div class="summary-card card"><span>当前阶段</span><strong>账号自助</strong></div>
-      <div class="summary-card card"><span>业务边界</span><strong>未开放下单</strong></div>
-    </div>
-
-    <div class="action-grid">
-      <RouterLink v-for="item in actions" :key="item.title" class="action-card card" :to="item.to || '/user'">
-        <span class="tag" :class="item.tone === 'warning' ? 'tag-warning' : item.tone === 'success' ? 'tag-success' : 'tag-primary'">{{ item.tag }}</span>
-        <h2>{{ item.title }}</h2>
-        <p>{{ item.desc }}</p>
-      </RouterLink>
-    </div>
-  </section>
+  </div>
 </template>
-
-<style scoped>
-.user-page {
-  display: grid;
-  gap: 22px;
-}
-
-.user-hero {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 24px;
-  padding: clamp(24px, 4vw, 38px);
-}
-
-.user-hero .page-copy {
-  max-width: 720px;
-  margin-top: 14px;
-}
-
-.profile-box {
-  min-width: 240px;
-  display: grid;
-  align-content: center;
-  gap: 8px;
-  padding: 22px;
-  border-radius: 16px;
-  background: var(--c-surface-dim);
-}
-
-.profile-box span {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  color: #fff;
-  background: var(--c-primary);
-  font-weight: 900;
-}
-
-.profile-box small {
-  color: var(--c-text-2);
-}
-
-.summary-grid,
-.action-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.summary-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.summary-card {
-  display: grid;
-  gap: 6px;
-  padding: 18px;
-}
-
-.summary-card span {
-  color: var(--c-text-3);
-  font-weight: 800;
-}
-
-.summary-card strong {
-  font-size: 1.35rem;
-  letter-spacing: -0.04em;
-}
-
-.action-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.action-card {
-  display: grid;
-  gap: 16px;
-  align-content: start;
-  padding: 22px;
-  min-height: 210px;
-}
-
-.action-card h2 {
-  font-size: 1.3rem;
-  letter-spacing: -0.04em;
-}
-
-.action-card p {
-  color: var(--c-text-2);
-  line-height: 1.7;
-}
-
-@media (max-width: 980px) {
-  .action-grid,
-  .summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .user-hero {
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 620px) {
-  .action-grid,
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

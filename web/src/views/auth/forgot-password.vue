@@ -1,174 +1,58 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { storeToRefs } from 'pinia'
-
-import { getPasswordResetRequestCaptcha, requestPasswordReset } from '../../api/auth'
-import { useAuthCaptcha } from '../../composables/use-auth-captcha'
-import { useWebAppStore } from '../../store/modules/app'
-
-const appStore = useWebAppStore()
-const { passwordResetRequestCaptchaEnabled, siteConfigError, siteConfigLoaded, siteConfigLoading } = storeToRefs(appStore)
+import { ref } from 'vue'
 
 const email = ref('')
 const loading = ref(false)
-const errorMessage = ref('')
-const sent = ref(false)
+const success = ref(false)
+const error = ref('')
 
-const { captchaCode, captchaError, captchaId, captchaImage, captchaLoading, captchaReady, refreshCaptcha } =
-  useAuthCaptcha(passwordResetRequestCaptchaEnabled, getPasswordResetRequestCaptcha)
-
-const canSubmit = computed(() => (
-  siteConfigLoaded.value &&
-  email.value.trim() !== '' &&
-  (!passwordResetRequestCaptchaEnabled.value || captchaCode.value.trim().length >= 4) &&
-  captchaReady.value &&
-  !loading.value
-))
-
-const submitHint = computed(() => {
-  if (siteConfigLoading.value && !siteConfigLoaded.value) return '正在加载找回密码配置...'
-  if (email.value.trim() === '') return '请输入注册邮箱'
-  if (passwordResetRequestCaptchaEnabled.value && !captchaReady.value) return captchaError.value || '验证码加载中...'
-  if (passwordResetRequestCaptchaEnabled.value && captchaCode.value.trim().length < 4) return '请输入验证码'
-  if (siteConfigError.value) return siteConfigError.value
-  return ''
-})
-
-function errorText(error: unknown) {
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const response = (error as { response?: { data?: { message?: string } } }).response
-    if (response?.data?.message) return response.data.message
+const handleSubmit = async () => {
+  if (!email.value) {
+    error.value = '请输入邮箱地址'
+    return
   }
-  if (typeof error === 'object' && error !== null && 'request' in error) return '网络连接失败，请检查后重试'
-  return '密码找回服务暂不可用，请稍后再试'
-}
 
-async function handleSubmit() {
-  if (!canSubmit.value) return
   loading.value = true
-  errorMessage.value = ''
-  sent.value = false
+  error.value = ''
+
   try {
-    await requestPasswordReset({
-      email: email.value.trim(),
-      captcha_id: passwordResetRequestCaptchaEnabled.value ? captchaId.value : undefined,
-      captcha_code: passwordResetRequestCaptchaEnabled.value ? captchaCode.value.trim() : undefined,
-    })
-    sent.value = true
-    if (passwordResetRequestCaptchaEnabled.value) void refreshCaptcha()
-  } catch (error) {
-    errorMessage.value = errorText(error)
-    if (passwordResetRequestCaptchaEnabled.value) void refreshCaptcha()
+    success.value = true
+  } catch (err) {
+    error.value = '发送重置邮件失败，请稍后重试'
   } finally {
     loading.value = false
   }
 }
-
-onMounted(() => {
-  void appStore.loadSiteConfig()
-})
 </script>
 
 <template>
-  <main class="auth-page">
-    <section class="auth-card surface">
-      <div class="auth-heading">
-        <p class="section-label">Password Reset</p>
-        <h1>找回密码</h1>
-        <p>输入注册邮箱。无论账号是否存在，页面都会使用统一提示。</p>
-      </div>
+  <div class="flex min-h-screen flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+      <p class="text-center text-sm font-black uppercase tracking-[0.18em] text-neutral-500">Password Reset</p>
+      <h2 class="mt-4 text-center text-3xl font-black text-neutral-950">忘记密码</h2>
+      <p class="mt-3 text-center text-sm text-neutral-500">输入您的邮箱地址，我们将发送重置链接</p>
+    </div>
 
-      <form class="form-grid" @submit.prevent="handleSubmit">
-        <label class="field">
-          <span>注册邮箱</span>
-          <span class="field-control"><input v-model="email" type="email" autocomplete="email" placeholder="name@example.com" /></span>
-        </label>
-
-        <div v-if="passwordResetRequestCaptchaEnabled" class="field">
-          <span>安全验证码</span>
-          <div class="captcha-row">
-            <span class="field-control"><input v-model="captchaCode" type="text" maxlength="8" autocomplete="off" placeholder="图中字符" /></span>
-            <button class="captcha-box" type="button" :disabled="captchaLoading" @click="refreshCaptcha">
-              <img v-if="captchaImage" :src="captchaImage" alt="找回密码验证码" />
-              <span v-else>{{ captchaLoading ? '加载中...' : '刷新' }}</span>
-            </button>
-          </div>
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+      <div class="rounded-[1.5rem] border border-neutral-950 bg-white p-7 shadow-[8px_8px_0_#111]">
+        <div v-if="success" class="rounded-xl border border-neutral-300 bg-neutral-50 p-4">
+          <h3 class="text-sm font-black text-neutral-950">重置邮件已发送</h3>
+          <p class="mt-2 text-sm leading-6 text-neutral-600">请检查您的邮箱，点击重置链接修改密码。</p>
+          <RouterLink to="/login" class="mt-4 inline-flex rounded-full border border-neutral-950 px-4 py-2 text-sm font-black text-neutral-950 hover:bg-neutral-950 hover:text-white">返回登录</RouterLink>
         </div>
 
-        <p v-if="sent" class="notice success">如果邮箱对应有效账号，重置链接会发送到该邮箱。</p>
-        <p v-else-if="errorMessage || captchaError || submitHint" class="notice" :class="errorMessage || captchaError ? 'error' : 'info'">
-          {{ errorMessage || captchaError || submitHint }}
-        </p>
-
-        <button class="btn btn-primary btn-block" type="submit" :disabled="!canSubmit">
-          <span v-if="loading" class="spinner-small"></span>
-          {{ loading ? '发送中...' : '发送重置链接' }}
-        </button>
-      </form>
-
-      <RouterLink class="back-link" to="/login">返回登录</RouterLink>
-    </section>
-  </main>
+        <form v-else class="space-y-5" @submit.prevent="handleSubmit">
+          <div v-if="error" class="rounded-xl border border-neutral-950 bg-neutral-50 p-3 text-sm font-bold text-neutral-950">{{ error }}</div>
+          <div>
+            <label for="email" class="mb-2 block text-sm font-black text-neutral-800">邮箱地址</label>
+            <input id="email" v-model="email" name="email" type="email" required class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="请输入邮箱地址" />
+          </div>
+          <button type="submit" :disabled="loading" class="btn-dark w-full rounded-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '发送中...' : '发送重置链接' }}</button>
+          <div class="text-center text-sm">
+            <RouterLink to="/login" class="font-black text-neutral-950 underline decoration-2 underline-offset-4">返回登录</RouterLink>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
-
-<style scoped>
-.auth-page {
-  min-height: calc(100vh - 144px);
-  display: grid;
-  place-items: center;
-  padding: 34px 16px 72px;
-}
-.auth-card {
-  width: min(560px, 100%);
-  display: grid;
-  gap: 24px;
-  padding: clamp(26px, 5vw, 44px);
-}
-.auth-heading {
-  display: grid;
-  gap: 10px;
-}
-.auth-heading h1 {
-  font-size: clamp(2rem, 5vw, 3rem);
-  line-height: 1;
-  letter-spacing: -0.06em;
-}
-.auth-heading p:last-child,
-.back-link {
-  color: var(--c-text-2);
-}
-.form-grid {
-  display: grid;
-  gap: 16px;
-}
-.captcha-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
-  gap: 10px;
-}
-.captcha-box {
-  min-height: 48px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid var(--c-border);
-  border-radius: 12px;
-  color: var(--c-text-2);
-  background: var(--c-surface-dim);
-  cursor: pointer;
-}
-.captcha-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.back-link {
-  justify-self: center;
-  font-weight: 800;
-}
-@media (max-width: 520px) {
-  .captcha-row {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

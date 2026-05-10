@@ -1,74 +1,95 @@
 import type { RouteRecordRaw } from 'vue-router'
 
-import WebLayout from '../layouts/WebLayout.vue'
-
-export const publicRoutes: RouteRecordRaw[] = [
+export const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    component: WebLayout,
-    children: [
-      {
-        path: '',
-        name: 'home',
-        component: () => import('../views/home/index.vue'),
-      },
-      {
-        path: 'products',
-        name: 'products',
-        component: () => import('../views/products/index.vue'),
-      },
-      {
-        path: 'pricing',
-        name: 'pricing',
-        component: () => import('../views/pricing/index.vue'),
-      },
-      {
-        path: 'login',
-        name: 'login',
-        meta: { transitionName: 'auth-swap' },
-        component: () => import('../views/auth/index.vue'),
-      },
-      {
-        path: 'register',
-        name: 'register',
-        meta: { transitionName: 'auth-swap' },
-        component: () => import('../views/auth/register.vue'),
-      },
-      {
-        path: 'forgot-password',
-        name: 'forgot-password',
-        meta: { transitionName: 'auth-swap' },
-        component: () => import('../views/auth/forgot-password.vue'),
-      },
-      {
-        path: 'reset-password',
-        name: 'reset-password',
-        meta: { transitionName: 'auth-swap' },
-        component: () => import('../views/auth/reset-password.vue'),
-      },
-      {
-        path: 'user',
-        name: 'user-center',
-        meta: { requiresAuth: true },
-        component: () => import('../views/user-center/index.vue'),
-      },
-      {
-        path: 'user/profile',
-        name: 'user-profile',
-        meta: { requiresAuth: true },
-        component: () => import('../views/user-profile/index.vue'),
-      },
-      {
-        path: 'user/real-name',
-        name: 'user-real-name',
-        meta: { requiresAuth: true },
-        component: () => import('../views/real-name/index.vue'),
-      },
-    ],
+    name: 'home',
+    component: () => import('../views/home/index.vue'),
+    meta: {
+      title: '首页',
+    },
+  },
+  {
+    path: '/products',
+    name: 'products',
+    component: () => import('../views/products/index.vue'),
+    meta: {
+      title: '产品展示',
+    },
+  },
+  {
+    path: '/pricing',
+    name: 'pricing',
+    component: () => import('../views/pricing/index.vue'),
+    meta: {
+      title: '价格',
+    },
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/auth/login.vue'),
+    meta: {
+      title: '登录',
+    },
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('../views/auth/register.vue'),
+    meta: {
+      title: '注册',
+    },
+  },
+  {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('../views/auth/forgot-password.vue'),
+    meta: {
+      title: '忘记密码',
+    },
+  },
+  {
+    path: '/reset-password',
+    name: 'reset-password',
+    component: () => import('../views/auth/reset-password.vue'),
+    meta: {
+      title: '重置密码',
+    },
+  },
+  {
+    path: '/user',
+    name: 'user-center',
+    component: () => import('../views/user-center/index.vue'),
+    meta: {
+      title: '用户中心',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/profile',
+    name: 'user-profile',
+    component: () => import('../views/user-profile/index.vue'),
+    meta: {
+      title: '账号资料',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/real-name',
+    name: 'real-name',
+    component: () => import('../views/real-name/index.vue'),
+    meta: {
+      title: '实名认证',
+      requiresAuth: true,
+    },
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('../views/not-found/index.vue'),
+    meta: {
+      title: '页面未找到',
+    },
   },
 ]

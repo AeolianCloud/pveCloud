@@ -1,380 +1,145 @@
-<script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-
-import { getServerCatalog, type ServerCatalogPlan } from '../../api/product-catalog'
-
-const loading = ref(false)
-const plans = ref<ServerCatalogPlan[]>([])
-
-onMounted(async () => {
-  loading.value = true
-  try {
-    const catalog = await getServerCatalog()
-    const allPlans = catalog.products.flatMap((product) => product.plans)
-    plans.value = allPlans.filter((plan) => plan.is_featured).slice(0, 3)
-    if (plans.value.length === 0) plans.value = allPlans.slice(0, 3)
-  } finally {
-    loading.value = false
-  }
-})
-
-const catalogStats = computed(() => {
-  const regions = new Set<string>()
-  const templates = new Set<string>()
-  plans.value.forEach((plan) => {
-    plan.regions.forEach((region) => regions.add(region.region_no))
-    plan.os_templates.forEach((template) => templates.add(template.template_no))
-  })
-  return [
-    { label: '推荐套餐', value: `${plans.value.length}` },
-    { label: '展示地域', value: `${regions.size}` },
-    { label: '系统模板', value: `${templates.size}` },
-  ]
-})
-
-function yuan(cents: number) {
-  return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)
-}
-
-function monthlyPrice(plan: ServerCatalogPlan) {
-  return plan.prices.find((price) => price.billing_cycle === 'monthly') || plan.prices[0]
-}
-</script>
-
 <template>
-  <section class="home-page">
-    <div class="container hero-grid">
-      <div class="hero-copy">
-        <p class="section-label">PVECloud Web</p>
-        <h1 class="page-title">清晰展示服务器产品，账号能力先行开放。</h1>
-        <p class="page-copy">
-          当前用户端聚焦产品目录、价格展示、注册登录、密码找回、账号资料和个人实名。订单、支付和实例交付会在后续阶段开放。
-        </p>
-        <div class="hero-actions">
-          <RouterLink class="btn btn-primary btn-lg" to="/products">查看产品目录</RouterLink>
-          <RouterLink class="btn btn-outline btn-lg" to="/pricing">浏览价格</RouterLink>
-        </div>
-      </div>
-
-      <aside class="surface hero-panel">
-        <div class="panel-head">
-          <span>PUBLIC CATALOG</span>
-          <strong>服务器公开目录</strong>
-        </div>
-        <div class="stat-grid">
-          <div v-for="item in catalogStats" :key="item.label" class="stat-card">
-            <strong>{{ item.value }}</strong>
-            <span>{{ item.label }}</span>
+  <div class="bg-white">
+    <section class="relative overflow-hidden border-b border-neutral-200">
+      <div class="absolute inset-x-0 top-0 h-px bg-neutral-950"></div>
+      <div class="mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-28">
+        <div>
+          <div class="mb-8 inline-flex items-center gap-2 rounded-full border border-neutral-950 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-neutral-950">
+            Game Cloud / High Frequency Nodes
+          </div>
+          <h1 class="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-neutral-950 sm:text-6xl lg:text-7xl">
+            给游戏开服准备的轻量云平台
+          </h1>
+          <p class="mt-8 max-w-2xl text-lg leading-8 text-neutral-600">
+            面向 Minecraft、Steam 游戏服、联机社区和独立项目展示高主频计算、大带宽节点与基础防护能力。当前仅展示产品入口，购买能力即将开放。
+          </p>
+          <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+            <RouterLink to="/products" class="btn-dark inline-flex items-center justify-center rounded-full border px-7 py-3 text-sm font-black">
+              查看产品配置
+            </RouterLink>
+            <RouterLink to="/pricing" class="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-7 py-3 text-sm font-black text-neutral-950 hover:border-neutral-950 hover:bg-neutral-50">
+              对比价格方案
+            </RouterLink>
           </div>
         </div>
-        <div class="scope-list">
-          <p><b>已开放</b><span>账号自助 / 实名入口 / 产品展示</span></p>
-          <p><b>未开放</b><span>下单 / 支付 / 实例 / 工单</span></p>
-        </div>
-      </aside>
-    </div>
 
-    <div class="container">
-      <section class="section-block">
-        <div class="section-heading">
-          <p class="section-label">Featured Plans</p>
-          <h2>推荐服务器套餐</h2>
-          <RouterLink to="/pricing" class="btn btn-outline btn-sm">完整价格表</RouterLink>
-        </div>
-
-        <div v-if="loading" class="loading-card surface">
-          <div class="spinner"></div>
-          <span>正在读取公开目录...</span>
-        </div>
-        <div v-else class="plans-grid">
-          <article v-for="plan in plans" :key="plan.plan_no" class="plan-card card">
-            <div>
-              <div class="plan-top">
-                <h3>{{ plan.name }}</h3>
-                <span v-if="plan.is_featured" class="tag tag-primary">推荐</span>
+        <div class="rounded-[2rem] border border-neutral-950 bg-white p-4 shadow-[12px_12px_0_#111]">
+          <div class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-5">
+            <div class="flex items-center justify-between border-b border-neutral-200 pb-4">
+              <div>
+                <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Live Node Preview</div>
+                <div class="mt-1 text-xl font-black text-neutral-950">CN-HZ-GAME-01</div>
               </div>
-              <p>{{ plan.summary || '固定规格服务器套餐' }}</p>
+              <span class="rounded-full border border-neutral-950 bg-white px-3 py-1 text-xs font-black">在线</span>
             </div>
-            <div class="price-row">
-              <span>¥</span>
-              <strong>{{ yuan(monthlyPrice(plan).price_cents) }}</strong>
-              <em>/ 月</em>
+            <div class="mt-5 grid grid-cols-2 gap-3">
+              <div class="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div class="text-xs text-neutral-500">CPU</div>
+                <div class="mt-2 text-2xl font-black">5.2GHz</div>
+              </div>
+              <div class="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div class="text-xs text-neutral-500">带宽</div>
+                <div class="mt-2 text-2xl font-black">100M</div>
+              </div>
+              <div class="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div class="text-xs text-neutral-500">防护</div>
+                <div class="mt-2 text-2xl font-black">基础</div>
+              </div>
+              <div class="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div class="text-xs text-neutral-500">部署</div>
+                <div class="mt-2 text-2xl font-black">分钟级</div>
+              </div>
             </div>
-            <dl class="spec-grid">
-              <div><dt>CPU</dt><dd>{{ plan.cpu_cores }} vCPU</dd></div>
-              <div><dt>内存</dt><dd>{{ Math.round(plan.memory_mb / 1024) }} GB</dd></div>
-              <div><dt>系统盘</dt><dd>{{ plan.system_disk_gb }} GB</dd></div>
-              <div><dt>带宽</dt><dd>{{ plan.bandwidth_mbps }} Mbps</dd></div>
-            </dl>
-            <RouterLink class="btn btn-outline btn-block" to="/login">登录后查看购买入口</RouterLink>
-          </article>
+            <div class="mt-5 rounded-2xl border border-neutral-950 bg-white p-5">
+              <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Recommended For</div>
+              <div class="mt-3 grid gap-2 text-sm text-neutral-950">
+                <div class="flex justify-between gap-4"><span class="text-neutral-600">Minecraft 生存服</span><span class="font-black">4C / 8G</span></div>
+                <div class="flex justify-between gap-4"><span class="text-neutral-600">幻兽帕鲁联机</span><span class="font-black">8C / 16G</span></div>
+                <div class="flex justify-between gap-4"><span class="text-neutral-600">通用轻量业务</span><span class="font-black">2C / 4G</span></div>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="workflow-strip surface">
+    <section class="mx-auto max-w-7xl px-4 py-18 sm:px-6 lg:px-8">
+      <div class="flex flex-col justify-between gap-6 border-b border-neutral-200 pb-8 md:flex-row md:items-end">
         <div>
-          <p class="section-label">Current Flow</p>
-          <h2>从浏览到账号准备</h2>
+          <p class="text-sm font-black uppercase tracking-[0.18em] text-neutral-500">Products</p>
+          <h2 class="mt-3 text-3xl font-black tracking-tight text-neutral-950 sm:text-4xl">为开服场景拆好的产品骨架</h2>
         </div>
-        <div class="flow-steps">
-          <span>浏览产品</span>
-          <i></i>
-          <span>注册登录</span>
-          <i></i>
-          <span>维护资料</span>
-          <i></i>
-          <span>完成实名</span>
+        <RouterLink to="/products" class="text-sm font-black text-neutral-950 underline decoration-2 underline-offset-4">进入产品中心</RouterLink>
+      </div>
+
+      <div class="mt-10 grid gap-5 lg:grid-cols-3">
+        <div class="rounded-[1.75rem] border border-neutral-950 bg-white p-7 shadow-[8px_8px_0_#111]">
+          <div class="text-sm font-black text-neutral-500">01</div>
+          <h3 class="mt-6 text-2xl font-black text-neutral-950">游戏云服务器</h3>
+          <p class="mt-3 text-sm leading-6 text-neutral-600">适合 Minecraft、Steam 游戏服、语音社区和轻量业务。</p>
+          <ul class="mt-6 space-y-3 text-sm font-semibold text-neutral-800">
+            <li>高主频 CPU</li>
+            <li>SSD 系统盘</li>
+            <li>独立公网 IP</li>
+          </ul>
         </div>
-      </section>
-    </div>
-  </section>
+        <div class="rounded-[1.75rem] border border-neutral-200 bg-neutral-50 p-7">
+          <div class="text-sm font-black text-neutral-500">02</div>
+          <h3 class="mt-6 text-2xl font-black text-neutral-950">高防与大带宽</h3>
+          <p class="mt-3 text-sm leading-6 text-neutral-600">用于联机高峰、活动流量和基础抗攻击展示场景。</p>
+          <ul class="mt-6 space-y-3 text-sm font-semibold text-neutral-800">
+            <li>多线节点</li>
+            <li>带宽可选</li>
+            <li>基础防护说明</li>
+          </ul>
+        </div>
+        <div class="rounded-[1.75rem] border border-neutral-200 bg-neutral-50 p-7">
+          <div class="text-sm font-black text-neutral-500">03</div>
+          <h3 class="mt-6 text-2xl font-black text-neutral-950">物理服务器</h3>
+          <p class="mt-3 text-sm leading-6 text-neutral-600">适合多人社区、私有化环境和更高性能的独享资源。</p>
+          <ul class="mt-6 space-y-3 text-sm font-semibold text-neutral-800">
+            <li>独享硬件</li>
+            <li>远程管理</li>
+            <li>定制咨询</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-y border-neutral-200 bg-neutral-50">
+      <div class="mx-auto grid max-w-7xl grid-cols-2 gap-px bg-neutral-200 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
+        <div class="bg-neutral-50 py-10 text-center">
+          <div class="text-4xl font-black text-neutral-950">5.2G</div>
+          <div class="mt-2 text-sm text-neutral-500">高主频展示</div>
+        </div>
+        <div class="bg-neutral-50 py-10 text-center">
+          <div class="text-4xl font-black text-neutral-950">100M+</div>
+          <div class="mt-2 text-sm text-neutral-500">带宽套餐</div>
+        </div>
+        <div class="bg-neutral-50 py-10 text-center">
+          <div class="text-4xl font-black text-neutral-950">4+</div>
+          <div class="mt-2 text-sm text-neutral-500">游戏场景</div>
+        </div>
+        <div class="bg-neutral-50 py-10 text-center">
+          <div class="text-4xl font-black text-neutral-950">24/7</div>
+          <div class="mt-2 text-sm text-neutral-500">服务支持</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="rounded-[2rem] border border-neutral-950 bg-white p-8 shadow-[10px_10px_0_#111] md:p-12">
+        <div class="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <p class="text-sm font-black uppercase tracking-[0.18em] text-neutral-500">Ready</p>
+            <h2 class="mt-3 text-3xl font-black tracking-tight text-neutral-950 sm:text-4xl">先选配置，购买入口即将开放</h2>
+            <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">当前阶段只做产品展示和用户账号入口，不展示订单、支付或实例交付承诺。</p>
+          </div>
+          <RouterLink to="/register" class="btn-dark inline-flex justify-center rounded-full border px-7 py-3 text-sm font-black">
+            免费注册
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+  </div>
 </template>
-
-<style scoped>
-.home-page {
-  padding: 42px 0 72px;
-}
-
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
-  gap: 28px;
-  align-items: stretch;
-}
-
-.hero-copy {
-  display: grid;
-  align-content: center;
-  gap: 22px;
-  min-height: 440px;
-}
-
-.hero-copy .page-copy {
-  max-width: 660px;
-  font-size: 1.06rem;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.hero-panel {
-  display: grid;
-  align-content: space-between;
-  gap: 22px;
-  padding: 28px;
-}
-
-.panel-head {
-  display: grid;
-  gap: 8px;
-}
-
-.panel-head span {
-  color: var(--c-text-3);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
-
-.panel-head strong {
-  font-size: clamp(1.7rem, 3vw, 2.4rem);
-  line-height: 1.05;
-  letter-spacing: -0.05em;
-}
-
-.stat-grid,
-.plans-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.stat-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.stat-card {
-  display: grid;
-  gap: 4px;
-  padding: 18px;
-  border: 1px solid var(--c-border);
-  border-radius: 14px;
-  background: var(--c-surface-dim);
-}
-
-.stat-card strong {
-  font-size: 1.7rem;
-  letter-spacing: -0.04em;
-}
-
-.stat-card span,
-.scope-list span {
-  color: var(--c-text-2);
-}
-
-.scope-list {
-  display: grid;
-  gap: 10px;
-}
-
-.scope-list p {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-block {
-  display: grid;
-  gap: 20px;
-  padding-top: 56px;
-}
-
-.section-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.section-heading h2,
-.workflow-strip h2 {
-  font-size: clamp(1.7rem, 3vw, 2.4rem);
-  letter-spacing: -0.05em;
-}
-
-.plans-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.plan-card {
-  display: grid;
-  gap: 20px;
-  padding: 22px;
-}
-
-.plan-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.plan-card h3 {
-  font-size: 1.25rem;
-  letter-spacing: -0.04em;
-}
-
-.plan-card p {
-  margin-top: 8px;
-  color: var(--c-text-2);
-  line-height: 1.65;
-}
-
-.price-row {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.price-row strong {
-  font-size: 2.6rem;
-  line-height: 1;
-  letter-spacing: -0.06em;
-}
-
-.price-row em {
-  color: var(--c-text-3);
-  font-style: normal;
-}
-
-.spec-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.spec-grid div {
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--c-surface-dim);
-}
-
-.spec-grid dt {
-  color: var(--c-text-3);
-  font-size: 0.78rem;
-}
-
-.spec-grid dd {
-  margin: 2px 0 0;
-  font-weight: 800;
-}
-
-.loading-card {
-  min-height: 180px;
-  display: grid;
-  place-items: center;
-  gap: 12px;
-  color: var(--c-text-2);
-}
-
-.workflow-strip {
-  margin-top: 56px;
-  padding: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.flow-steps {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  color: var(--c-text-2);
-  font-weight: 800;
-}
-
-.flow-steps span {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: var(--c-surface-dim);
-}
-
-.flow-steps i {
-  width: 20px;
-  height: 1px;
-  background: var(--c-border-strong);
-}
-
-@media (max-width: 980px) {
-  .hero-grid,
-  .plans-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-copy {
-    min-height: auto;
-    padding-top: 18px;
-  }
-
-  .workflow-strip {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-@media (max-width: 620px) {
-  .stat-grid,
-  .spec-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .section-heading {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-</style>
