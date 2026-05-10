@@ -1,23 +1,29 @@
 <script setup lang="ts">
+import { NButton, NForm, NFormItem, NInput, NModal, NSelect } from 'naive-ui'
+import type { FormInst, FormRules } from 'naive-ui'
 import { ref } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
 
 import type { EditorMode, UserFormState } from '../types'
 
 const visible = defineModel<boolean>('visible', { required: true })
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInst | null>(null)
 
 defineProps<{
   mode: EditorMode
   title: string
   form: UserFormState
-  rules: FormRules<UserFormState>
+  rules: FormRules
   submitting: boolean
 }>()
 
 const emit = defineEmits<{
   submit: []
 }>()
+
+const statusOptions = [
+  { label: '启用', value: 'active' },
+  { label: '禁用', value: 'disabled' },
+]
 
 async function submit() {
   await formRef.value?.validate()
@@ -26,22 +32,29 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="title" width="520px">
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="92px">
-      <el-form-item label="用户名" prop="username"><el-input v-model="form.username" :disabled="mode !== 'create'" /></el-form-item>
-      <el-form-item label="邮箱" prop="email"><el-input v-model="form.email" /></el-form-item>
-      <el-form-item label="显示名称" prop="display_name"><el-input v-model="form.display_name" /></el-form-item>
-      <el-form-item v-if="mode === 'create'" label="密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="form.status">
-          <el-option label="启用" value="active" />
-          <el-option label="禁用" value="disabled" />
-        </el-select>
-      </el-form-item>
-    </el-form>
+  <NModal :show="visible" preset="card" :title="title" style="width: 520px" @update:show="visible = $event">
+    <NForm ref="formRef" :model="form" :rules="rules as any" label-placement="top">
+      <NFormItem label="用户名" path="username">
+        <NInput v-model:value="form.username" :disabled="mode !== 'create'" />
+      </NFormItem>
+      <NFormItem label="邮箱" path="email">
+        <NInput v-model:value="form.email" />
+      </NFormItem>
+      <NFormItem label="显示名称" path="display_name">
+        <NInput v-model:value="form.display_name" />
+      </NFormItem>
+      <NFormItem v-if="mode === 'create'" label="密码" path="password">
+        <NInput v-model:value="form.password" type="password" show-password-on="click" />
+      </NFormItem>
+      <NFormItem label="状态" path="status">
+        <NSelect v-model:value="form.status" :options="statusOptions" />
+      </NFormItem>
+    </NForm>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="submit">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="visible = false">取消</NButton>
+        <NButton type="primary" :loading="submitting" @click="submit">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>

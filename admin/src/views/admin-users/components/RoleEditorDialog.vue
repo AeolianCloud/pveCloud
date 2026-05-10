@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { CaretDownOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 import {
-  type FormInstance,
-  type FormRules,
-} from 'element-plus'
-import { ArrowRight, CaretBottom } from '@element-plus/icons-vue'
+  NAlert,
+  NButton,
+  NCheckbox,
+  NForm,
+  NFormItem,
+  NIcon,
+  NInput,
+  NModal,
+  NRadio,
+  NRadioGroup,
+  NTag,
+} from 'naive-ui'
+import type { FormInst, FormRules } from 'naive-ui'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import type { AdminPermissionItem } from '../../../api/admin-role'
 import type { PermissionTreeNode, RoleEditorState } from '../types'
@@ -15,7 +25,7 @@ const props = defineProps<{
   isCreateMode: boolean
   isBuiltInRole: boolean
   form: RoleEditorState
-  rules: FormRules<RoleEditorState>
+  rules: FormRules
   permissionTree: AdminPermissionItem[]
   submitting: boolean
 }>()
@@ -26,7 +36,7 @@ const emit = defineEmits<{
   closed: []
 }>()
 
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInst | null>(null)
 const filterText = ref('')
 const expandedNodeIds = ref<string[]>([])
 
@@ -42,8 +52,7 @@ interface PermissionTreeRow {
 }
 
 const flatPermissions = computed(() => flattenPermissionTree(props.permissionTree))
-
-const permissionCodeSet = computed(() => new Set(flatPermissions.value.map((permission) => permission.code)))
+const permissionCodeSet = computed(() => new Set(flatPermissions.value.map((p) => p.code)))
 const permissionCount = computed(() => props.form.permission_codes.length)
 const permissionTreeData = computed<PermissionTreeNode[]>(() =>
   buildPermissionTree(props.permissionTree, props.isBuiltInRole),
@@ -52,9 +61,8 @@ const normalizedFilter = computed(() => filterText.value.trim().toLowerCase())
 const expandedNodeIdSet = computed(() => new Set(expandedNodeIds.value))
 const visibleRows = computed(() => buildVisibleRows(permissionTreeData.value))
 const totalPermissionCount = computed(() => flatPermissions.value.length)
-const unmatchedPermissionCount = computed(() => 0)
-const visiblePermissionCount = computed(() =>
-  visibleRows.value.filter((row) => row.node.type === 'action').length,
+const visiblePermissionCount = computed(
+  () => visibleRows.value.filter((row) => row.node.type === 'action').length,
 )
 const dialogDescription = computed(() =>
   props.isCreateMode
@@ -68,7 +76,7 @@ watch(
     if (value) {
       filterText.value = ''
       void nextTick(() => {
-        formRef.value?.clearValidate()
+        formRef.value?.restoreValidation()
         syncSelectedPermissions()
         syncExpandedState(true)
       })
@@ -79,9 +87,7 @@ watch(
 watch(
   () => props.permissionTree,
   () => {
-    if (!props.visible) {
-      return
-    }
+    if (!props.visible) return
     void nextTick(() => {
       syncSelectedPermissions()
       syncExpandedState(false)
@@ -91,7 +97,7 @@ watch(
 )
 
 function uniqueSortedStrings(values: string[]) {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort()
+  return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean))).sort()
 }
 
 function syncSelectedPermissions() {
@@ -109,52 +115,40 @@ function syncExpandedState(reset: boolean) {
 }
 
 function handleCheckAll() {
-  if (props.isBuiltInRole) {
-    return
-  }
-  const keys = flatPermissions.value.map((permission) => permission.code)
-  props.form.permission_codes = uniqueSortedStrings(keys)
+  if (props.isBuiltInRole) return
+  props.form.permission_codes = uniqueSortedStrings(flatPermissions.value.map((p) => p.code))
 }
 
 function handleClear() {
-  if (props.isBuiltInRole) {
-    return
-  }
+  if (props.isBuiltInRole) return
   props.form.permission_codes = []
 }
 
 function toggleExpanded(nodeId: string) {
   const next = new Set(expandedNodeIds.value)
-  if (next.has(nodeId)) {
-    next.delete(nodeId)
-  } else {
-    next.add(nodeId)
-  }
+  if (next.has(nodeId)) next.delete(nodeId)
+  else next.add(nodeId)
   expandedNodeIds.value = Array.from(next)
 }
 
 function toggleNodeSelection(node: PermissionTreeNode, checked: boolean) {
-  if (props.isBuiltInRole) {
-    return
-  }
-
+  if (props.isBuiltInRole) return
   const next = new Set(props.form.permission_codes)
   for (const code of collectLeafCodes(node)) {
-    if (checked) {
-      next.add(code)
-    } else {
-      next.delete(code)
-    }
+    if (checked) next.add(code)
+    else next.delete(code)
   }
   props.form.permission_codes = uniqueSortedStrings(Array.from(next))
 }
 
 async function handleSubmit() {
-  if (!formRef.value) {
-    return
-  }
+  if (!formRef.value) return
   await formRef.value.validate()
   emit('submit')
+}
+
+function handleAfterLeave() {
+  emit('closed')
 }
 
 function flattenPermissionTree(nodes: AdminPermissionItem[]): AdminPermissionItem[] {
@@ -163,43 +157,40 @@ function flattenPermissionTree(nodes: AdminPermissionItem[]): AdminPermissionIte
 
 function buildPermissionTree(nodes: AdminPermissionItem[], disabled: boolean): PermissionTreeNode[] {
   const roots = nodes.map((node) => buildPermissionNode(node, disabled))
-  for (const root of roots) {
-    finalizeTree(root)
-  }
+  for (const root of roots) finalizeTree(root)
   return roots
 }
 
-function buildPermissionNode(permission: AdminPermissionItem, disabled: boolean): PermissionTreeNode {
+function buildPermissionNode(p: AdminPermissionItem, disabled: boolean): PermissionTreeNode {
   return {
-    id: permission.code,
-    label: permission.name,
-    type: permission.type,
-    code: permission.code,
-    description: permission.description,
+    id: p.code,
+    label: p.name,
+    type: p.type,
+    code: p.code,
+    description: p.description,
     disabled,
-    meta_label: permission.type === 'menu' ? '菜单权限' : '操作权限',
-    path_hint: permission.path ?? undefined,
-    keywords: [permission.code, permission.name, permission.group_name, permission.path ?? ''],
-    sort_order: permission.sort_order,
-    children: (permission.children ?? []).map((child) => buildPermissionNode(child, disabled)),
+    meta_label: p.type === 'menu' ? '菜单权限' : '操作权限',
+    path_hint: p.path ?? undefined,
+    keywords: [p.code, p.name, p.group_name, p.path ?? ''],
+    sort_order: p.sort_order,
+    children: (p.children ?? []).map((c) => buildPermissionNode(c, disabled)),
   }
 }
 
 function finalizeTree(node: PermissionTreeNode) {
   if (node.children?.length) {
-    for (const child of node.children) {
-      finalizeTree(child)
-    }
+    for (const child of node.children) finalizeTree(child)
     node.children.sort(compareTreeNodes)
-    node.count = node.children.reduce((sum, child) => sum + (child.type === 'action' ? 1 : child.count ?? 0), 0)
+    node.count = node.children.reduce(
+      (sum, child) => sum + (child.type === 'action' ? 1 : child.count ?? 0),
+      0,
+    )
   }
 }
 
 function compareTreeNodes(left: PermissionTreeNode, right: PermissionTreeNode) {
   const orderDelta = (left.sort_order ?? 999) - (right.sort_order ?? 999)
-  if (orderDelta !== 0) {
-    return orderDelta
-  }
+  if (orderDelta !== 0) return orderDelta
   return left.label.localeCompare(right.label, 'zh-CN')
 }
 
@@ -212,9 +203,7 @@ function isBranchNode(node: PermissionTreeNode) {
 }
 
 function getPrimaryLabel(node: PermissionTreeNode) {
-  if (isPermissionNode(node)) {
-    return node.meta_label || node.label
-  }
+  if (isPermissionNode(node)) return node.meta_label || node.label
   return node.label
 }
 
@@ -226,29 +215,23 @@ function getSecondaryLabel(node: PermissionTreeNode) {
 }
 
 function collectLeafCodes(node: PermissionTreeNode): string[] {
-  if (isPermissionNode(node) && node.code) {
-    return [node.code]
-  }
-  return (node.children ?? []).flatMap((child) => collectLeafCodes(child))
+  if (isPermissionNode(node) && node.code) return [node.code]
+  return (node.children ?? []).flatMap(collectLeafCodes)
 }
 
 function nodeMatchesFilter(node: PermissionTreeNode) {
-  if (!normalizedFilter.value) {
-    return true
-  }
+  if (!normalizedFilter.value) return true
   return [node.label, node.meta_label, node.code, node.description, node.path_hint, ...(node.keywords ?? [])]
     .filter(Boolean)
     .some((item) => String(item).toLowerCase().includes(normalizedFilter.value))
 }
 
 function hasVisibleDescendant(node: PermissionTreeNode): boolean {
-  return (node.children ?? []).some((child) => shouldShowNode(child))
+  return (node.children ?? []).some(shouldShowNode)
 }
 
 function shouldShowNode(node: PermissionTreeNode) {
-  if (!normalizedFilter.value) {
-    return true
-  }
+  if (!normalizedFilter.value) return true
   return nodeMatchesFilter(node) || hasVisibleDescendant(node)
 }
 
@@ -256,18 +239,13 @@ function buildVisibleRows(nodes: PermissionTreeNode[], depth = 0): PermissionTre
   const rows: PermissionTreeRow[] = []
   const selected = new Set(props.form.permission_codes)
   const forceExpand = Boolean(normalizedFilter.value)
-
   for (const node of nodes) {
-    if (!shouldShowNode(node)) {
-      continue
-    }
-
+    if (!shouldShowNode(node)) continue
     const leafCodes = collectLeafCodes(node)
     const checkedLeafCount = leafCodes.filter((code) => selected.has(code)).length
     const totalLeafCount = leafCodes.length
     const isBranch = isBranchNode(node)
     const expanded = forceExpand || expandedNodeIdSet.value.has(node.id)
-
     rows.push({
       node,
       depth,
@@ -278,12 +256,10 @@ function buildVisibleRows(nodes: PermissionTreeNode[], depth = 0): PermissionTre
       totalLeafCount,
       checkedLeafCount,
     })
-
     if (isBranch && expanded) {
       rows.push(...buildVisibleRows(node.children ?? [], depth + 1))
     }
   }
-
   return rows
 }
 
@@ -292,9 +268,7 @@ function collectBranchIds(nodes: PermissionTreeNode[]) {
   for (const node of nodes) {
     if (isBranchNode(node)) {
       branchIds.add(node.id)
-      for (const childId of collectBranchIds(node.children ?? [])) {
-        branchIds.add(childId)
-      }
+      for (const childId of collectBranchIds(node.children ?? [])) branchIds.add(childId)
     }
   }
   return branchIds
@@ -303,14 +277,10 @@ function collectBranchIds(nodes: PermissionTreeNode[]) {
 function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   const result: string[] = []
   for (const node of nodes) {
-    if (!isBranchNode(node)) {
-      continue
-    }
+    if (!isBranchNode(node)) continue
     result.push(node.id)
     for (const child of node.children ?? []) {
-      if (isBranchNode(child)) {
-        result.push(child.id)
-      }
+      if (isBranchNode(child)) result.push(child.id)
     }
   }
   return result
@@ -318,53 +288,52 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
 </script>
 
 <template>
-  <el-dialog
-    class="role-editor-dialog"
-    :model-value="props.visible"
+  <NModal
+    :show="props.visible"
+    preset="card"
     :title="props.title"
-    width="1120px"
-    top="4vh"
-    destroy-on-close
-    @update:model-value="emit('update:visible', $event)"
-    @closed="emit('closed')"
+    style="width: 1120px; max-width: 96vw"
+    :mask-closable="false"
+    :on-after-leave="handleAfterLeave"
+    @update:show="emit('update:visible', $event)"
   >
-    <el-form ref="formRef" :model="props.form" :rules="props.rules" label-position="top" class="role-editor-dialog__form">
+    <NForm ref="formRef" :model="props.form" :rules="props.rules as any" label-placement="top" class="role-editor-dialog__form">
       <div class="role-editor-dialog__layout">
         <section class="role-editor-dialog__sidebar">
-          <div class="role-editor-dialog__panel role-editor-dialog__panel--sticky">
+          <div class="role-editor-dialog__panel">
             <div class="role-editor-dialog__section-head">
               <div>
                 <h3>基础信息</h3>
                 <p>{{ dialogDescription }}</p>
               </div>
-              <el-tag size="small" effect="plain">{{ props.isCreateMode ? '新建模式' : '编辑模式' }}</el-tag>
+              <NTag size="small">{{ props.isCreateMode ? '新建模式' : '编辑模式' }}</NTag>
             </div>
 
             <div class="role-editor-dialog__field-list">
-              <el-form-item label="管理组编码" prop="code">
-                <el-input
-                  v-model="props.form.code"
+              <NFormItem label="管理组编码" path="code">
+                <NInput
+                  v-model:value="props.form.code"
                   :disabled="!props.isCreateMode"
                   placeholder="请输入唯一编码，例如 ops_manager"
                 />
-              </el-form-item>
-              <el-form-item label="管理组名称" prop="name">
-                <el-input v-model="props.form.name" placeholder="请输入管理组名称" />
-              </el-form-item>
-              <el-form-item label="说明" prop="description">
-                <el-input
-                  v-model="props.form.description"
+              </NFormItem>
+              <NFormItem label="管理组名称" path="name">
+                <NInput v-model:value="props.form.name" placeholder="请输入管理组名称" />
+              </NFormItem>
+              <NFormItem label="说明" path="description">
+                <NInput
+                  v-model:value="props.form.description"
                   type="textarea"
                   :rows="4"
                   placeholder="请输入管理组说明，可留空"
                 />
-              </el-form-item>
-              <el-form-item label="状态" prop="status">
-                <el-radio-group v-model="props.form.status" class="role-editor-dialog__status-group">
-                  <el-radio value="active" :disabled="props.isBuiltInRole">启用</el-radio>
-                  <el-radio value="disabled" :disabled="props.isBuiltInRole">停用</el-radio>
-                </el-radio-group>
-              </el-form-item>
+              </NFormItem>
+              <NFormItem label="状态" path="status">
+                <NRadioGroup v-model:value="props.form.status">
+                  <NRadio value="active" :disabled="props.isBuiltInRole">启用</NRadio>
+                  <NRadio value="disabled" :disabled="props.isBuiltInRole">停用</NRadio>
+                </NRadioGroup>
+              </NFormItem>
             </div>
 
             <div class="role-editor-dialog__summary-card">
@@ -378,31 +347,27 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
               </div>
               <div class="role-editor-dialog__summary-item">
                 <span>目录覆盖</span>
-                <strong>{{ totalPermissionCount === 0 ? '0%' : `${Math.round((permissionCount / totalPermissionCount) * 100)}%` }}</strong>
+                <strong>
+                  {{ totalPermissionCount === 0 ? '0%' : `${Math.round((permissionCount / totalPermissionCount) * 100)}%` }}
+                </strong>
               </div>
             </div>
 
-            <el-alert
-              v-if="props.isBuiltInRole"
-              type="warning"
-              :closable="false"
-              title="内置超级管理员角色不可修改状态和权限分配。"
-            />
+            <NAlert v-if="props.isBuiltInRole" type="warning" :show-icon="true">
+              内置超级管理员角色不可修改状态和权限分配。
+            </NAlert>
           </div>
         </section>
 
         <section class="role-editor-dialog__workspace">
           <div class="role-editor-dialog__panel">
-            <div class="role-editor-dialog__section-head role-editor-dialog__section-head--workspace">
+            <div class="role-editor-dialog__section-head">
               <div>
                 <h3>权限工作台</h3>
-                <p>按照真实菜单目录管理页面入口权限和资源操作权限，避免后续权限增长后归属混乱。</p>
+                <p>按真实菜单目录管理页面入口权限和资源操作权限。</p>
               </div>
               <div class="role-editor-dialog__section-tags">
-                <el-tag type="primary" effect="light">目录化分配</el-tag>
-                <el-tag v-if="unmatchedPermissionCount > 0" type="danger" effect="light">
-                  未归类 {{ unmatchedPermissionCount }} 项
-                </el-tag>
+                <NTag type="primary" size="small">目录化分配</NTag>
               </div>
             </div>
 
@@ -424,24 +389,16 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
               </div>
             </div>
 
-            <el-alert
-              v-if="unmatchedPermissionCount > 0"
-              type="warning"
-              :closable="false"
-              title="发现未归类权限"
-              description="这些权限尚未挂到明确业务目录，建议在目录映射中补齐，避免后续授权时找不到归属。"
-            />
-
             <div class="role-editor-dialog__toolbar">
-              <el-input
-                v-model="filterText"
+              <NInput
+                v-model:value="filterText"
                 clearable
                 placeholder="搜索目录、权限名称、权限码"
                 class="role-editor-dialog__search"
               />
               <div class="role-editor-dialog__toolbar-actions">
-                <el-button link type="primary" :disabled="props.isBuiltInRole" @click="handleCheckAll">全选全部权限</el-button>
-                <el-button link :disabled="props.isBuiltInRole || permissionCount === 0" @click="handleClear">清空选择</el-button>
+                <NButton text type="primary" :disabled="props.isBuiltInRole" @click="handleCheckAll">全选全部权限</NButton>
+                <NButton text :disabled="props.isBuiltInRole || permissionCount === 0" @click="handleClear">清空选择</NButton>
               </div>
             </div>
 
@@ -473,18 +430,18 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
                       :aria-label="row.expanded ? '收起节点' : '展开节点'"
                       @click="toggleExpanded(row.node.id)"
                     >
-                      <el-icon>
-                        <CaretBottom v-if="row.expanded" />
-                        <ArrowRight v-else />
-                      </el-icon>
+                      <NIcon :size="14">
+                        <CaretDownOutline v-if="row.expanded" />
+                        <ChevronForwardOutline v-else />
+                      </NIcon>
                     </button>
                     <span v-else class="role-editor-dialog__tree-toggle-placeholder" />
 
-                    <el-checkbox
-                      :model-value="row.checked"
+                    <NCheckbox
+                      :checked="row.checked"
                       :indeterminate="row.indeterminate"
                       :disabled="props.isBuiltInRole || row.node.disabled"
-                      @update:model-value="toggleNodeSelection(row.node, Boolean($event))"
+                      @update:checked="toggleNodeSelection(row.node, $event)"
                     />
 
                     <div
@@ -498,21 +455,24 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
                       <div class="role-editor-dialog__permission-main">
                         <div class="role-editor-dialog__permission-title-row">
                           <span class="role-editor-dialog__permission-label">{{ getPrimaryLabel(row.node) }}</span>
-                          <span v-if="!isPermissionNode(row.node) && row.node.path_hint" class="role-editor-dialog__permission-path-tag">
-                            {{ row.node.path_hint }}
-                          </span>
+                          <span
+                            v-if="!isPermissionNode(row.node) && row.node.path_hint"
+                            class="role-editor-dialog__permission-path-tag"
+                          >{{ row.node.path_hint }}</span>
                         </div>
-                        <span v-if="getSecondaryLabel(row.node)" class="role-editor-dialog__permission-meta">{{ getSecondaryLabel(row.node) }}</span>
-                        <span v-if="row.node.type === 'action' && row.node.description" class="role-editor-dialog__permission-description">
-                          {{ row.node.description }}
-                        </span>
+                        <span v-if="getSecondaryLabel(row.node)" class="role-editor-dialog__permission-meta">{{
+                          getSecondaryLabel(row.node)
+                        }}</span>
+                        <span
+                          v-if="row.node.type === 'action' && row.node.description"
+                          class="role-editor-dialog__permission-description"
+                        >{{ row.node.description }}</span>
                       </div>
-                      <span v-if="row.node.type === 'action' && row.node.code" class="role-editor-dialog__permission-code">
-                        {{ row.node.code }}
-                      </span>
-                      <el-tag v-else size="small" effect="plain">
-                        {{ row.checkedLeafCount }}/{{ row.totalLeafCount }}
-                      </el-tag>
+                      <span
+                        v-if="row.node.type === 'action' && row.node.code"
+                        class="role-editor-dialog__permission-code"
+                      >{{ row.node.code }}</span>
+                      <NTag v-else size="small">{{ row.checkedLeafCount }}/{{ row.totalLeafCount }}</NTag>
                     </div>
                   </div>
                 </div>
@@ -521,20 +481,18 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
           </div>
         </section>
       </div>
-    </el-form>
+    </NForm>
 
     <template #footer>
-      <el-button @click="emit('update:visible', false)">取消</el-button>
-      <el-button type="primary" :loading="props.submitting" @click="handleSubmit">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="emit('update:visible', false)">取消</NButton>
+        <NButton type="primary" :loading="props.submitting" @click="handleSubmit">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>
 
 <style scoped>
-.role-editor-dialog :deep(.el-dialog__body) {
-  padding-top: 18px;
-}
-
 .role-editor-dialog__form,
 .role-editor-dialog__workspace,
 .role-editor-dialog__sidebar,
@@ -555,16 +513,10 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   flex-direction: column;
   gap: 16px;
   padding: 18px;
-  border: 1px solid var(--el-border-color-lighter);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, var(--el-bg-color-overlay) 0%, var(--el-fill-color-extra-light) 100%);
-  box-shadow: 0 10px 24px rgb(0 0 0 / 0.04);
-}
-
-.role-editor-dialog__panel--sticky {
-  position: sticky;
-  top: 0;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
 }
 
 .role-editor-dialog__section-head {
@@ -578,18 +530,14 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   margin: 0;
   font-size: 18px;
   line-height: 1.3;
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
 }
 
 .role-editor-dialog__section-head p {
   margin: 6px 0 0;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--el-text-color-secondary);
-}
-
-.role-editor-dialog__section-head--workspace {
-  align-items: center;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .role-editor-dialog__section-tags {
@@ -604,13 +552,8 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   gap: 2px;
 }
 
-.role-editor-dialog__status-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 18px;
-}
-
-.role-editor-dialog__summary-card {
+.role-editor-dialog__summary-card,
+.role-editor-dialog__overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
@@ -620,15 +563,14 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
 .role-editor-dialog__overview-card {
   padding: 14px 12px;
   border-radius: 14px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-extra-light);
+  background: rgba(15, 23, 42, 0.03);
 }
 
 .role-editor-dialog__summary-item span,
 .role-editor-dialog__overview-card span {
   display: block;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .role-editor-dialog__summary-item strong,
@@ -637,20 +579,14 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   margin-top: 8px;
   font-size: 24px;
   line-height: 1;
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
 }
 
 .role-editor-dialog__overview-card small {
   display: block;
   margin-top: 8px;
   line-height: 1.5;
-  color: var(--el-text-color-secondary);
-}
-
-.role-editor-dialog__overview {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .role-editor-dialog__toolbar {
@@ -678,14 +614,13 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   gap: 12px;
   padding: 0 4px;
   font-size: 12px;
-  letter-spacing: 0.02em;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .role-editor-dialog__permission-tree-wrap {
-  border: 1px solid var(--el-border-color-light);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 16px;
-  background: var(--el-bg-color);
+  background: #fff;
   padding: 10px;
   max-height: 520px;
   overflow: auto;
@@ -700,7 +635,7 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
 .role-editor-dialog__permission-empty {
   padding: 24px 12px;
   text-align: center;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   font-size: 13px;
 }
 
@@ -709,15 +644,13 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   align-items: flex-start;
   gap: 8px;
   min-height: 52px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-  padding-right: 8px;
+  padding: 6px 8px;
   border-radius: 10px;
   transition: background-color 0.2s ease;
 }
 
 .role-editor-dialog__tree-row:hover {
-  background: var(--el-fill-color-extra-light);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .role-editor-dialog__tree-toggle,
@@ -736,18 +669,13 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   padding: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   cursor: pointer;
 }
 
 .role-editor-dialog__tree-toggle:hover {
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-primary);
-}
-
-.role-editor-dialog__tree-toggle:focus-visible {
-  outline: 2px solid var(--el-color-primary-light-5);
-  outline-offset: 1px;
+  background: rgba(15, 23, 42, 0.06);
+  color: rgba(15, 23, 42, 0.92);
 }
 
 .role-editor-dialog__permission-node {
@@ -783,11 +711,12 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: rgba(15, 23, 42, 0.92);
 }
 
 .role-editor-dialog__permission-meta,
 .role-editor-dialog__permission-description {
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -797,27 +726,26 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
   flex-shrink: 0;
   font-size: 12px;
   line-height: 1.4;
-  font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
 }
 
 .role-editor-dialog__permission-path-tag {
   max-width: 260px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--el-fill-color-extra-light);
-  color: var(--el-text-color-secondary);
+  background: rgba(37, 99, 235, 0.08);
+  color: rgba(37, 99, 235, 0.92);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .role-editor-dialog__permission-code {
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.6);
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-top: 2px;
 }
 
 @media (max-width: 1100px) {
@@ -825,35 +753,9 @@ function getInitialExpandedIds(nodes: PermissionTreeNode[]) {
     grid-template-columns: 1fr;
   }
 
-  .role-editor-dialog__panel--sticky {
-    position: static;
-  }
-
   .role-editor-dialog__overview,
   .role-editor-dialog__summary-card {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .role-editor-dialog__toolbar,
-  .role-editor-dialog__section-head,
-  .role-editor-dialog__section-head--workspace {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .role-editor-dialog__search {
-    max-width: none;
-  }
-
-  .role-editor-dialog__browser-head {
-    display: none;
-  }
-
-  .role-editor-dialog__permission-code,
-  .role-editor-dialog__permission-path-tag {
-    max-width: 180px;
   }
 }
 </style>

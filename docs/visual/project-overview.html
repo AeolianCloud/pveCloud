@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pveCloud 可视化总览</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(15, 23, 42, 0.78);
+      --panel-strong: rgba(15, 23, 42, 0.96);
+      --line: rgba(148, 163, 184, 0.25);
+      --text: #e5eefb;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+      --cyan: #22d3ee;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #fb7185;
+      --purple: #a78bfa;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.22), transparent 34rem),
+        radial-gradient(circle at 86% 2%, rgba(167, 139, 250, 0.18), transparent 30rem),
+        linear-gradient(135deg, #06101d 0%, var(--bg) 48%, #0f172a 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 56px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      padding: clamp(28px, 5vw, 56px);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(8, 47, 73, 0.72));
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -18% -38% 45%;
+      height: 340px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.16);
+      filter: blur(18px);
+      transform: rotate(-7deg);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      border-radius: 999px;
+      padding: 8px 13px;
+      background: rgba(14, 165, 233, 0.12);
+      color: #bae6fd;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 22px var(--green);
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 22px 0 14px;
+      font-size: clamp(34px, 7vw, 72px);
+      line-height: 0.98;
+      letter-spacing: -0.06em;
+    }
+
+    .lead {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0;
+      color: #cbd5e1;
+      font-size: clamp(16px, 2vw, 20px);
+    }
+
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      background: rgba(2, 6, 23, 0.36);
+      backdrop-filter: blur(12px);
+    }
+
+    .metric b {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 26px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: clamp(20px, 4vw, 34px);
+      background: var(--panel);
+      box-shadow: 0 18px 58px rgba(0, 0, 0, 0.22);
+    }
+
+    .section-title {
+      display: flex;
+      gap: 18px;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: -0.04em;
+    }
+
+    .hint {
+      max-width: 520px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .lane-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .lane {
+      min-height: 260px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.34));
+    }
+
+    .lane h3,
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 0;
+    }
+
+    .tag {
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .tag.good { color: #bbf7d0; border-color: rgba(52, 211, 153, 0.32); }
+    .tag.warn { color: #fde68a; border-color: rgba(251, 191, 36, 0.34); }
+    .tag.stop { color: #fecdd3; border-color: rgba(251, 113, 133, 0.34); }
+
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      position: relative;
+      padding-left: 18px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    li + li {
+      margin-top: 10px;
+    }
+
+    li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.7em;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 14px rgba(34, 211, 238, 0.7);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      background: rgba(2, 6, 23, 0.34);
+    }
+
+    .map {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr 0.9fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .node {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      background: var(--panel-strong);
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    .node p,
+    .card p,
+    .lane p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cyan);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .status {
+      border-radius: 20px;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--line);
+    }
+
+    .status strong {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      line-height: 1;
+      background: rgba(34, 211, 238, 0.14);
+      color: #a5f3fc;
+    }
+
+    .sources {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .source {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(2, 6, 23, 0.32);
+      color: #cbd5e1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .footer {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid,
+      .lane-grid,
+      .flow,
+      .map,
+      .status-grid,
+      .sources {
+        grid-template-columns: 1fr;
+      }
+
+      .connector {
+        min-height: 36px;
+      }
+
+      .section-title {
+        display: block;
+      }
+
+      .hint {
+        margin-top: 8px;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <span class="eyebrow"><span class="dot"></span>Docs-derived visual layer</span>
+      <h1>pveCloud 项目可视化总览</h1>
+      <p class="lead">这是一页从现有 Markdown、迁移和配置契约派生的阅读层，用来快速理解当前边界、开放范围和协作规则；权威事实仍以源文档为准。</p>
+      <div class="hero-grid">
+        <div class="metric"><b>3</b><span>实现面：server / admin / web</span></div>
+        <div class="metric"><b>2</b><span>API 边界：/admin-api 与 /api</span></div>
+        <div class="metric"><b>1</b><span>当前后端入口：cmd/api</span></div>
+        <div class="metric"><b>0</b><span>不把 HTML 当权威契约</span></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>当前系统边界</h2>
+        <p class="hint">HTML 只负责让信息更容易看见；修改接口、数据库、页面行为或配置时，仍先改 owner docs / machine contracts。</p>
+      </div>
+      <div class="lane-grid">
+        <article class="lane">
+          <h3>Server</h3>
+          <p>当前服务端以 `cmd/api` 为入口，MariaDB 和 Redis 是主要运行依赖。</p>
+          <div class="tag-row">
+            <span class="tag good">/admin-api/*</span>
+            <span class="tag good">/api/*</span>
+            <span class="tag good">/healthz</span>
+          </div>
+          <ul style="margin-top: 16px;">
+            <li>管理端认证、会话、RBAC、Dashboard、配置、审计、文件、产品与订单管理。</li>
+            <li>用户端公开站点配置、账号自助、实名、产品目录和订单 MVP。</li>
+          </ul>
+        </article>
+        <article class="lane">
+          <h3>Admin</h3>
+          <p>管理端是当前实际前端实现，只调用 `/admin-api/*`，菜单和权限以后端为准。</p>
+          <div class="tag-row">
+            <span class="tag good">Dashboard</span>
+            <span class="tag good">System Settings</span>
+            <span class="tag good">Products</span>
+            <span class="tag good">Orders</span>
+          </div>
+          <ul style="margin-top: 16px;">
+            <li>页面范围以 `docs/admin/pages/README.md` 为入口。</li>
+            <li>路由与权限以 `docs/admin/routing-permissions.md` 为准。</li>
+          </ul>
+        </article>
+        <article class="lane">
+          <h3>Web</h3>
+          <p>用户端只调用 `/api/*`，不复用管理端运行时代码、权限模型或请求封装。</p>
+          <div class="tag-row">
+            <span class="tag good">Home</span>
+            <span class="tag good">Products</span>
+            <span class="tag good">User Center</span>
+            <span class="tag good">Orders MVP</span>
+          </div>
+          <ul style="margin-top: 16px;">
+            <li>订单 MVP 只表示购买意向和后台人工处理入口。</li>
+            <li>不展示支付、实例、资源交付、PVE 节点、库存扣减或自动开通承诺。</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>事实源与展示层</h2>
+        <p class="hint">这里明确 HTML 的定位：可视化、分享和阅读，不替代 Markdown / SQL / YAML。</p>
+      </div>
+      <div class="map">
+        <div class="node">
+          <strong>权威契约</strong>
+          <p>docs/server/api、docs/admin、docs/web、server/migrations、server/config.example.yaml</p>
+        </div>
+        <div class="connector">派生可视化</div>
+        <div class="node">
+          <strong>HTML 展示</strong>
+          <p>复杂结构、范围状态、依赖关系、阶段汇报和跨模块概览。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>开放与不开放</h2>
+        <p class="hint">减少误解：已经有代码或历史文档，不等于当前阶段开放。</p>
+      </div>
+      <div class="status-grid">
+        <article class="status">
+          <strong><span class="pill">开放</span>当前可围绕它继续维护</strong>
+          <ul>
+            <li>管理端基础后台能力。</li>
+            <li>服务器产品目录管理和公开目录接口。</li>
+            <li>用户账号自助、用户实名和订单 MVP。</li>
+            <li>站点配置、健康检查和基础运维文档。</li>
+          </ul>
+        </article>
+        <article class="status">
+          <strong><span class="pill" style="background: rgba(251, 113, 133, 0.14); color: #fecdd3;">不开放</span>需要先补契约再实现</strong>
+          <ul>
+            <li>支付发起、回调和支付结果确认。</li>
+            <li>实例列表、实例开通、实例操作和自动交付。</li>
+            <li>工单、钱包、发票、SSH 密钥管理。</li>
+            <li>PVE 节点、资源池、库存扣减和自动开通。</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>变更门禁</h2>
+        <p class="hint">把协作规则压缩成一张执行卡，降低后续改动时走错入口的概率。</p>
+      </div>
+      <div class="flow">
+        <article class="card">
+          <h3>可以直接做</h3>
+          <div class="tag-row">
+            <span class="tag good">布局</span>
+            <span class="tag good">颜色</span>
+            <span class="tag good">字体</span>
+            <span class="tag good">静态展示</span>
+          </div>
+          <p style="margin-top: 14px;">纯 UI/UX 或派生展示层，不改变页面行为、接口、状态、权限、配置、数据库和业务流程。</p>
+        </article>
+        <article class="card">
+          <h3>必须先停确认</h3>
+          <div class="tag-row">
+            <span class="tag stop">API</span>
+            <span class="tag stop">数据库</span>
+            <span class="tag stop">权限</span>
+            <span class="tag stop">路由行为</span>
+            <span class="tag stop">配置</span>
+          </div>
+          <p style="margin-top: 14px;">先更新对应 owner docs 或机器契约，再等待维护者确认；确认前不进入实现。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>本页依据</h2>
+        <p class="hint">如果这里和下列源文档不一致，以下列源文档为准，并重新生成或修正本页。</p>
+      </div>
+      <div class="sources">
+        <a class="source" href="../README.md">docs/README.md</a>
+        <a class="source" href="../progress/MASTER.md">docs/progress/MASTER.md</a>
+        <a class="source" href="../server/README.md">docs/server/README.md</a>
+        <a class="source" href="../admin/README.md">docs/admin/README.md</a>
+        <a class="source" href="../admin/routing-permissions.md">docs/admin/routing-permissions.md</a>
+        <a class="source" href="../web/architecture.md">docs/web/architecture.md</a>
+        <a class="source" href="../server/api/">docs/server/api/</a>
+        <a class="source" href="../../server/migrations/">server/migrations/</a>
+      </div>
+    </section>
+
+    <p class="footer">Generated as a documentation visualization. Do not treat this HTML file as a contract source.</p>
+  </main>
+</body>
+</html>

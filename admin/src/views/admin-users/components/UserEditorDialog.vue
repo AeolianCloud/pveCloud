@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import { NAlert, NButton, NForm, NFormItem, NInput, NModal, NRadio, NRadioGroup, NSelect } from 'naive-ui'
+import { computed, nextTick, ref, watch } from 'vue'
+import type { FormInst, FormRules } from 'naive-ui'
 
 import type { AdminRoleItem } from '../../../api/admin-role'
 import type { UserEditorState } from '../types'
@@ -10,7 +11,7 @@ const props = defineProps<{
   title: string
   isCreateMode: boolean
   form: UserEditorState
-  rules: FormRules<UserEditorState>
+  rules: FormRules
   roleOptions: AdminRoleItem[]
   canReadRoleOptions: boolean
   submitting: boolean
@@ -22,99 +23,95 @@ const emit = defineEmits<{
   closed: []
 }>()
 
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInst | null>(null)
 
 watch(
   () => props.visible,
   (value) => {
     if (value) {
-      void nextTick(() => {
-        formRef.value?.clearValidate()
-      })
+      void nextTick(() => formRef.value?.restoreValidation())
     }
   },
 )
 
-function formatRoleOptionLabel(role: AdminRoleItem) {
-  return role.status === 'active' ? role.name : `${role.name}（已停用）`
-}
+const roleSelectOptions = computed(() =>
+  props.roleOptions.map((role) => ({
+    label: role.status === 'active' ? role.name : `${role.name}（已停用）`,
+    value: role.id,
+    disabled: role.status !== 'active',
+  })),
+)
 
 async function handleSubmit() {
-  if (!formRef.value) {
-    return
-  }
+  if (!formRef.value) return
   await formRef.value.validate()
   emit('submit')
+}
+
+function handleAfterLeave() {
+  emit('closed')
 }
 </script>
 
 <template>
-  <el-dialog
-    :model-value="props.visible"
+  <NModal
+    :show="props.visible"
+    preset="card"
     :title="props.title"
-    width="640px"
-    destroy-on-close
-    @update:model-value="emit('update:visible', $event)"
-    @closed="emit('closed')"
+    style="width: 640px"
+    :mask-closable="false"
+    :on-after-leave="handleAfterLeave"
+    @update:show="emit('update:visible', $event)"
   >
-    <el-form ref="formRef" :model="props.form" :rules="props.rules" label-width="96px">
-      <el-form-item label="登录账号" prop="username">
-        <el-input
-          v-model="props.form.username"
+    <NForm ref="formRef" :model="props.form" :rules="props.rules as any" label-placement="top">
+      <NFormItem label="登录账号" path="username">
+        <NInput
+          v-model:value="props.form.username"
           :disabled="!props.isCreateMode"
           placeholder="请输入 3 到 64 位账号"
         />
-      </el-form-item>
-      <el-form-item label="显示名称" prop="display_name">
-        <el-input v-model="props.form.display_name" placeholder="请输入管理员显示名称" />
-      </el-form-item>
-      <el-form-item label="邮箱" prop="email">
-        <el-input v-model="props.form.email" placeholder="请输入邮箱，可留空" />
-      </el-form-item>
-      <el-form-item v-if="props.isCreateMode" label="登录密码" prop="password">
-        <el-input
-          v-model="props.form.password"
+      </NFormItem>
+      <NFormItem label="显示名称" path="display_name">
+        <NInput v-model:value="props.form.display_name" placeholder="请输入管理员显示名称" />
+      </NFormItem>
+      <NFormItem label="邮箱" path="email">
+        <NInput v-model:value="props.form.email" placeholder="请输入邮箱，可留空" />
+      </NFormItem>
+      <NFormItem v-if="props.isCreateMode" label="登录密码" path="password">
+        <NInput
+          v-model:value="props.form.password"
           type="password"
-          show-password
+          show-password-on="click"
           placeholder="请输入 6 到 72 位密码"
         />
-      </el-form-item>
-      <el-form-item label="账号状态" prop="status">
-        <el-radio-group v-model="props.form.status">
-          <el-radio value="active">启用</el-radio>
-          <el-radio value="disabled">停用</el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item v-if="props.canReadRoleOptions" label="角色分配" prop="role_ids">
-        <el-select
-          v-model="props.form.role_ids"
+      </NFormItem>
+      <NFormItem label="账号状态" path="status">
+        <NRadioGroup v-model:value="props.form.status">
+          <NRadio value="active">启用</NRadio>
+          <NRadio value="disabled">停用</NRadio>
+        </NRadioGroup>
+      </NFormItem>
+      <NFormItem v-if="props.canReadRoleOptions" label="角色分配" path="role_ids">
+        <NSelect
+          v-model:value="props.form.role_ids"
+          :options="roleSelectOptions"
           multiple
           filterable
-          collapse-tags
-          collapse-tags-tooltip
           placeholder="请选择要分配的角色"
-        >
-          <el-option
-            v-for="role in props.roleOptions"
-            :key="role.id"
-            :label="formatRoleOptionLabel(role)"
-            :value="role.id"
-            :disabled="role.status !== 'active'"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item v-if="props.canReadRoleOptions">
-        <el-alert
-          type="info"
-          :closable="false"
-          title="仅启用中的角色可分配给管理员。已停用角色会保留显示，但不能再次分配。"
         />
-      </el-form-item>
-    </el-form>
+      </NFormItem>
+      <NFormItem v-if="props.canReadRoleOptions" :show-label="false">
+        <NAlert type="info" :show-icon="true">
+          仅启用中的角色可分配给管理员。已停用角色会保留显示，但不能再次分配。
+        </NAlert>
+      </NFormItem>
+    </NForm>
 
     <template #footer>
-      <el-button @click="emit('update:visible', false)">取消</el-button>
-      <el-button type="primary" :loading="props.submitting" @click="handleSubmit">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="emit('update:visible', false)">取消</NButton>
+        <NButton type="primary" :loading="props.submitting" @click="handleSubmit">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>

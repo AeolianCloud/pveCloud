@@ -168,6 +168,10 @@ export async function updateProductStatus(id: number, status: string) {
   return response.data.data
 }
 
+export async function deleteProduct(id: number) {
+  await http.delete<ApiEnvelope<null>>(`/products/${id}`)
+}
+
 export async function getProductPlans(params?: Record<string, unknown>) {
   const response = await http.get<ApiEnvelope<PaginatedData<ProductPlanItem>>>('/product-plans', { params })
   return response.data.data
@@ -186,6 +190,10 @@ export async function updateProductPlan(id: number, payload: ProductPlanPayload)
 export async function updateProductPlanStatus(id: number, status: string) {
   const response = await http.patch<ApiEnvelope<ProductPlanItem>>(`/product-plans/${id}/status`, { status })
   return response.data.data
+}
+
+export async function deleteProductPlan(id: number) {
+  await http.delete<ApiEnvelope<null>>(`/product-plans/${id}`)
 }
 
 export async function updatePlanPrices(id: number, prices: PlanPricePayload[]) {
@@ -233,6 +241,10 @@ export async function updateSalesRegion(id: number, payload: SalesRegionPayload)
   return response.data.data
 }
 
+export async function deleteSalesRegion(id: number) {
+  await http.delete<ApiEnvelope<null>>(`/sales-regions/${id}`)
+}
+
 export async function getServerOsTemplates(params?: Record<string, unknown>) {
   const response = await http.get<ApiEnvelope<ServerOsTemplateItem[]>>('/server-os-templates', { params })
   return response.data.data
@@ -246,4 +258,8 @@ export async function createServerOsTemplate(payload: ServerOsTemplatePayload) {
 export async function updateServerOsTemplate(id: number, payload: ServerOsTemplatePayload) {
   const response = await http.put<ApiEnvelope<ServerOsTemplateItem>>(`/server-os-templates/${id}`, payload)
   return response.data.data
+}
+
+export async function deleteServerOsTemplate(id: number) {
+  await http.delete<ApiEnvelope<null>>(`/server-os-templates/${id}`)
 }

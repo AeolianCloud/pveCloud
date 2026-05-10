@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue'
+import { RefreshOutline } from '@vicons/ionicons5'
+import {
+  NButton,
+  NDataTable,
+  NIcon,
+  NInput,
+  NPagination,
+  NSelect,
+  NSpace,
+  NTag,
+  type DataTableColumns,
+} from 'naive-ui'
+import { computed, h } from 'vue'
 
 import type { WebUserItem } from '../../../api/web-user'
 import type { PaginationState, UserQueryState } from '../types'
 
-defineProps<{
+const props = defineProps<{
   users: WebUserItem[]
   query: UserQueryState
   pagination: PaginationState
@@ -12,62 +24,127 @@ defineProps<{
   canCreate: boolean
   canUpdate: boolean
   canResetPassword: boolean
-  statusType: (status: string) => string
+  statusType: (status: string) => 'success' | 'error' | 'warning' | 'default'
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   search: []
   refresh: []
   create: []
   edit: [user: WebUserItem]
   resetPassword: [user: WebUserItem]
 }>()
+
+const statusOptions = [
+  { label: '启用', value: 'active' },
+  { label: '禁用', value: 'disabled' },
+]
+
+const columns = computed<DataTableColumns<WebUserItem>>(() => [
+  { key: 'username', title: '用户名', minWidth: 140 },
+  { key: 'email', title: '邮箱', minWidth: 190 },
+  {
+    key: 'display_name',
+    title: '显示名称',
+    minWidth: 140,
+    render: (row) => row.display_name || '-',
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 100,
+    align: 'center',
+    render: (row) => h(NTag, { type: props.statusType(row.status), size: 'small' }, { default: () => row.status }),
+  },
+  { key: 'created_at', title: '创建时间', minWidth: 180 },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 200,
+    fixed: 'right',
+    render: (row) => {
+      const buttons: any[] = []
+      if (props.canUpdate) {
+        buttons.push(h(NButton, { size: 'small', onClick: () => emit('edit', row) }, { default: () => '编辑' }))
+      }
+      if (props.canResetPassword) {
+        buttons.push(
+          h(
+            NButton,
+            { size: 'small', type: 'warning', onClick: () => emit('resetPassword', row) },
+            { default: () => '重置密码' },
+          ),
+        )
+      }
+      return h(NSpace, { size: 8 }, { default: () => buttons })
+    },
+  },
+])
 </script>
 
 <template>
-  <div class="toolbar">
-    <el-input v-model="query.keyword" clearable placeholder="用户名 / 邮箱 / 显示名称" @keyup.enter="$emit('search')" />
-    <el-select v-model="query.status" clearable placeholder="状态">
-      <el-option label="启用" value="active" />
-      <el-option label="禁用" value="disabled" />
-    </el-select>
-    <el-button type="primary" @click="$emit('search')">查询</el-button>
-    <el-button :icon="Refresh" :loading="loading" @click="$emit('refresh')">刷新</el-button>
-    <el-button v-if="canCreate" type="success" @click="$emit('create')">新建用户</el-button>
+  <div class="tab-body">
+    <div class="toolbar">
+      <NInput
+        v-model:value="props.query.keyword"
+        clearable
+        placeholder="用户名 / 邮箱 / 显示名称"
+        style="width: 260px"
+        @keyup.enter="emit('search')"
+      />
+      <NSelect
+        v-model:value="props.query.status"
+        :options="statusOptions"
+        clearable
+        placeholder="状态"
+        style="width: 140px"
+      />
+      <NButton type="primary" @click="emit('search')">查询</NButton>
+      <NButton :loading="props.loading" @click="emit('refresh')">
+        <template #icon>
+          <NIcon><RefreshOutline /></NIcon>
+        </template>
+        刷新
+      </NButton>
+      <NButton v-if="props.canCreate" type="success" @click="emit('create')">新建用户</NButton>
+    </div>
+
+    <NDataTable
+      :loading="props.loading"
+      :columns="columns"
+      :data="props.users"
+      :row-key="(row: WebUserItem) => row.id"
+      striped
+      :bordered="false"
+    />
+
+    <div class="pagination">
+      <NPagination
+        :page="props.pagination.page"
+        :page-size="props.pagination.per_page"
+        :item-count="props.pagination.total"
+        :page-sizes="[15, 30, 50, 100]"
+        show-size-picker
+        @update:page="(p: number) => { props.pagination.page = p; emit('refresh') }"
+        @update:page-size="(s: number) => { props.pagination.per_page = s; props.pagination.page = 1; emit('refresh') }"
+      />
+    </div>
   </div>
-
-  <el-table v-loading="loading" :data="users" stripe>
-    <el-table-column label="用户名" prop="username" min-width="140" />
-    <el-table-column label="邮箱" prop="email" min-width="190" />
-    <el-table-column label="显示名称" min-width="140">
-      <template #default="{ row }">{{ row.display_name || '-' }}</template>
-    </el-table-column>
-    <el-table-column label="状态" width="100" align="center">
-      <template #default="{ row }"><el-tag :type="statusType(row.status)">{{ row.status }}</el-tag></template>
-    </el-table-column>
-    <el-table-column label="创建时间" prop="created_at" min-width="180" />
-    <el-table-column label="操作" width="190" fixed="right">
-      <template #default="{ row }">
-        <el-button v-if="canUpdate" size="small" @click="$emit('edit', row)">编辑</el-button>
-        <el-button v-if="canResetPassword" size="small" type="warning" @click="$emit('resetPassword', row)">重置密码</el-button>
-      </template>
-    </el-table-column>
-  </el-table>
-
-  <el-pagination
-    v-model:current-page="pagination.page"
-    v-model:page-size="pagination.per_page"
-    background
-    layout="total, sizes, prev, pager, next"
-    :total="pagination.total"
-    :page-sizes="[15, 30, 50, 100]"
-    @change="$emit('refresh')"
-  />
 </template>
 
 <style scoped>
-.toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-.toolbar .el-input { width: 260px; }
-.toolbar .el-select { width: 140px; }
-.el-pagination { margin-top: 16px; justify-content: flex-end; }
+.tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+}
 </style>

@@ -1,38 +1,67 @@
 <script setup lang="ts">
+import { NButton, NForm, NFormItem, NModal, NSelect } from 'naive-ui'
+import { computed } from 'vue'
+
 import type { ProductPlanItem, SalesRegionItem, ServerOsTemplateItem } from '../../../api/product-catalog'
 
-const visible = defineModel<boolean>('visible', { required: true })
-const selectedRegionIds = defineModel<number[]>('selectedRegionIds', { required: true })
-const selectedTemplateIds = defineModel<number[]>('selectedTemplateIds', { required: true })
-
-defineProps<{
+const props = defineProps<{
+  visible: boolean
   targetPlan: ProductPlanItem | null
   regions: SalesRegionItem[]
   templates: ServerOsTemplateItem[]
 }>()
 
-defineEmits<{
+const selectedRegionIds = defineModel<number[]>('selectedRegionIds', { required: true })
+const selectedTemplateIds = defineModel<number[]>('selectedTemplateIds', { required: true })
+
+const emit = defineEmits<{
+  'update:visible': [value: boolean]
   save: []
 }>()
+
+const regionOptions = computed(() =>
+  props.regions.map((r) => ({ label: r.name, value: r.id })),
+)
+
+const templateOptions = computed(() =>
+  props.templates.map((t) => ({ label: t.name, value: t.id })),
+)
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="`关联配置 - ${targetPlan?.name || ''}`" width="760px">
-    <el-form label-width="120px">
-      <el-form-item label="销售地域">
-        <el-select v-model="selectedRegionIds" multiple filterable collapse-tags style="width: 100%">
-          <el-option v-for="region in regions" :key="region.id" :label="region.name" :value="region.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="系统模板">
-        <el-select v-model="selectedTemplateIds" multiple filterable collapse-tags style="width: 100%">
-          <el-option v-for="template in templates" :key="template.id" :label="template.name" :value="template.id" />
-        </el-select>
-      </el-form-item>
-    </el-form>
+  <NModal
+    :show="props.visible"
+    preset="card"
+    :title="`关联配置 - ${props.targetPlan?.name || ''}`"
+    style="width: 760px"
+    :mask-closable="false"
+    @update:show="emit('update:visible', $event)"
+  >
+    <NForm label-placement="left" label-width="120px">
+      <NFormItem label="销售地域">
+        <NSelect
+          v-model:value="selectedRegionIds"
+          :options="regionOptions"
+          multiple
+          filterable
+          style="width: 100%"
+        />
+      </NFormItem>
+      <NFormItem label="系统模板">
+        <NSelect
+          v-model:value="selectedTemplateIds"
+          :options="templateOptions"
+          multiple
+          filterable
+          style="width: 100%"
+        />
+      </NFormItem>
+    </NForm>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" @click="$emit('save')">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="emit('update:visible', false)">取消</NButton>
+        <NButton type="primary" @click="$emit('save')">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>

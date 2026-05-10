@@ -115,6 +115,26 @@ func (s *ProductCatalogService) UpdateProductStatus(ctx context.Context, operato
 	return productItem(updated), nil
 }
 
+func (s *ProductCatalogService) DeleteProduct(ctx context.Context, operatorID uint64, id uint64) error {
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findProductForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		planCount, err := s.catalog.CountPlansByProductID(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if planCount > 0 {
+			return apperrors.ErrConflict.WithMessage("产品存在套餐，不能删除")
+		}
+		if err := s.catalog.DeleteProduct(ctx, tx, id); err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "product.delete", textutil.Uint64String(id), productAudit(current), nil, "删除产品")
+	})
+}
+
 func (s *ProductCatalogService) Plans(ctx context.Context, query admindto.ProductPlanListQuery) (admindto.PageResponse[admindto.ProductPlanItem], error) {
 	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
 	plans, total, err := s.catalog.ProductPlans(ctx, mysqlcatalog.ProductPlanListFilters{
@@ -204,6 +224,44 @@ func (s *ProductCatalogService) UpdatePlanStatus(ctx context.Context, operatorID
 		return admindto.ProductPlanItem{}, err
 	}
 	return planItem(updated), nil
+}
+
+func (s *ProductCatalogService) DeletePlan(ctx context.Context, operatorID uint64, id uint64) error {
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findPlanForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		prices, err := s.catalog.PlanPricesByPlanID(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		regions, err := s.catalog.PlanRegionRelations(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		templates, err := s.catalog.PlanOSTemplateRelations(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if err := s.catalog.DeletePlanPrices(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := s.catalog.DeletePlanRegions(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := s.catalog.DeletePlanOSTemplates(ctx, tx, id); err != nil {
+			return err
+		}
+		if err := s.catalog.DeletePlan(ctx, tx, id); err != nil {
+			return err
+		}
+		before := planAudit(current)
+		before["prices"] = priceAuditList(prices)
+		before["regions"] = regions
+		before["os_templates"] = templates
+		return s.record(ctx, tx, operatorID, "product_plan.delete", textutil.Uint64String(id), before, nil, "删除服务器套餐")
+	})
 }
 
 func (s *ProductCatalogService) UpdatePlanPrices(ctx context.Context, operatorID uint64, id uint64, req admindto.PlanPriceListRequest) ([]admindto.PlanPriceItem, error) {
@@ -352,6 +410,26 @@ func (s *ProductCatalogService) UpdateSalesRegion(ctx context.Context, operatorI
 	return regionItem(updated), nil
 }
 
+func (s *ProductCatalogService) DeleteSalesRegion(ctx context.Context, operatorID uint64, id uint64) error {
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findSalesRegionForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		relationCount, err := s.catalog.CountPlanRegionsByRegionID(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if relationCount > 0 {
+			return apperrors.ErrConflict.WithMessage("销售地域仍被套餐关联，不能删除")
+		}
+		if err := s.catalog.DeleteSalesRegion(ctx, tx, id); err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "sales_region.delete", textutil.Uint64String(id), regionAudit(current), nil, "删除销售地域")
+	})
+}
+
 func (s *ProductCatalogService) ServerOSTemplates(ctx context.Context, query admindto.ServerOSTemplateListQuery) ([]admindto.ServerOSTemplateItem, error) {
 	templates, err := s.catalog.ServerOSTemplates(ctx, mysqlcatalog.ServerOSTemplateListFilters{Status: query.Status, Keyword: query.Keyword})
 	if err != nil {
@@ -403,6 +481,26 @@ func (s *ProductCatalogService) UpdateServerOSTemplate(ctx context.Context, oper
 		return admindto.ServerOSTemplateItem{}, err
 	}
 	return templateItem(updated), nil
+}
+
+func (s *ProductCatalogService) DeleteServerOSTemplate(ctx context.Context, operatorID uint64, id uint64) error {
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findServerOSTemplateForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		relationCount, err := s.catalog.CountPlanOSTemplatesByTemplateID(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if relationCount > 0 {
+			return apperrors.ErrConflict.WithMessage("系统模板仍被套餐关联，不能删除")
+		}
+		if err := s.catalog.DeleteServerOSTemplate(ctx, tx, id); err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "server_os_template.delete", textutil.Uint64String(id), templateAudit(current), nil, "删除服务器系统模板")
+	})
 }
 
 func (s *ProductCatalogService) updatePlanRelations(ctx context.Context, operatorID uint64, planID uint64, ids []uint64, relationType string) (admindto.PlanRelationResponse, error) {

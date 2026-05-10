@@ -24,13 +24,6 @@
           >
             查看产品
           </RouterLink>
-          <span class="mx-2 text-neutral-300">|</span>
-          <RouterLink
-            to="/pricing"
-            class="link-underline font-black text-neutral-950"
-          >
-            查看价格
-          </RouterLink>
         </div>
       </div>
     </div>

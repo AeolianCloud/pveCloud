@@ -1,5 +1,21 @@
 <script setup lang="ts">
-import { Refresh, Search, SwitchButton } from '@element-plus/icons-vue'
+import { RefreshOutline } from '@vicons/ionicons5'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NForm,
+  NFormItem,
+  NIcon,
+  NInput,
+  NPagination,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag,
+  type DataTableColumns,
+} from 'naive-ui'
+import { computed, h } from 'vue'
 
 import EmptyState from '../../../components/EmptyState.vue'
 import type { AdminSessionItem } from '../../../api/admin-session'
@@ -27,55 +43,33 @@ const emit = defineEmits<{
 }>()
 
 function formatStatusLabel(status: string) {
-  if (status === 'revoked') {
-    return '已吊销'
-  }
-  if (status === 'expired') {
-    return '已过期'
-  }
+  if (status === 'revoked') return '已吊销'
+  if (status === 'expired') return '已过期'
   return '活跃'
 }
 
-function statusTagType(status: string) {
-  if (status === 'revoked') {
-    return 'warning'
-  }
-  if (status === 'expired') {
-    return 'info'
-  }
+function statusTagType(status: string): 'success' | 'warning' | 'default' {
+  if (status === 'revoked') return 'warning'
+  if (status === 'expired') return 'default'
   return 'success'
 }
 
 function formatRevokeReason(reason: string | null) {
-  if (!reason) {
-    return ''
+  if (!reason) return ''
+  const map: Record<string, string> = {
+    logout: '主动退出',
+    refresh: '刷新轮换',
+    admin_revoke: '管理员吊销',
+    admin_disabled: '账号停用',
+    expired: '会话过期',
   }
-  if (reason === 'logout') {
-    return '主动退出'
-  }
-  if (reason === 'refresh') {
-    return '刷新轮换'
-  }
-  if (reason === 'admin_revoke') {
-    return '管理员吊销'
-  }
-  if (reason === 'admin_disabled') {
-    return '账号停用'
-  }
-  if (reason === 'expired') {
-    return '会话过期'
-  }
-  return reason
+  return map[reason] || reason
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) {
-    return '-'
-  }
+  if (!value) return '-'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
+  if (Number.isNaN(date.getTime())) return value
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -86,140 +80,189 @@ function formatDateTime(value: string | null) {
     hour12: false,
   }).format(date)
 }
+
+const statusOptions = [
+  { label: '活跃', value: 'active' },
+  { label: '已吊销', value: 'revoked' },
+  { label: '已过期', value: 'expired' },
+]
+
+const columns = computed<DataTableColumns<AdminSessionItem>>(() => [
+  {
+    key: 'admin',
+    title: '管理员',
+    minWidth: 180,
+    render: (row) =>
+      h('div', { class: 'admin-settings-tab__identity' }, [
+        h('span', { class: 'admin-settings-tab__primary' }, row.admin_username),
+        h('span', { class: 'admin-settings-tab__secondary' }, row.admin_display_name),
+      ]),
+  },
+  {
+    key: 'session',
+    title: '会话信息',
+    minWidth: 240,
+    render: (row) => {
+      const items: any[] = [h('span', { class: 'admin-settings-tab__primary' }, row.session_id)]
+      if (row.is_current) {
+        items.push(
+          h('div', { class: 'admin-settings-tab__tags' }, [h(NTag, { size: 'small' }, { default: () => '当前会话' })]),
+        )
+      }
+      return h('div', { class: 'admin-settings-tab__identity' }, items)
+    },
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 130,
+    align: 'center',
+    render: (row) => {
+      const items: any[] = [
+        h(NTag, { type: statusTagType(row.status), size: 'small' }, { default: () => formatStatusLabel(row.status) }),
+      ]
+      if (row.status !== 'active' && row.revoke_reason) {
+        items.push(h('span', { class: 'admin-settings-tab__secondary' }, formatRevokeReason(row.revoke_reason)))
+      }
+      return h('div', { class: 'admin-settings-tab__identity admin-settings-tab__identity--center' }, items)
+    },
+  },
+  {
+    key: 'last_seen',
+    title: '最近访问',
+    minWidth: 200,
+    render: (row) =>
+      h('div', { class: 'admin-settings-tab__meta' }, [
+        h('span', null, formatDateTime(row.last_seen_at)),
+        h('span', null, row.last_seen_ip || '-'),
+      ]),
+  },
+  {
+    key: 'lifecycle',
+    title: '生命周期',
+    minWidth: 220,
+    render: (row) => {
+      const items: any[] = [
+        h('span', null, `签发：${formatDateTime(row.issued_at)}`),
+        h('span', null, `过期：${formatDateTime(row.expires_at)}`),
+      ]
+      if (row.revoked_at) items.push(h('span', null, `吊销：${formatDateTime(row.revoked_at)}`))
+      return h('div', { class: 'admin-settings-tab__meta' }, items)
+    },
+  },
+  {
+    key: 'user_agent',
+    title: '设备信息',
+    minWidth: 240,
+    ellipsis: { tooltip: true },
+    render: (row) => h('span', { class: 'admin-settings-tab__secondary' }, row.user_agent || '-'),
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 180,
+    fixed: 'right',
+    render: (row) => {
+      if (row.is_current) {
+        return h(NTag, { size: 'small' }, { default: () => '当前会话不可吊销' })
+      }
+      if (props.canRevokeSession && row.status === 'active') {
+        return h(
+          NButton,
+          {
+            text: true,
+            type: 'error',
+            loading: props.sessionRevokingId === row.session_id,
+            onClick: () => emit('revoke', row),
+          },
+          { default: () => '吊销会话' },
+        )
+      }
+      return h('span', { class: 'admin-settings-tab__secondary' }, '-')
+    },
+  },
+])
 </script>
 
 <template>
-  <el-card v-loading="props.loading" shadow="never" class="admin-settings-tab">
-    <div class="admin-settings-tab__toolbar">
-      <el-form inline class="admin-settings-tab__filters" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input
-            v-model="props.queryForm.keyword"
-            clearable
-            placeholder="搜索会话 ID、账号、显示名称或 IP"
-            @keyup.enter="emit('search')"
+  <NCard :bordered="false" class="admin-settings-tab">
+    <NSpin :show="props.loading">
+      <div class="admin-settings-tab__body">
+        <div class="admin-settings-tab__toolbar">
+          <NForm inline label-placement="left" class="admin-settings-tab__filters" @submit.prevent>
+            <NFormItem label="关键字">
+              <NInput
+                v-model:value="props.queryForm.keyword"
+                clearable
+                placeholder="搜索会话 ID、账号、显示名称或 IP"
+                @keyup.enter="emit('search')"
+              />
+            </NFormItem>
+            <NFormItem label="状态">
+              <NSelect
+                v-model:value="props.queryForm.status"
+                :options="statusOptions"
+                clearable
+                placeholder="全部状态"
+                style="min-width: 140px"
+              />
+            </NFormItem>
+            <NFormItem :show-label="false">
+              <NSpace>
+                <NButton type="primary" @click="emit('search')">查询</NButton>
+                <NButton @click="emit('reset')">重置</NButton>
+              </NSpace>
+            </NFormItem>
+          </NForm>
+
+          <div class="admin-settings-tab__toolbar-actions">
+            <NButton :loading="props.refreshing" @click="emit('refresh')">
+              <template #icon>
+                <NIcon><RefreshOutline /></NIcon>
+              </template>
+              刷新
+            </NButton>
+          </div>
+        </div>
+
+        <template v-if="!props.canViewSessionsResource">
+          <EmptyState title="暂无权限" description="当前账号没有管理员会话查看权限。" />
+        </template>
+
+        <div v-else-if="props.hasSessions" class="admin-settings-tab__table">
+          <NDataTable
+            :columns="columns"
+            :data="props.sessions"
+            :row-key="(row: AdminSessionItem) => row.session_id"
+            striped
+            :bordered="false"
           />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="props.queryForm.status" clearable placeholder="全部状态">
-            <el-option label="活跃" value="active" />
-            <el-option label="已吊销" value="revoked" />
-            <el-option label="已过期" value="expired" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="emit('search')">查询</el-button>
-          <el-button @click="emit('reset')">重置</el-button>
-        </el-form-item>
-      </el-form>
 
-      <div class="admin-settings-tab__toolbar-actions">
-        <el-button :icon="Refresh" :loading="props.refreshing" @click="emit('refresh')">刷新</el-button>
-      </div>
-    </div>
+          <div class="admin-settings-tab__pagination">
+            <NPagination
+              :page="props.pagination.page"
+              :page-size="props.pagination.per_page"
+              :item-count="props.pagination.total"
+              :page-sizes="[15, 30, 50, 100]"
+              show-size-picker
+              @update:page="emit('pageChange', $event)"
+              @update:page-size="emit('pageSizeChange', $event)"
+            />
+          </div>
+        </div>
 
-    <template v-if="!props.canViewSessionsResource">
-      <EmptyState title="暂无权限" description="当前账号没有管理员会话查看权限。" />
-    </template>
-
-    <div v-else-if="props.hasSessions" class="admin-settings-tab__table">
-      <el-table :data="props.sessions" stripe>
-        <el-table-column label="管理员" min-width="180">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__identity">
-              <span class="admin-settings-tab__primary">{{ row.admin_username }}</span>
-              <span class="admin-settings-tab__secondary">{{ row.admin_display_name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="会话信息" min-width="240">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__identity">
-              <span class="admin-settings-tab__primary">{{ row.session_id }}</span>
-              <div class="admin-settings-tab__tags">
-                <el-tag v-if="row.is_current" size="small" type="info">当前会话</el-tag>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="130" align="center">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__identity admin-settings-tab__identity--center">
-              <el-tag :type="statusTagType(row.status)" size="small">
-                {{ formatStatusLabel(row.status) }}
-              </el-tag>
-              <span v-if="row.status !== 'active' && row.revoke_reason" class="admin-settings-tab__secondary">
-                {{ formatRevokeReason(row.revoke_reason) }}
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="最近访问" min-width="200">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__meta">
-              <span>{{ formatDateTime(row.last_seen_at) }}</span>
-              <span>{{ row.last_seen_ip || '-' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="生命周期" min-width="220">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__meta">
-              <span>签发：{{ formatDateTime(row.issued_at) }}</span>
-              <span>过期：{{ formatDateTime(row.expires_at) }}</span>
-              <span v-if="row.revoked_at">吊销：{{ formatDateTime(row.revoked_at) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="设备信息" min-width="260" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span class="admin-settings-tab__secondary">{{ row.user_agent || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__actions">
-              <el-tag v-if="row.is_current" size="small" type="info">当前会话不可吊销</el-tag>
-              <el-button
-                v-else-if="props.canRevokeSession && row.status === 'active'"
-                link
-                type="danger"
-                :icon="SwitchButton"
-                :loading="props.sessionRevokingId === row.session_id"
-                @click="emit('revoke', row)"
-              >
-                吊销会话
-              </el-button>
-              <span v-else class="admin-settings-tab__secondary">-</span>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="admin-settings-tab__pagination">
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next"
-          :current-page="props.pagination.page"
-          :page-size="props.pagination.per_page"
-          :page-sizes="[15, 30, 50, 100]"
-          :total="props.pagination.total"
-          @current-change="emit('pageChange', $event)"
-          @size-change="emit('pageSizeChange', $event)"
+        <EmptyState
+          v-else
+          title="暂无管理员会话"
+          :description="props.queryForm.keyword || props.queryForm.status ? '未找到符合条件的管理员会话。' : '当前还没有可展示的管理员会话。'"
         />
       </div>
-    </div>
-
-    <EmptyState
-      v-else
-      title="暂无管理员会话"
-      :description="props.queryForm.keyword || props.queryForm.status ? '未找到符合条件的管理员会话。' : '当前还没有可展示的管理员会话。'"
-    />
-  </el-card>
+    </NSpin>
+  </NCard>
 </template>
 
 <style scoped>
-.admin-settings-tab :deep(.el-card__body) {
+.admin-settings-tab__body {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -230,6 +273,7 @@ function formatDateTime(value: string | null) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .admin-settings-tab__filters {
@@ -260,42 +304,25 @@ function formatDateTime(value: string | null) {
   align-items: center;
 }
 
+.admin-settings-tab__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
 .admin-settings-tab__primary {
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
   font-weight: 600;
 }
 
 .admin-settings-tab__secondary {
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   font-size: 12px;
-}
-
-.admin-settings-tab__tags,
-.admin-settings-tab__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
 }
 
 .admin-settings-tab__pagination {
   display: flex;
   justify-content: flex-end;
   padding-top: 8px;
-}
-
-@media (max-width: 960px) {
-  .admin-settings-tab__toolbar {
-    flex-direction: column;
-  }
-
-  .admin-settings-tab__toolbar-actions {
-    width: 100%;
-  }
-
-  .admin-settings-tab__pagination {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
 }
 </style>

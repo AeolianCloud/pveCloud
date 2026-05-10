@@ -92,6 +92,22 @@ func (h *ProductCatalogHandler) UpdateProductStatus(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *ProductCatalogHandler) DeleteProduct(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteProduct(c.Request.Context(), operatorID, id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, nil)
+}
+
 func (h *ProductCatalogHandler) Plans(c *gin.Context) {
 	var query admindto.ProductPlanListQuery
 	if !bindQuery(c, &query) {
@@ -162,6 +178,22 @@ func (h *ProductCatalogHandler) UpdatePlanStatus(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) DeletePlan(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeletePlan(c.Request.Context(), operatorID, id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, nil)
 }
 
 func (h *ProductCatalogHandler) UpdatePlanPrices(c *gin.Context) {
@@ -317,6 +349,22 @@ func (h *ProductCatalogHandler) UpdateSalesRegion(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *ProductCatalogHandler) DeleteSalesRegion(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteSalesRegion(c.Request.Context(), operatorID, id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, nil)
+}
+
 func (h *ProductCatalogHandler) ServerOSTemplates(c *gin.Context) {
 	var query admindto.ServerOSTemplateListQuery
 	if !bindQuery(c, &query) {
@@ -366,6 +414,22 @@ func (h *ProductCatalogHandler) UpdateServerOSTemplate(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) DeleteServerOSTemplate(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteServerOSTemplate(c.Request.Context(), operatorID, id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, nil)
 }
 
 func bindQuery(c *gin.Context, target any) bool {

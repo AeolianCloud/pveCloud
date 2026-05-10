@@ -1,5 +1,25 @@
 <script setup lang="ts">
-import { EditPen, Key, Plus, Refresh, Search, SwitchButton } from '@element-plus/icons-vue'
+import {
+  AddOutline,
+  RefreshOutline,
+  SearchOutline,
+} from '@vicons/ionicons5'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NForm,
+  NFormItem,
+  NIcon,
+  NInput,
+  NPagination,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag,
+  type DataTableColumns,
+} from 'naive-ui'
+import { computed, h } from 'vue'
 
 import EmptyState from '../../../components/EmptyState.vue'
 import type { AdminRoleItem } from '../../../api/admin-role'
@@ -34,26 +54,18 @@ const emit = defineEmits<{
   pageSizeChange: [size: number]
 }>()
 
-function formatRoleOptionLabel(role: AdminRoleItem) {
-  return role.status === 'active' ? role.name : `${role.name}（已停用）`
-}
-
 function formatStatusLabel(status: string) {
   return status === 'active' ? '启用' : '停用'
 }
 
-function statusTagType(status: string) {
-  return status === 'active' ? 'success' : 'info'
+function statusTagType(status: string): 'success' | 'default' {
+  return status === 'active' ? 'success' : 'default'
 }
 
 function formatDateTime(value: string | null) {
-  if (!value) {
-    return '-'
-  }
+  if (!value) return '-'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
+  if (Number.isNaN(date.getTime())) return value
   return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -64,141 +76,206 @@ function formatDateTime(value: string | null) {
     hour12: false,
   }).format(date)
 }
+
+const statusOptions = [
+  { label: '启用', value: 'active' },
+  { label: '停用', value: 'disabled' },
+]
+
+const roleSelectOptions = computed(() =>
+  props.roleOptions.map((role) => ({
+    label: role.status === 'active' ? role.name : `${role.name}（已停用）`,
+    value: role.id,
+  })),
+)
+
+const columns = computed<DataTableColumns<AdminUserItem>>(() => [
+  {
+    key: 'username',
+    title: '账号',
+    minWidth: 140,
+    render: (row) =>
+      h('div', { class: 'admin-settings-tab__identity' }, [
+        h('span', { class: 'admin-settings-tab__primary' }, row.username),
+        h('span', { class: 'admin-settings-tab__secondary' }, row.display_name),
+      ]),
+  },
+  {
+    key: 'email',
+    title: '邮箱',
+    minWidth: 220,
+    ellipsis: { tooltip: true },
+    render: (row) => row.email || '-',
+  },
+  {
+    key: 'status',
+    title: '状态',
+    width: 100,
+    align: 'center',
+    render: (row) =>
+      h(NTag, { type: statusTagType(row.status), size: 'small' }, { default: () => formatStatusLabel(row.status) }),
+  },
+  {
+    key: 'roles',
+    title: '角色',
+    minWidth: 220,
+    render: (row) => {
+      if (row.roles.length === 0) {
+        return h('span', { class: 'admin-settings-tab__secondary' }, '未分配角色')
+      }
+      return h(
+        'div',
+        { class: 'admin-settings-tab__tags' },
+        row.roles.map((r) => h(NTag, { size: 'small' }, { default: () => r.name })),
+      )
+    },
+  },
+  {
+    key: 'last_login',
+    title: '最后登录',
+    minWidth: 220,
+    render: (row) =>
+      h('div', { class: 'admin-settings-tab__meta' }, [
+        h('span', null, formatDateTime(row.last_login_at)),
+        h('span', null, row.last_login_ip || '-'),
+      ]),
+  },
+  {
+    key: 'created_at',
+    title: '创建时间',
+    minWidth: 180,
+    render: (row) => formatDateTime(row.created_at),
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 280,
+    fixed: 'right',
+    render: (row) => {
+      const buttons: any[] = []
+      if (props.canUpdateUser) {
+        buttons.push(
+          h(NButton, { text: true, type: 'primary', onClick: () => emit('edit', row) }, { default: () => '编辑' }),
+          h(
+            NButton,
+            {
+              text: true,
+              type: row.status === 'active' ? 'warning' : 'success',
+              loading: props.userStatusUpdatingId === row.id,
+              onClick: () => emit('toggleStatus', row),
+            },
+            { default: () => (row.status === 'active' ? '停用' : '启用') },
+          ),
+        )
+      }
+      if (props.canResetUserPassword) {
+        buttons.push(
+          h(NButton, { text: true, type: 'error', onClick: () => emit('resetPassword', row) }, { default: () => '重置密码' }),
+        )
+      }
+      return h(NSpace, { size: 8 }, { default: () => buttons })
+    },
+  },
+])
+
+void SearchOutline
 </script>
 
 <template>
-  <el-card v-loading="loading" shadow="never" class="admin-settings-tab">
-    <div class="admin-settings-tab__toolbar">
-      <el-form inline class="admin-settings-tab__filters" @submit.prevent>
-        <el-form-item label="关键字">
-          <el-input
-            v-model="props.queryForm.keyword"
-            clearable
-            placeholder="搜索账号、邮箱或显示名称"
-            @keyup.enter="emit('search')"
+  <NCard :bordered="false" class="admin-settings-tab">
+    <NSpin :show="loading">
+      <div class="admin-settings-tab__body">
+        <div class="admin-settings-tab__toolbar">
+          <NForm inline label-placement="left" class="admin-settings-tab__filters" @submit.prevent>
+            <NFormItem label="关键字">
+              <NInput
+                v-model:value="props.queryForm.keyword"
+                clearable
+                placeholder="搜索账号、邮箱或显示名称"
+                @keyup.enter="emit('search')"
+              />
+            </NFormItem>
+            <NFormItem label="状态">
+              <NSelect
+                v-model:value="props.queryForm.status"
+                :options="statusOptions"
+                clearable
+                placeholder="全部状态"
+                style="min-width: 140px"
+              />
+            </NFormItem>
+            <NFormItem v-if="props.canViewRolesTab" label="角色">
+              <NSelect
+                v-model:value="props.queryForm.role_id"
+                :options="roleSelectOptions"
+                clearable
+                filterable
+                placeholder="全部角色"
+                style="min-width: 180px"
+              />
+            </NFormItem>
+            <NFormItem :show-label="false">
+              <NSpace>
+                <NButton type="primary" @click="emit('search')">查询</NButton>
+                <NButton @click="emit('reset')">重置</NButton>
+              </NSpace>
+            </NFormItem>
+          </NForm>
+
+          <div class="admin-settings-tab__toolbar-actions">
+            <NButton :loading="props.refreshing" @click="emit('refresh')">
+              <template #icon>
+                <NIcon><RefreshOutline /></NIcon>
+              </template>
+              刷新
+            </NButton>
+            <NButton v-if="props.canCreateUser" type="primary" @click="emit('create')">
+              <template #icon>
+                <NIcon><AddOutline /></NIcon>
+              </template>
+              新建管理员
+            </NButton>
+          </div>
+        </div>
+
+        <template v-if="!props.canViewUsersResource">
+          <EmptyState title="暂无权限" description="当前账号没有管理员账号查看权限。" />
+        </template>
+
+        <div v-else-if="props.hasUsers" class="admin-settings-tab__table">
+          <NDataTable
+            :columns="columns"
+            :data="props.users"
+            :row-key="(row: AdminUserItem) => row.id"
+            striped
+            :bordered="false"
           />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="props.queryForm.status" clearable placeholder="全部状态">
-            <el-option label="启用" value="active" />
-            <el-option label="停用" value="disabled" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="props.canViewRolesTab" label="角色">
-          <el-select v-model="props.queryForm.role_id" clearable filterable placeholder="全部角色">
-            <el-option
-              v-for="role in props.roleOptions"
-              :key="role.id"
-              :label="formatRoleOptionLabel(role)"
-              :value="role.id"
+
+          <div class="admin-settings-tab__pagination">
+            <NPagination
+              :page="props.pagination.page"
+              :page-size="props.pagination.per_page"
+              :item-count="props.pagination.total"
+              :page-sizes="[15, 30, 50, 100]"
+              show-size-picker
+              @update:page="emit('pageChange', $event)"
+              @update:page-size="emit('pageSizeChange', $event)"
             />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="emit('search')">查询</el-button>
-          <el-button @click="emit('reset')">重置</el-button>
-        </el-form-item>
-      </el-form>
+          </div>
+        </div>
 
-      <div class="admin-settings-tab__toolbar-actions">
-        <el-button :icon="Refresh" :loading="props.refreshing" @click="emit('refresh')">刷新</el-button>
-        <el-button v-if="props.canCreateUser" type="primary" :icon="Plus" @click="emit('create')">新建管理员</el-button>
-      </div>
-    </div>
-
-    <template v-if="!props.canViewUsersResource">
-      <EmptyState title="暂无权限" description="当前账号没有管理员账号查看权限。" />
-    </template>
-
-    <div v-else-if="props.hasUsers" class="admin-settings-tab__table">
-      <el-table :data="props.users" stripe>
-        <el-table-column label="账号" min-width="140">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__identity">
-              <span class="admin-settings-tab__primary">{{ row.username }}</span>
-              <span class="admin-settings-tab__secondary">{{ row.display_name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="邮箱" prop="email" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.email || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">
-              {{ formatStatusLabel(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="角色" min-width="220">
-          <template #default="{ row }">
-            <div v-if="row.roles.length > 0" class="admin-settings-tab__tags">
-              <el-tag v-for="role in row.roles" :key="role.id" size="small" effect="plain">
-                {{ role.name }}
-              </el-tag>
-            </div>
-            <span v-else class="admin-settings-tab__secondary">未分配角色</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="最后登录" min-width="220">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__meta">
-              <span>{{ formatDateTime(row.last_login_at) }}</span>
-              <span>{{ row.last_login_ip || '-' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" min-width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
-          <template #default="{ row }">
-            <div class="admin-settings-tab__actions">
-              <el-button v-if="props.canUpdateUser" link type="primary" :icon="EditPen" @click="emit('edit', row)">编辑</el-button>
-              <el-button
-                v-if="props.canUpdateUser"
-                link
-                :type="row.status === 'active' ? 'warning' : 'success'"
-                :icon="SwitchButton"
-                :loading="props.userStatusUpdatingId === row.id"
-                @click="emit('toggleStatus', row)"
-              >
-                {{ row.status === 'active' ? '停用' : '启用' }}
-              </el-button>
-              <el-button v-if="props.canResetUserPassword" link type="danger" :icon="Key" @click="emit('resetPassword', row)">重置密码</el-button>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="admin-settings-tab__pagination">
-        <el-pagination
-          background
-          layout="total, sizes, prev, pager, next"
-          :current-page="props.pagination.page"
-          :page-size="props.pagination.per_page"
-          :page-sizes="[15, 30, 50, 100]"
-          :total="props.pagination.total"
-          @current-change="emit('pageChange', $event)"
-          @size-change="emit('pageSizeChange', $event)"
+        <EmptyState
+          v-else
+          title="暂无管理员"
+          :description="props.queryForm.keyword || props.queryForm.status || props.queryForm.role_id ? '未找到符合条件的管理员账号。' : '当前还没有可展示的管理员账号。'"
         />
       </div>
-    </div>
-
-    <EmptyState
-      v-else
-      title="暂无管理员"
-      :description="props.queryForm.keyword || props.queryForm.status || props.queryForm.role_id ? '未找到符合条件的管理员账号。' : '当前还没有可展示的管理员账号。'"
-    />
-  </el-card>
+    </NSpin>
+  </NCard>
 </template>
 
 <style scoped>
-.admin-settings-tab :deep(.el-card__body) {
+.admin-settings-tab__body {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -209,6 +286,7 @@ function formatDateTime(value: string | null) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .admin-settings-tab__filters {
@@ -236,12 +314,12 @@ function formatDateTime(value: string | null) {
 }
 
 .admin-settings-tab__primary {
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
   font-weight: 600;
 }
 
 .admin-settings-tab__secondary {
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   font-size: 12px;
 }
 
@@ -249,13 +327,6 @@ function formatDateTime(value: string | null) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.admin-settings-tab__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
 }
 
 .admin-settings-tab__pagination {
@@ -267,15 +338,6 @@ function formatDateTime(value: string | null) {
 @media (max-width: 960px) {
   .admin-settings-tab__toolbar {
     flex-direction: column;
-  }
-
-  .admin-settings-tab__toolbar-actions {
-    width: 100%;
-  }
-
-  .admin-settings-tab__pagination {
-    justify-content: flex-start;
-    overflow-x: auto;
   }
 }
 </style>

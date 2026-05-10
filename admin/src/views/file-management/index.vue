@@ -1,7 +1,33 @@
 <script setup lang="ts">
-import { Delete, Download, Document, Refresh, Search, Upload } from '@element-plus/icons-vue'
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  CloudUploadOutline,
+  DocumentOutline,
+  DownloadOutline,
+  RefreshOutline,
+  SearchOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NDatePicker,
+  NDescriptions,
+  NDescriptionsItem,
+  NDivider,
+  NForm,
+  NFormItem,
+  NIcon,
+  NImage,
+  NInput,
+  NModal,
+  NPagination,
+  NSpace,
+  NTimeline,
+  NTimelineItem,
+  type DataTableColumns,
+} from 'naive-ui'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
@@ -16,6 +42,7 @@ import {
   type FileListQuery,
 } from '../../api/file-attachment'
 import { usePermissionStore } from '../../store/modules/permission'
+import { confirm, message } from '../../utils/feedback'
 
 const permissionStore = usePermissionStore()
 const loading = ref(false)
@@ -41,7 +68,7 @@ const queryForm = reactive({
   keyword: '',
   mime_type: '',
   uploader_id: '',
-  date_range: [] as string[],
+  date_range: null as [number, number] | null,
 })
 
 const uploadInput = ref<HTMLInputElement | null>(null)
@@ -53,22 +80,29 @@ const canDeleteFiles = computed(() => permissionStore.hasPermission('file:delete
 const hasFiles = computed(() => files.value.length > 0)
 const detailReferences = computed(() => detail.value?.references || [])
 const detailPreviewUrl = computed(() => {
-  if (!detail.value || !isImageMime(detail.value.mime_type)) {
-    return ''
-  }
+  if (!detail.value || !isImageMime(detail.value.mime_type)) return ''
   return previewUrls.value[detail.value.id] || ''
 })
 
+function tsToDate(ts: number | null | undefined) {
+  if (!ts) return undefined
+  const d = new Date(ts)
+  const yyyy = d.getFullYear()
+  const mm = `${d.getMonth() + 1}`.padStart(2, '0')
+  const dd = `${d.getDate()}`.padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function buildQuery(): FileListQuery {
-  const [dateFrom, dateTo] = queryForm.date_range
+  const range = queryForm.date_range
   return {
     page: pagination.page,
     per_page: pagination.per_page,
     keyword: queryForm.keyword.trim() || undefined,
     mime_type: queryForm.mime_type.trim() || undefined,
     uploader_id: queryForm.uploader_id ? Number(queryForm.uploader_id) : undefined,
-    date_from: dateFrom || undefined,
-    date_to: dateTo || undefined,
+    date_from: tsToDate(range?.[0]),
+    date_to: tsToDate(range?.[1]),
   }
 }
 
@@ -109,7 +143,7 @@ function handleReset() {
   queryForm.keyword = ''
   queryForm.mime_type = ''
   queryForm.uploader_id = ''
-  queryForm.date_range = []
+  queryForm.date_range = null
   pagination.page = 1
   void loadFiles()
 }
@@ -172,7 +206,7 @@ async function handleUpload(event: Event) {
   if (!file) return
 
   if (file.size <= 0) {
-    ElMessage.error('文件内容不能为空')
+    message.error('文件内容不能为空')
     if (input) input.value = ''
     return
   }
@@ -180,28 +214,26 @@ async function handleUpload(event: Event) {
   uploading.value = true
   try {
     await uploadFile(file)
-    ElMessage.success('上传成功')
+    message.success('上传成功')
     pagination.page = 1
     await loadFiles()
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '上传失败')
+    message.error(error instanceof Error ? error.message : '上传失败')
   } finally {
     uploading.value = false
     if (input) input.value = ''
   }
 }
 
-async function handleDelete(item: FileItem) {
+async function handleDelete(item: FileItem | FileDetailResponse) {
   try {
-    await ElMessageBox.confirm(
-      `确认删除文件「${item.original_name}」？删除后仅做软删除处理。`,
-      '删除文件',
-      {
-        confirmButtonText: '删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
+    await confirm({
+      title: '删除文件',
+      content: `确认删除文件「${item.original_name}」？删除后仅做软删除处理。`,
+      positiveText: '删除',
+      negativeText: '取消',
+      type: 'warning',
+    })
   } catch {
     return
   }
@@ -209,16 +241,16 @@ async function handleDelete(item: FileItem) {
   deletingId.value = item.id
   try {
     await deleteFile(item.id)
-    ElMessage.success('删除成功')
+    message.success('删除成功')
     await loadFiles({ refresh: true })
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '删除失败')
+    message.error(error instanceof Error ? error.message : '删除失败')
   } finally {
     deletingId.value = null
   }
 }
 
-async function openDetail(item: FileItem) {
+async function openDetail(item: FileItem | FileDetailResponse) {
   detailVisible.value = true
   detailLoading.value = true
   detailError.value = ''
@@ -238,7 +270,7 @@ function formatReferenceLabel(item: FileDetailResponse['references'][number]) {
   return `${item.ref_type} · ${name}`
 }
 
-function openDownload(item: FileItem) {
+function openDownload(item: FileItem | FileDetailResponse) {
   void triggerDownload(item.id, item.original_name)
 }
 
@@ -252,7 +284,7 @@ async function triggerDownload(id: number, filename: string) {
     anchor.click()
     window.URL.revokeObjectURL(url)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '下载失败')
+    message.error(error instanceof Error ? error.message : '下载失败')
   }
 }
 
@@ -269,29 +301,106 @@ function clearPreviewUrls() {
 
 async function loadThumbnails(items: FileItem[]) {
   const previewItems = items.filter((item) => isImageMime(item.mime_type))
-  await Promise.all(previewItems.map(async (item) => {
-    try {
-      const blob = await downloadFile(item.id)
-      const url = window.URL.createObjectURL(blob)
-      previewUrls.value = { ...previewUrls.value, [item.id]: url }
-    } catch {
-      // 缩略图失败不影响列表显示。
-    }
-  }))
+  await Promise.all(
+    previewItems.map(async (item) => {
+      try {
+        const blob = await downloadFile(item.id)
+        const url = window.URL.createObjectURL(blob)
+        previewUrls.value = { ...previewUrls.value, [item.id]: url }
+      } catch {
+        // ignore
+      }
+    }),
+  )
 }
 
 async function loadDetailThumbnail(item: FileDetailResponse) {
-  if (!isImageMime(item.mime_type) || previewUrls.value[item.id]) {
-    return
-  }
+  if (!isImageMime(item.mime_type) || previewUrls.value[item.id]) return
   try {
     const blob = await downloadFile(item.id)
     const url = window.URL.createObjectURL(blob)
     previewUrls.value = { ...previewUrls.value, [item.id]: url }
   } catch {
-    // 详情缩略图失败不阻断页面。
+    // ignore
   }
 }
+
+const columns = computed<DataTableColumns<FileItem>>(() => [
+  {
+    key: 'file',
+    title: '文件',
+    minWidth: 260,
+    render: (row) =>
+      h('div', { class: 'file-management-page__file' }, [
+        h(
+          'div',
+          { class: 'file-management-page__thumb' },
+          previewUrls.value[row.id]
+            ? h(NImage, {
+                src: previewUrls.value[row.id],
+                previewedImgProps: { style: 'max-width: 90vw' },
+                objectFit: 'cover',
+                width: 44,
+                height: 44,
+              })
+            : h(
+                NIcon,
+                { size: 22, class: 'file-management-page__file-icon' },
+                { default: () => h(DocumentOutline) },
+              ),
+        ),
+        h('div', null, [
+          h('div', { class: 'file-management-page__primary' }, row.original_name),
+          h('div', { class: 'file-management-page__secondary' }, row.extension || '-'),
+        ]),
+      ]),
+  },
+  { key: 'mime_type', title: '类型', minWidth: 180, ellipsis: { tooltip: true } },
+  {
+    key: 'size',
+    title: '大小',
+    minWidth: 110,
+    render: (row) => formatBytes(row.size),
+  },
+  {
+    key: 'uploader',
+    title: '上传者',
+    minWidth: 180,
+    render: (row) =>
+      h('div', { class: 'file-management-page__identity' }, [
+        h('span', { class: 'file-management-page__primary' }, uploaderLabel(row)),
+        h('span', { class: 'file-management-page__secondary' }, uploaderMeta(row)),
+      ]),
+  },
+  {
+    key: 'created_at',
+    title: '创建时间',
+    minWidth: 180,
+    render: (row) => formatDateTime(row.created_at),
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 200,
+    align: 'center',
+    render: (row) => {
+      const buttons = [
+        h(NButton, { text: true, type: 'primary', onClick: () => openDetail(row) }, { default: () => '详情' }),
+        h(NButton, { text: true, type: 'success', onClick: () => openDownload(row) }, { default: () => '下载' }),
+      ]
+      if (canDeleteFiles.value) {
+        buttons.push(
+          h(
+            NButton,
+            { text: true, type: 'error', loading: deletingId.value === row.id, onClick: () => handleDelete(row) },
+            { default: () => '删除' },
+          ),
+        )
+      }
+      return h(NSpace, { size: 8 }, { default: () => buttons })
+    },
+  },
+])
 
 onMounted(() => {
   void loadFiles()
@@ -311,179 +420,154 @@ onBeforeUnmount(() => {
       </div>
       <div class="file-management-page__actions">
         <input ref="uploadInput" class="file-management-page__file-input" type="file" @change="handleUpload" />
-        <el-button v-if="canUploadFiles" :icon="Upload" :loading="uploading" type="primary" @click="openUploadPicker">
+        <NButton v-if="canUploadFiles" type="primary" :loading="uploading" @click="openUploadPicker">
+          <template #icon>
+            <NIcon><CloudUploadOutline /></NIcon>
+          </template>
           上传文件
-        </el-button>
-        <el-button :icon="Refresh" :loading="refreshing" @click="loadFiles({ refresh: true })">刷新</el-button>
+        </NButton>
+        <NButton :loading="refreshing" @click="loadFiles({ refresh: true })">
+          <template #icon>
+            <NIcon><RefreshOutline /></NIcon>
+          </template>
+          刷新
+        </NButton>
       </div>
     </div>
 
     <QueryState :loading="loading" :error-message="errorMessage" @retry="loadFiles">
       <template v-if="!canViewFiles">
-        <el-card>
+        <NCard>
           <EmptyState title="暂无权限" description="当前账号没有附件管理访问权限。" />
-        </el-card>
+        </NCard>
       </template>
 
       <template v-else>
-        <el-card shadow="never" class="file-management-page__filters-card">
-          <el-form inline class="file-management-page__filters" @submit.prevent>
-            <el-form-item label="关键词">
-              <el-input v-model="queryForm.keyword" clearable placeholder="文件名关键词" @keyup.enter="handleSearch" />
-            </el-form-item>
-            <el-form-item label="类型">
-              <el-input v-model="queryForm.mime_type" clearable placeholder="image/jpeg" @keyup.enter="handleSearch" />
-            </el-form-item>
-            <el-form-item label="上传者 ID">
-              <el-input v-model="queryForm.uploader_id" clearable placeholder="例如 1" @keyup.enter="handleSearch" />
-            </el-form-item>
-            <el-form-item label="时间">
-              <el-date-picker
-                v-model="queryForm.date_range"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
-              <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
-          </el-form>
-        </el-card>
+        <NCard :bordered="false" class="file-management-page__filters-card">
+          <NForm inline label-placement="left" class="file-management-page__filters" @submit.prevent>
+            <NFormItem label="关键词">
+              <NInput v-model:value="queryForm.keyword" clearable placeholder="文件名关键词" @keyup.enter="handleSearch" />
+            </NFormItem>
+            <NFormItem label="类型">
+              <NInput v-model:value="queryForm.mime_type" clearable placeholder="image/jpeg" @keyup.enter="handleSearch" />
+            </NFormItem>
+            <NFormItem label="上传者 ID">
+              <NInput v-model:value="queryForm.uploader_id" clearable placeholder="例如 1" @keyup.enter="handleSearch" />
+            </NFormItem>
+            <NFormItem label="时间">
+              <NDatePicker v-model:value="queryForm.date_range" type="daterange" clearable />
+            </NFormItem>
+            <NFormItem :show-label="false">
+              <NSpace>
+                <NButton type="primary" @click="handleSearch">
+                  <template #icon>
+                    <NIcon><SearchOutline /></NIcon>
+                  </template>
+                  查询
+                </NButton>
+                <NButton @click="handleReset">重置</NButton>
+              </NSpace>
+            </NFormItem>
+          </NForm>
+        </NCard>
 
-        <el-card shadow="never">
+        <NCard :bordered="false">
           <template v-if="hasFiles">
-            <el-table :data="files" stripe class="file-management-page__table">
-              <el-table-column label="文件" min-width="260">
-                <template #default="{ row }">
-                  <div class="file-management-page__file">
-                    <div class="file-management-page__thumb">
-                      <el-image
-                        v-if="previewUrls[row.id]"
-                        :src="previewUrls[row.id]"
-                        :preview-src-list="[previewUrls[row.id]]"
-                        fit="cover"
-                        hide-on-click-modal
-                        preview-teleported
-                      />
-                      <el-icon v-else class="file-management-page__file-icon"><Document /></el-icon>
-                    </div>
-                    <div>
-                      <div class="file-management-page__primary">{{ row.original_name }}</div>
-                      <div class="file-management-page__secondary">{{ row.extension || '-' }}</div>
-                    </div>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="类型" prop="mime_type" min-width="180" show-overflow-tooltip />
-              <el-table-column label="大小" min-width="110">
-                <template #default="{ row }">{{ formatBytes(row.size) }}</template>
-              </el-table-column>
-              <el-table-column label="上传者" min-width="180">
-                <template #default="{ row }">
-                  <div class="file-management-page__identity">
-                    <span class="file-management-page__primary">{{ uploaderLabel(row) }}</span>
-                    <span class="file-management-page__secondary">{{ uploaderMeta(row) }}</span>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="创建时间" min-width="180">
-                <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
-              </el-table-column>
-              <el-table-column label="操作" width="120" align="center">
-                <template #default="{ row }">
-                  <div class="file-management-page__row-actions">
-                    <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-                    <el-button link type="success" :icon="Download" @click="openDownload(row)">下载</el-button>
-                    <el-button
-                      v-if="canDeleteFiles"
-                      :icon="Delete"
-                      :loading="deletingId === row.id"
-                      link
-                      type="danger"
-                      @click="handleDelete(row)"
-                    >
-                      删除
-                    </el-button>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-
+            <NDataTable
+              :columns="columns"
+              :data="files"
+              :row-key="(row: FileItem) => row.id"
+              striped
+              :bordered="false"
+            />
             <div class="file-management-page__pagination">
-              <el-pagination
-                :current-page="pagination.page"
+              <NPagination
+                :page="pagination.page"
                 :page-size="pagination.per_page"
+                :item-count="pagination.total"
                 :page-sizes="[15, 30, 50, 100]"
-                :total="pagination.total"
-                layout="total, sizes, prev, pager, next, jumper"
-                background
-                @current-change="handlePageChange"
-                @size-change="handlePageSizeChange"
+                show-size-picker
+                show-quick-jumper
+                @update:page="handlePageChange"
+                @update:page-size="handlePageSizeChange"
               />
             </div>
           </template>
-
           <template v-else>
             <EmptyState title="暂无文件" description="当前还没有上传任何文件。" />
           </template>
-        </el-card>
+        </NCard>
       </template>
     </QueryState>
 
-    <el-dialog v-model="detailVisible" width="640px" title="文件详情" destroy-on-close>
+    <NModal
+      v-model:show="detailVisible"
+      preset="card"
+      title="文件详情"
+      style="width: 640px"
+    >
       <QueryState :loading="detailLoading" :error-message="detailError" @retry="() => detail && openDetail(detail)">
         <template v-if="detail">
-          <div class="file-management-page__detail-preview" v-if="detailPreviewUrl">
-            <el-image
-              :src="detailPreviewUrl"
-              :preview-src-list="[detailPreviewUrl]"
-              fit="contain"
-              hide-on-click-modal
-              preview-teleported
-            />
+          <div v-if="detailPreviewUrl" class="file-management-page__detail-preview">
+            <NImage :src="detailPreviewUrl" object-fit="contain" />
           </div>
 
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="文件名">{{ detail.original_name }}</el-descriptions-item>
-            <el-descriptions-item label="类型">{{ detail.mime_type }}</el-descriptions-item>
-            <el-descriptions-item label="大小">{{ formatBytes(detail.size) }}</el-descriptions-item>
-            <el-descriptions-item label="上传者">{{ detail.uploader?.display_name || detail.uploader?.username || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="校验和">{{ detail.checksum }}</el-descriptions-item>
-            <el-descriptions-item label="存储驱动">{{ detail.storage_driver }}</el-descriptions-item>
-            <el-descriptions-item label="引用数量">{{ detail.reference_count }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ formatDateTime(detail.created_at) }}</el-descriptions-item>
-          </el-descriptions>
+          <NDescriptions :column="1" bordered label-placement="left" size="small">
+            <NDescriptionsItem label="文件名">{{ detail.original_name }}</NDescriptionsItem>
+            <NDescriptionsItem label="类型">{{ detail.mime_type }}</NDescriptionsItem>
+            <NDescriptionsItem label="大小">{{ formatBytes(detail.size) }}</NDescriptionsItem>
+            <NDescriptionsItem label="上传者">
+              {{ detail.uploader?.display_name || detail.uploader?.username || '-' }}
+            </NDescriptionsItem>
+            <NDescriptionsItem label="校验和">{{ detail.checksum }}</NDescriptionsItem>
+            <NDescriptionsItem label="存储驱动">{{ detail.storage_driver }}</NDescriptionsItem>
+            <NDescriptionsItem label="引用数量">{{ detail.reference_count }}</NDescriptionsItem>
+            <NDescriptionsItem label="创建时间">{{ formatDateTime(detail.created_at) }}</NDescriptionsItem>
+          </NDescriptions>
 
-          <el-divider />
+          <NDivider />
 
           <div class="file-management-page__drawer-actions">
-            <el-button type="primary" :icon="Download" @click="openDownload(detail)">下载/预览</el-button>
-            <el-button v-if="canDeleteFiles && detail.can_delete" type="danger" :loading="deletingId === detail.id" @click="handleDelete(detail)">
+            <NButton type="primary" @click="openDownload(detail)">
+              <template #icon>
+                <NIcon><DownloadOutline /></NIcon>
+              </template>
+              下载/预览
+            </NButton>
+            <NButton
+              v-if="canDeleteFiles && detail.can_delete"
+              type="error"
+              :loading="deletingId === detail.id"
+              @click="handleDelete(detail)"
+            >
+              <template #icon>
+                <NIcon><TrashOutline /></NIcon>
+              </template>
               删除文件
-            </el-button>
+            </NButton>
           </div>
 
-          <el-divider content-position="left">引用关系</el-divider>
+          <NDivider title-placement="left">引用关系</NDivider>
           <template v-if="detailReferences.length > 0">
-            <el-timeline>
-              <el-timeline-item v-for="item in detailReferences" :key="item.id" :timestamp="formatDateTime(item.created_at)">
+            <NTimeline>
+              <NTimelineItem
+                v-for="item in detailReferences"
+                :key="item.id"
+                :time="formatDateTime(item.created_at)"
+              >
                 <div class="file-management-page__reference-item">
                   <div class="file-management-page__primary">{{ formatReferenceLabel(item) }}</div>
                   <div class="file-management-page__secondary">{{ item.ref_path || '无位置描述' }}</div>
                 </div>
-              </el-timeline-item>
-            </el-timeline>
+              </NTimelineItem>
+            </NTimeline>
           </template>
           <template v-else>
             <EmptyState title="暂无引用" description="该文件目前没有被业务记录引用。" />
           </template>
         </template>
       </QueryState>
-    </el-dialog>
+    </NModal>
   </div>
 </template>
 
@@ -509,7 +593,7 @@ onBeforeUnmount(() => {
 
 .file-management-page__header p {
   margin: 6px 0 0;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
 }
 
 .file-management-page__actions {
@@ -528,10 +612,6 @@ onBeforeUnmount(() => {
 
 .file-management-page__filters {
   margin-bottom: -8px;
-}
-
-.file-management-page__table {
-  margin-top: 4px;
 }
 
 .file-management-page__file,
@@ -553,48 +633,23 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   overflow: hidden;
   flex-shrink: 0;
-  background: rgba(64, 158, 255, 0.08);
+  background: rgba(37, 99, 235, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.file-management-page__thumb :deep(.el-image),
-.file-management-page__detail-preview :deep(.el-image) {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.file-management-page__thumb :deep(.el-image__inner),
-.file-management-page__detail-preview :deep(.el-image__inner) {
-  width: 100%;
-  height: 100%;
-}
-
-.file-management-page__detail-preview :deep(.el-image) {
-  width: 100%;
-  height: 260px;
-}
-
 .file-management-page__file-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(64, 158, 255, 0.12);
-  color: var(--el-color-primary);
+  color: #2563eb;
 }
 
 .file-management-page__primary {
   font-weight: 600;
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
 }
 
 .file-management-page__secondary {
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   font-size: 12px;
 }
 
@@ -602,14 +657,6 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
-}
-
-.file-management-page__row-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .file-management-page__drawer-actions {
@@ -620,11 +667,12 @@ onBeforeUnmount(() => {
 
 .file-management-page__detail-preview {
   width: 100%;
-  max-height: 260px;
   margin-bottom: 16px;
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(64, 158, 255, 0.08);
+  background: rgba(37, 99, 235, 0.06);
+  display: flex;
+  justify-content: center;
 }
 
 .file-management-page__reference-item {

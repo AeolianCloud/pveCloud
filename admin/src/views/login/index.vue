@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Key, Lock, User } from '@element-plus/icons-vue'
-import { ElNotification } from 'element-plus'
+import { KeyOutline, LockClosedOutline, PersonOutline } from '@vicons/ionicons5'
+import { NButton, NForm, NFormItem, NIcon, NInput, useNotification } from 'naive-ui'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/modules/auth'
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const notification = useNotification()
 
 const form = reactive({
   username: '',
@@ -65,10 +66,10 @@ async function loadCaptcha() {
   } catch (error) {
     captcha.id = ''
     captcha.image = ''
-    ElNotification({
+    notification.error({
       title: '验证码加载失败',
-      message: error instanceof Error ? error.message : '请稍后重试',
-      type: 'error',
+      content: error instanceof Error ? error.message : '请稍后重试',
+      duration: 4000,
     })
   } finally {
     captchaLoading.value = false
@@ -93,10 +94,10 @@ async function submit() {
     const redirect = normalizeAdminRedirect(route.query.redirect, ADMIN_ROUTE_PATH.dashboard)
     await router.replace(redirect)
   } catch (error) {
-    ElNotification({
+    notification.error({
       title: '登录失败',
-      message: error instanceof Error ? error.message : '请检查账号、密码或验证码',
-      type: 'error',
+      content: error instanceof Error ? error.message : '请检查账号、密码或验证码',
+      duration: 4000,
     })
     await loadCaptcha()
   } finally {
@@ -116,23 +117,19 @@ onUnmounted(() => {
 
 <template>
   <main class="login-page">
-    <!-- 装饰光晕 -->
     <div class="login-page__glow login-page__glow--top" />
     <div class="login-page__glow login-page__glow--bottom" />
     <div class="login-page__glow login-page__glow--side" />
-
-    <!-- 背景网格（纯 CSS） -->
     <div class="login-page__grid" />
 
     <div class="login-page__container">
-      <!-- 左侧品牌区域 -->
       <div class="login-page__brand">
         <div class="login-page__brand-content">
           <div class="login-page__logo">
             <svg class="login-page__logo-icon" viewBox="0 0 40 40" fill="none">
-              <rect width="40" height="40" rx="10" fill="currentColor" opacity="0.2"/>
-              <path d="M12 28V12h6a6 6 0 0 1 0 12h-2m-4-6h4a2 2 0 0 1 0 4h-4v-4Z" fill="currentColor"/>
-              <circle cx="28" cy="20" r="6" fill="currentColor" opacity="0.4"/>
+              <rect width="40" height="40" rx="10" fill="currentColor" opacity="0.2" />
+              <path d="M12 28V12h6a6 6 0 0 1 0 12h-2m-4-6h4a2 2 0 0 1 0 4h-4v-4Z" fill="currentColor" />
+              <circle cx="28" cy="20" r="6" fill="currentColor" opacity="0.4" />
             </svg>
             <span class="login-page__logo-text">PVE Cloud</span>
           </div>
@@ -155,63 +152,65 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
-        <div class="login-page__footer-text">
-          &copy; 2024 PVE Cloud. All rights reserved.
-        </div>
+        <div class="login-page__footer-text">&copy; 2024 PVE Cloud. All rights reserved.</div>
       </div>
 
-      <!-- 右侧登录卡片 -->
       <div class="login-page__card">
         <div class="login-page__card-inner">
           <div class="login-page__card-header">
             <div class="login-page__card-avatar">
               <svg viewBox="0 0 40 40" fill="none">
-                <rect width="40" height="40" rx="10" fill="currentColor" opacity="0.15"/>
-                <path d="M12 28V12h6a6 6 0 0 1 0 12h-2m-4-6h4a2 2 0 0 1 0 4h-4v-4Z" fill="currentColor"/>
-                <circle cx="28" cy="20" r="6" fill="currentColor" opacity="0.3"/>
+                <rect width="40" height="40" rx="10" fill="currentColor" opacity="0.15" />
+                <path d="M12 28V12h6a6 6 0 0 1 0 12h-2m-4-6h4a2 2 0 0 1 0 4h-4v-4Z" fill="currentColor" />
+                <circle cx="28" cy="20" r="6" fill="currentColor" opacity="0.3" />
               </svg>
             </div>
             <h2 class="login-page__card-title">欢迎回来</h2>
             <p class="login-page__card-subtitle">请登录您的管理账号</p>
           </div>
 
-          <el-form
-            class="login-page__form"
-            label-position="top"
-            @submit.prevent="submit"
-          >
-            <el-form-item label="账号" :error="usernameError">
-              <el-input
-                v-model="form.username"
+          <NForm class="login-page__form" label-placement="top" @submit.prevent="submit">
+            <NFormItem label="账号" :feedback="usernameError" :validation-status="usernameError ? 'error' : undefined">
+              <NInput
+                v-model:value="form.username"
                 placeholder="用户名 / 邮箱"
-                :prefix-icon="User"
                 size="large"
                 @blur="touched.username = true"
-              />
-            </el-form-item>
+              >
+                <template #prefix>
+                  <NIcon><PersonOutline /></NIcon>
+                </template>
+              </NInput>
+            </NFormItem>
 
-            <el-form-item label="密码" :error="passwordError">
-              <el-input
-                v-model="form.password"
+            <NFormItem label="密码" :feedback="passwordError" :validation-status="passwordError ? 'error' : undefined">
+              <NInput
+                v-model:value="form.password"
                 placeholder="请输入密码"
-                show-password
                 type="password"
-                :prefix-icon="Lock"
+                show-password-on="click"
                 size="large"
                 @blur="touched.password = true"
-              />
-            </el-form-item>
+              >
+                <template #prefix>
+                  <NIcon><LockClosedOutline /></NIcon>
+                </template>
+              </NInput>
+            </NFormItem>
 
-            <el-form-item label="验证码" :error="captchaError">
+            <NFormItem label="验证码" :feedback="captchaError" :validation-status="captchaError ? 'error' : undefined">
               <div class="login-page__captcha">
-                <el-input
-                  v-model="form.captchaCode"
-                  @blur="touched.captchaCode = true"
-                  maxlength="8"
+                <NInput
+                  v-model:value="form.captchaCode"
+                  :maxlength="8"
                   placeholder="输入验证码"
-                  :prefix-icon="Key"
                   size="large"
-                />
+                  @blur="touched.captchaCode = true"
+                >
+                  <template #prefix>
+                    <NIcon><KeyOutline /></NIcon>
+                  </template>
+                </NInput>
                 <button
                   class="login-page__captcha-btn"
                   type="button"
@@ -227,20 +226,22 @@ onUnmounted(() => {
                   <span v-else class="login-page__captcha-placeholder">加载中...</span>
                 </button>
               </div>
-            </el-form-item>
+            </NFormItem>
 
-            <el-button
+            <NButton
               class="login-page__submit"
               :disabled="!canSubmit"
               :loading="loading"
-              native-type="submit"
+              attr-type="submit"
               round
               size="large"
               type="primary"
+              block
+              @click="submit"
             >
               登 录
-            </el-button>
-          </el-form>
+            </NButton>
+          </NForm>
         </div>
       </div>
     </div>
@@ -248,18 +249,12 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* 登录页激活时，覆盖全局浅色背景和网格 */
 body.login-active {
   background: #0b1120 !important;
-}
-
-body.login-active #app::before {
-  display: none !important;
 }
 </style>
 
 <style scoped>
-/* ===== 页面容器 ===== */
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -271,7 +266,6 @@ body.login-active #app::before {
   padding: 24px;
 }
 
-/* ===== 装饰光晕 ===== */
 .login-page__glow {
   position: absolute;
   border-radius: 50%;
@@ -301,7 +295,6 @@ body.login-active #app::before {
   background: radial-gradient(circle, rgba(14, 165, 233, 0.12), transparent 70%);
 }
 
-/* ===== 背景网格 ===== */
 .login-page__grid {
   position: absolute;
   inset: 0;
@@ -314,7 +307,6 @@ body.login-active #app::before {
   -webkit-mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.6), transparent 75%);
 }
 
-/* ===== 主容器 ===== */
 .login-page__container {
   position: relative;
   z-index: 1;
@@ -325,7 +317,6 @@ body.login-active #app::before {
   align-items: center;
 }
 
-/* ===== 左侧品牌区域 ===== */
 .login-page__brand {
   display: flex;
   flex-direction: column;
@@ -357,7 +348,6 @@ body.login-active #app::before {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #f1f5f9;
-  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__title {
@@ -367,7 +357,6 @@ body.login-active #app::before {
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: #f8fafc;
-  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__desc {
@@ -407,7 +396,6 @@ body.login-active #app::before {
   color: rgba(100, 116, 139, 0.6);
 }
 
-/* ===== 右侧登录卡片 ===== */
 .login-page__card {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(24px);
@@ -446,7 +434,6 @@ body.login-active #app::before {
   font-size: 22px;
   font-weight: 700;
   color: #f1f5f9;
-  font-family: "Plus Jakarta Sans", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .login-page__card-subtitle {
@@ -455,52 +442,22 @@ body.login-active #app::before {
   color: rgba(148, 163, 184, 0.8);
 }
 
-/* ===== 表单 ===== */
-.login-page__form :deep(.el-form-item) {
-  margin-bottom: 20px;
-}
-
-.login-page__form :deep(.el-form-item__label) {
+.login-page__form :deep(.n-form-item-label__text) {
   color: rgba(203, 213, 225, 0.9);
   font-weight: 600;
   font-size: 13px;
-  padding-bottom: 6px;
 }
 
-.login-page__form :deep(.el-input__wrapper) {
+.login-page__form :deep(.n-input) {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  box-shadow: none;
-  padding: 4px 12px;
-  transition: border-color 0.2s, background 0.2s;
 }
 
-.login-page__form :deep(.el-input__wrapper:hover) {
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.login-page__form :deep(.el-input__wrapper.is-focus) {
-  border-color: #0ea5e9;
-  background: rgba(14, 165, 233, 0.06);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
-}
-
-.login-page__form :deep(.el-input__inner) {
+.login-page__form :deep(.n-input .n-input__input-el),
+.login-page__form :deep(.n-input .n-input__textarea-el) {
   color: #f1f5f9;
-  height: 46px;
 }
 
-.login-page__form :deep(.el-input__inner::placeholder) {
-  color: rgba(100, 116, 139, 0.5);
-}
-
-.login-page__form :deep(.el-input__prefix) {
-  color: rgba(100, 116, 139, 0.6);
-  margin-right: 8px;
-}
-
-/* ===== 验证码区域 ===== */
 .login-page__captcha {
   display: grid;
   grid-template-columns: 1fr 140px;
@@ -544,36 +501,11 @@ body.login-active #app::before {
   color: rgba(148, 163, 184, 0.6);
 }
 
-/* ===== 提交按钮 ===== */
 .login-page__submit {
   width: 100%;
-  height: 48px;
-  margin-top: 4px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  border: none;
-  color: #fff;
-  transition: opacity 0.2s, transform 0.15s;
+  margin-top: 8px;
 }
 
-.login-page__submit:hover {
-  opacity: 0.92;
-  transform: translateY(-1px);
-}
-
-.login-page__submit:active {
-  transform: translateY(0);
-}
-
-.login-page__submit.is-disabled {
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(100, 116, 139, 0.4);
-}
-
-/* ===== 响应式 ===== */
 @media (max-width: 1024px) {
   .login-page__container {
     grid-template-columns: 1fr;

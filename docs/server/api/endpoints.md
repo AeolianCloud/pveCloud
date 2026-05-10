@@ -676,7 +676,7 @@
 
 ## 产品目录
 
-产品目录维护服务器产品展示和可售约束。订单 MVP 创建订单时读取产品目录并保存快照，但产品目录本身不发起支付、不创建实例、不绑定 PVE 节点。
+产品目录维护服务器产品展示和可售约束。订单 MVP 创建订单时读取产品目录并保存快照，但产品目录本身不发起支付、不创建实例、不绑定 PVE 节点。网络类型当前只作为后台可维护的套餐可选项、Web 下单选择项和订单快照；后续对接 PVE 时可基于网络类型编码映射真实网络。
 
 ### `GET /admin-api/products`
 
@@ -792,6 +792,19 @@
 - 菜单权限：`page.products`
 - 作用：读取套餐当前可用服务器系统模板，用于产品管理页面回显
 
+### `PUT /admin-api/product-plans/{id}/network-types`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：覆盖保存套餐可用网络类型
+- 审计：`product_plan.network_types.update`
+
+### `GET /admin-api/product-plans/{id}/network-types`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：读取套餐当前可用网络类型，用于产品管理页面回显
+
 ### `GET /admin-api/sales-regions`
 
 - 鉴权：管理端 Bearer Token
@@ -848,13 +861,78 @@
 - 约束：系统模板仍被套餐关联时不得删除；历史订单只依赖订单快照，不阻止删除
 - 审计：`server_os_template.delete`
 
+### `GET /admin-api/network-types`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.products`
+- 作用：查看网络类型列表
+
+### `POST /admin-api/network-types`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:create` 或 `product:*`
+- 作用：创建网络类型。当前不绑定 PVE 网络。
+- 审计：`network_type.create`
+
+### `PUT /admin-api/network-types/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:update` 或 `product:*`
+- 作用：编辑网络类型
+- 审计：`network_type.update`
+
+### `DELETE /admin-api/network-types/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:delete` 或 `product:*`
+- 作用：删除网络类型
+- 约束：网络类型仍被套餐关联时不得删除；历史订单只依赖订单快照，不阻止删除
+- 审计：`network_type.delete`
+
 ### `GET /api/server-catalog`
 
 - 鉴权：公开接口，不要求用户登录
 - 作用：返回 Web 可展示服务器产品目录聚合数据
-- 返回范围：已上架且可见的服务器产品、套餐、周期价格、销售地域和服务器系统模板
-- 展示约束：套餐需要至少有一个 active 周期价格、一个 active 且 visible 的销售地域、一个 active 且 visible 的服务器系统模板才进入公开目录
-- 禁止返回：支付、实例、库存扣减、PVE 节点、PVE 模板 ID 或资源池信息
+- 返回范围：已上架且可见的服务器产品、套餐、周期价格、销售地域、服务器系统模板和网络类型
+- 展示约束：套餐需要至少有一个 active 周期价格、一个 active 且 visible 的销售地域、一个 active 且 visible 的服务器系统模板、一个 active 且 visible 的网络类型才进入公开目录
+- 禁止返回：支付、实例、库存扣减、PVE 节点、PVE 模板 ID、PVE 网络 ID 或资源池信息
+
+## 用户端订单 MVP
+
+订单 MVP 只保存用户购买意向和后台人工处理所需快照，不发起支付、不创建实例、不下发 PVE 资源。
+
+### `POST /api/orders`
+
+- 鉴权：用户端 Bearer Token
+- 作用：基于固定套餐和用户选择的可选配置创建订单
+- 请求字段：`plan_no`、`billing_cycle`、`region_no`、`template_no`、`network_type_no`、`quantity`、`client_token`、`user_note`
+- `billing_cycle` 允许 `monthly`、`quarterly`、`semi_yearly`、`yearly`
+- `region_no`、`template_no`、`network_type_no` 必须属于当前套餐可用配置
+- `quantity` 当前固定为 `1`
+- `user_note` 可选，最多 500 字
+- 成功数据包含订单详情快照
+- 约束：订单价格、地域、系统模板和网络类型必须在创建时从当前产品目录校验并保存快照
+- 约束：网络类型当前只保存编号、编码和名称快照，不返回或保存 PVE 网络 ID
+- 约束：当前阶段不接受自定义 CPU、内存、硬盘、带宽、公网 IP 数量、购买数量或登录密码模式
+
+### `GET /api/orders`
+
+- 鉴权：用户端 Bearer Token
+- 作用：分页查询当前用户自己的订单列表
+- 查询参数支持：`page`、`per_page`、`status`
+- 列表项包含订单编号、状态、产品名称、套餐名称、计费周期、网络类型、订单金额和创建/取消/关闭时间
+
+### `GET /api/orders/{order_no}`
+
+- 鉴权：用户端 Bearer Token
+- 作用：查看当前用户自己的订单详情
+- 成功数据包含产品、套餐、价格、销售地域、系统模板和网络类型快照
+
+### `POST /api/orders/{order_no}/cancel`
+
+- 鉴权：用户端 Bearer Token
+- 作用：取消当前用户自己的 `pending` 订单
+- 请求字段：`reason` 可选，最多 500 字
 
 ## 暂未开放的管理域
 

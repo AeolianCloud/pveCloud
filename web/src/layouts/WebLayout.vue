@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const isCompactAuthPage = computed(() =>
   ['login', 'register', 'forgot-password', 'reset-password'].includes(String(route.name)),
 )
@@ -22,20 +24,28 @@ const isCompactAuthPage = computed(() =>
             <span class="text-lg font-black tracking-tight">PVECloud</span>
           </RouterLink>
           <nav class="hidden items-center gap-8 md:flex">
+            <RouterLink to="/" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+              首页
+            </RouterLink>
             <RouterLink to="/products" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
               产品中心
             </RouterLink>
-            <RouterLink to="/pricing" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
-              价格方案
-            </RouterLink>
-            <RouterLink to="/login" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink v-if="!authStore.isAuthenticated" to="/login" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
               登录
             </RouterLink>
             <RouterLink
+              v-if="!authStore.isAuthenticated"
               to="/register"
               class="btn-dark rounded-full border px-5 py-2 text-sm font-bold"
             >
-              免费注册
+              注册
+            </RouterLink>
+            <RouterLink
+              v-else
+              to="/user"
+              class="btn-dark rounded-full border px-5 py-2 text-sm font-bold"
+            >
+              用户中心
             </RouterLink>
           </nav>
         </div>

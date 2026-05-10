@@ -160,7 +160,7 @@ const handleLogin = async () => {
 
           <div class="text-center text-sm text-neutral-500">
             还没有账号？
-            <RouterLink to="/register" class="link-underline font-bold text-neutral-950">免费注册</RouterLink>
+            <RouterLink to="/register" class="link-underline font-bold text-neutral-950">注册</RouterLink>
           </div>
         </form>
       </div>

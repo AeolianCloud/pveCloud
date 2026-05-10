@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NButton, NResult, NSkeleton } from 'naive-ui'
+
 defineProps<{
   loading?: boolean
   errorMessage?: string
@@ -11,13 +13,19 @@ defineEmits<{
 
 <template>
   <div v-if="loading" class="query-state">
-    <el-skeleton :rows="4" animated />
+    <NSkeleton :repeat="4" text :sharp="false" />
   </div>
-  <el-result v-else-if="errorMessage" class="query-state" icon="error" title="加载失败" :sub-title="errorMessage">
-    <template #extra>
-      <el-button type="primary" @click="$emit('retry')">重新加载</el-button>
+  <NResult
+    v-else-if="errorMessage"
+    class="query-state"
+    status="error"
+    title="加载失败"
+    :description="errorMessage"
+  >
+    <template #footer>
+      <NButton type="primary" @click="$emit('retry')">重新加载</NButton>
     </template>
-  </el-result>
+  </NResult>
   <slot v-else />
 </template>
 

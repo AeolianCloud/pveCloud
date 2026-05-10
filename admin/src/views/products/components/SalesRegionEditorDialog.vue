@@ -1,27 +1,44 @@
 <script setup lang="ts">
+import { NButton, NForm, NFormItem, NInput, NInputNumber, NModal, NSelect, NSwitch } from 'naive-ui'
 import { ref } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInst, FormRules } from 'naive-ui'
 
 import type { SalesRegionPayload } from '../../../api/product-catalog'
 import type { DialogMode } from '../types'
 
-const visible = defineModel<boolean>('visible', { required: true })
-const formRef = ref<FormInstance>()
-
-defineProps<{
+const props = defineProps<{
+  visible: boolean
   mode: DialogMode
   form: SalesRegionPayload
 }>()
 
 const emit = defineEmits<{
+  'update:visible': [value: boolean]
   save: []
 }>()
 
-const rules: FormRules<SalesRegionPayload> = {
+const formRef = ref<FormInst | null>(null)
+
+const statusOptions = [
+  { label: '启用', value: 'active' },
+  { label: '停用', value: 'inactive' },
+]
+
+const rules: FormRules = {
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   code: [{ required: true, message: '请输入 Code', trigger: 'blur' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
-  sort_order: [{ required: true, type: 'number', min: 0, message: '排序必须大于等于 0', trigger: 'change' }],
+  sort_order: [
+    {
+      validator: (_rule, value) => {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+          return new Error('排序必须大于等于 0')
+        }
+        return true
+      },
+      trigger: 'change',
+    },
+  ],
 }
 
 async function submit() {
@@ -31,25 +48,45 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" :title="mode === 'create' ? '新增地域' : '编辑地域'" width="600px">
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-      <el-form-item label="名称" prop="name"><el-input v-model="form.name" /></el-form-item>
-      <el-form-item label="Code" prop="code"><el-input v-model="form.code" /></el-form-item>
-      <el-form-item label="国家/地区"><el-input v-model="form.country" /></el-form-item>
-      <el-form-item label="城市"><el-input v-model="form.city" /></el-form-item>
-      <el-form-item label="简介"><el-input v-model="form.summary" /></el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="form.status">
-          <el-option label="启用" value="active" />
-          <el-option label="停用" value="inactive" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="展示"><el-switch v-model="form.visible" /></el-form-item>
-      <el-form-item label="排序" prop="sort_order"><el-input-number v-model="form.sort_order" :min="0" /></el-form-item>
-    </el-form>
+  <NModal
+    :show="props.visible"
+    preset="card"
+    :title="props.mode === 'create' ? '新增地域' : '编辑地域'"
+    style="width: 600px"
+    :mask-closable="false"
+    @update:show="emit('update:visible', $event)"
+  >
+    <NForm ref="formRef" :model="props.form" :rules="rules" label-placement="left" label-width="100px">
+      <NFormItem label="名称" path="name">
+        <NInput v-model:value="props.form.name" />
+      </NFormItem>
+      <NFormItem label="Code" path="code">
+        <NInput v-model:value="props.form.code" />
+      </NFormItem>
+      <NFormItem label="国家/地区">
+        <NInput v-model:value="props.form.country" />
+      </NFormItem>
+      <NFormItem label="城市">
+        <NInput v-model:value="props.form.city" />
+      </NFormItem>
+      <NFormItem label="简介">
+        <NInput v-model:value="props.form.summary" />
+      </NFormItem>
+      <NFormItem label="状态" path="status">
+        <NSelect v-model:value="props.form.status" :options="statusOptions" />
+      </NFormItem>
+      <NFormItem label="展示">
+        <NSwitch v-model:value="props.form.visible" />
+      </NFormItem>
+      <NFormItem label="排序" path="sort_order">
+        <NInputNumber v-model:value="props.form.sort_order" :min="0" />
+      </NFormItem>
+    </NForm>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" @click="submit">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="emit('update:visible', false)">取消</NButton>
+        <NButton type="primary" @click="submit">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>

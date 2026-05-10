@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { ArrowDown, Expand, Fold, SwitchButton, UserFilled } from '@element-plus/icons-vue'
-import { computed } from 'vue'
+import {
+  ChevronDownOutline,
+  LogOutOutline,
+  MenuOutline,
+  PersonCircleOutline,
+} from '@vicons/ionicons5'
+import { NAvatar, NButton, NDropdown, NIcon } from 'naive-ui'
+import { computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ADMIN_ROUTE_PATH } from '../../router/constants'
@@ -20,40 +26,47 @@ const pageTitle = computed(() => {
   return '管理后台'
 })
 
-async function logout() {
-  await authStore.logoutRemote()
-  await router.replace(ADMIN_ROUTE_PATH.login)
+const dropdownOptions = [
+  {
+    label: '退出登录',
+    key: 'logout',
+    icon: () => h(NIcon, null, { default: () => h(LogOutOutline) }),
+  },
+]
+
+async function handleSelect(key: string) {
+  if (key === 'logout') {
+    await authStore.logoutRemote()
+    await router.replace(ADMIN_ROUTE_PATH.login)
+  }
 }
+
+const adminLabel = computed(
+  () => authStore.admin?.display_name || authStore.admin?.username || '管理员',
+)
 </script>
 
 <template>
   <div class="app-header">
     <div class="app-header__left">
-      <el-button circle text @click="appStore.toggleSidebar()">
-        <el-icon :size="18">
-          <Expand v-if="!appStore.sidebarOpened" />
-          <Fold v-else />
-        </el-icon>
-      </el-button>
+      <NButton text @click="appStore.toggleSidebar()">
+        <NIcon :size="20">
+          <MenuOutline />
+        </NIcon>
+      </NButton>
       <span class="app-header__title">{{ pageTitle }}</span>
     </div>
 
     <div class="app-header__right">
-      <el-dropdown trigger="click">
+      <NDropdown :options="dropdownOptions" trigger="click" @select="handleSelect">
         <span class="app-header__user">
-          <el-avatar :size="30" :icon="UserFilled" />
-          <span>{{ authStore.admin?.display_name || authStore.admin?.username || '管理员' }}</span>
-          <el-icon><ArrowDown /></el-icon>
+          <NAvatar round :size="30">
+            <NIcon><PersonCircleOutline /></NIcon>
+          </NAvatar>
+          <span class="app-header__user-name">{{ adminLabel }}</span>
+          <NIcon :size="14"><ChevronDownOutline /></NIcon>
         </span>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item @click="logout">
-              <el-icon><SwitchButton /></el-icon>
-              退出登录
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      </NDropdown>
     </div>
   </div>
 </template>
@@ -84,11 +97,11 @@ async function logout() {
   gap: 8px;
   cursor: pointer;
   font-size: 14px;
-  color: var(--el-text-color-regular);
+  color: rgba(15, 23, 42, 0.78);
 }
 
 @media (max-width: 640px) {
-  .app-header__user span:nth-child(2) {
+  .app-header__user-name {
     display: none;
   }
 }

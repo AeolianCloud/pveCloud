@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox, type FormRules } from 'element-plus'
+import type { FormRules } from 'naive-ui'
 
 import QueryState from '../../components/QueryState.vue'
+import { NCard, NTabPane, NTabs } from 'naive-ui'
 import { usePermissionStore } from '../../store/modules/permission'
 import {
   createWebUser,
@@ -14,11 +15,18 @@ import {
   type WebUserItem,
   type WebUserSessionItem,
 } from '../../api/web-user'
+import { confirm, message } from '../../utils/feedback'
 import PasswordResetDialog from './components/PasswordResetDialog.vue'
 import WebUserEditorDialog from './components/WebUserEditorDialog.vue'
 import WebUserSessionsTab from './components/WebUserSessionsTab.vue'
 import WebUsersTab from './components/WebUsersTab.vue'
-import type { EditorMode, PaginationState, PasswordFormState, UserFormState, WebUsersTabKey } from './types'
+import type {
+  EditorMode,
+  PaginationState,
+  PasswordFormState,
+  UserFormState,
+  WebUsersTabKey,
+} from './types'
 
 const permissionStore = usePermissionStore()
 const activeTab = ref<WebUsersTabKey>('users')
@@ -56,7 +64,7 @@ const canRevokeSession = computed(() => permissionStore.hasPermission('web-user-
 const isCreateMode = computed(() => editorMode.value === 'create')
 const editorTitle = computed(() => (isCreateMode.value ? '新建 Web 用户' : '编辑 Web 用户'))
 
-const userRules: FormRules<UserFormState> = {
+const userRules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 3, max: 64, message: '用户名长度需为 3 到 64 个字符', trigger: 'blur' },
@@ -67,11 +75,11 @@ const userRules: FormRules<UserFormState> = {
   ],
   password: [
     {
-      validator: (_rule, value, callback) => {
-        if (!isCreateMode.value && !value) return callback()
-        if (!value) return callback(new Error('请输入密码'))
-        if (value.length < 6 || value.length > 72) return callback(new Error('密码长度需为 6 到 72 个字符'))
-        callback()
+      validator: (_rule: any, value: string) => {
+        if (!isCreateMode.value && !value) return true
+        if (!value) return new Error('请输入密码')
+        if (value.length < 6 || value.length > 72) return new Error('密码长度需为 6 到 72 个字符')
+        return true
       },
       trigger: 'blur',
     },
@@ -79,7 +87,7 @@ const userRules: FormRules<UserFormState> = {
   status: [{ required: true, message: '请选择状态', trigger: 'change' }],
 }
 
-const passwordRules: FormRules<PasswordFormState> = {
+const passwordRules: FormRules = {
   password: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, max: 72, message: '密码长度需为 6 到 72 个字符', trigger: 'blur' },
@@ -114,7 +122,12 @@ async function loadUsers() {
     status: userQuery.status || undefined,
   })
   users.value = result.list
-  Object.assign(userPagination, { page: result.page, per_page: result.per_page, total: result.total, last_page: result.last_page })
+  Object.assign(userPagination, {
+    page: result.page,
+    per_page: result.per_page,
+    total: result.total,
+    last_page: result.last_page,
+  })
 }
 
 async function loadSessions() {
@@ -125,16 +138,21 @@ async function loadSessions() {
     status: sessionQuery.status || undefined,
   })
   sessions.value = result.list
-  Object.assign(sessionPagination, { page: result.page, per_page: result.per_page, total: result.total, last_page: result.last_page })
+  Object.assign(sessionPagination, {
+    page: result.page,
+    per_page: result.per_page,
+    total: result.total,
+    last_page: result.last_page,
+  })
 }
 
 async function refreshUsers() {
   userLoading.value = true
   try {
     await loadUsers()
-    ElMessage.success('Web 用户已刷新')
+    message.success('Web 用户已刷新')
   } catch (error) {
-    ElMessage.error(toError(error, '刷新失败'))
+    message.error(toError(error, '刷新失败'))
   } finally {
     userLoading.value = false
   }
@@ -144,9 +162,9 @@ async function refreshSessions() {
   sessionLoading.value = true
   try {
     await loadSessions()
-    ElMessage.success('用户状态已刷新')
+    message.success('用户状态已刷新')
   } catch (error) {
-    ElMessage.error(toError(error, '刷新失败'))
+    message.error(toError(error, '刷新失败'))
   } finally {
     sessionLoading.value = false
   }
@@ -187,19 +205,19 @@ async function submitUser() {
   try {
     if (isCreateMode.value) {
       await createWebUser({ ...userForm, display_name: optionalText(userForm.display_name) })
-      ElMessage.success('Web 用户已创建')
+      message.success('Web 用户已创建')
     } else if (editingUser.value) {
       await updateWebUser(editingUser.value.id, {
         email: userForm.email,
         display_name: optionalText(userForm.display_name),
         status: userForm.status,
       })
-      ElMessage.success('Web 用户已更新')
+      message.success('Web 用户已更新')
     }
     editorVisible.value = false
     await loadUsers()
   } catch (error) {
-    ElMessage.error(toError(error, '保存失败'))
+    message.error(toError(error, '保存失败'))
   } finally {
     userSubmitting.value = false
   }
@@ -216,10 +234,10 @@ async function submitPassword() {
   passwordSubmitting.value = true
   try {
     await resetWebUserPassword(passwordTarget.value.id, passwordForm.password)
-    ElMessage.success('密码已重置')
+    message.success('密码已重置')
     passwordVisible.value = false
   } catch (error) {
-    ElMessage.error(toError(error, '重置失败'))
+    message.error(toError(error, '重置失败'))
   } finally {
     passwordSubmitting.value = false
   }
@@ -227,13 +245,21 @@ async function submitPassword() {
 
 async function revokeSession(row: WebUserSessionItem) {
   try {
-    await ElMessageBox.confirm(`确认吊销用户 ${row.user.username} 的当前会话？`, '吊销会话', { type: 'warning' })
+    await confirm({
+      title: '吊销会话',
+      content: `确认吊销用户 ${row.user.username} 的当前会话？`,
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
     revokingSessionId.value = row.session_id
     await revokeWebUserSession(row.session_id)
-    ElMessage.success('会话已吊销')
+    message.success('会话已吊销')
     await loadSessions()
   } catch (error) {
-    if (error !== 'cancel') ElMessage.error(toError(error, '吊销失败'))
+    message.error(toError(error, '吊销失败'))
   } finally {
     revokingSessionId.value = ''
   }
@@ -244,8 +270,10 @@ function syncVisibleTab() {
   if (activeTab.value === 'sessions' && !canViewSessionsTab.value && canViewUsersTab.value) activeTab.value = 'users'
 }
 
-function statusType(status: string) {
-  return status === 'active' ? 'success' : status === 'disabled' || status === 'revoked' ? 'danger' : 'warning'
+function statusType(status: string): 'success' | 'error' | 'warning' | 'default' {
+  if (status === 'active') return 'success'
+  if (status === 'disabled' || status === 'revoked') return 'error'
+  return 'warning'
 }
 
 function defaultUserForm(): UserFormState {
@@ -274,9 +302,9 @@ function toError(error: unknown, fallback: string) {
     </div>
 
     <QueryState :loading="initialLoading" :error-message="errorMessage" @retry="initializePage">
-      <el-card>
-        <el-tabs v-model="activeTab">
-          <el-tab-pane v-if="canViewUsersTab" label="Web 用户" name="users">
+      <NCard :bordered="false">
+        <NTabs v-model:value="activeTab" type="line">
+          <NTabPane v-if="canViewUsersTab" name="users" tab="Web 用户">
             <WebUsersTab
               :users="users"
               :query="userQuery"
@@ -292,9 +320,9 @@ function toError(error: unknown, fallback: string) {
               @edit="openEditDialog"
               @reset-password="openPasswordDialog"
             />
-          </el-tab-pane>
+          </NTabPane>
 
-          <el-tab-pane v-if="canViewSessionsTab" label="用户状态" name="sessions">
+          <NTabPane v-if="canViewSessionsTab" name="sessions" tab="用户状态">
             <WebUserSessionsTab
               :sessions="sessions"
               :query="sessionQuery"
@@ -307,18 +335,44 @@ function toError(error: unknown, fallback: string) {
               @refresh="refreshSessions"
               @revoke="revokeSession"
             />
-          </el-tab-pane>
-        </el-tabs>
-      </el-card>
+          </NTabPane>
+        </NTabs>
+      </NCard>
     </QueryState>
 
-    <WebUserEditorDialog v-model:visible="editorVisible" :mode="editorMode" :title="editorTitle" :form="userForm" :rules="userRules" :submitting="userSubmitting" @submit="submitUser" />
-    <PasswordResetDialog v-model:visible="passwordVisible" :form="passwordForm" :rules="passwordRules" :submitting="passwordSubmitting" @submit="submitPassword" />
+    <WebUserEditorDialog
+      v-model:visible="editorVisible"
+      :mode="editorMode"
+      :title="editorTitle"
+      :form="userForm"
+      :rules="userRules"
+      :submitting="userSubmitting"
+      @submit="submitUser"
+    />
+    <PasswordResetDialog
+      v-model:visible="passwordVisible"
+      :form="passwordForm"
+      :rules="passwordRules"
+      :submitting="passwordSubmitting"
+      @submit="submitPassword"
+    />
   </div>
 </template>
 
 <style scoped>
-.web-users-page { display: flex; flex-direction: column; gap: 16px; }
-.web-users-page__header { display: flex; align-items: center; justify-content: space-between; }
-.web-users-page__header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.web-users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.web-users-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.web-users-page__header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
 </style>

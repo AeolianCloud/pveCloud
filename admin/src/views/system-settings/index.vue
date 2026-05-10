@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue'
-import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { RefreshOutline } from '@vicons/ionicons5'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NIcon,
+  NInput,
+  NSwitch,
+  NTabPane,
+  NTabs,
+  NTag,
+  type DataTableColumns,
+} from 'naive-ui'
+import { computed, h, onMounted, ref } from 'vue'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
@@ -12,6 +23,7 @@ import {
   type SystemConfigItem,
   type SystemConfigGroup,
 } from '../../api/system-config'
+import { message } from '../../utils/feedback'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -23,9 +35,7 @@ const activeGroup = ref('')
 const canViewConfig = computed(() => permissionStore.hasPermission('page.system-settings.config'))
 const canUpdateConfig = computed(() => permissionStore.hasPermission('system-config:update'))
 
-const currentGroup = computed(() =>
-  groups.value.find((g) => g.group_name === activeGroup.value),
-)
+const currentGroup = computed(() => groups.value.find((g) => g.group_name === activeGroup.value))
 
 const editForm = ref<Record<number, string>>({})
 
@@ -51,7 +61,6 @@ async function loadConfigs() {
     errorMessage.value = ''
     return
   }
-
   loading.value = true
   errorMessage.value = ''
   try {
@@ -108,18 +117,93 @@ async function saveConfig(config: SystemConfigItem) {
     if (config.is_secret) {
       editForm.value[config.id] = ''
     }
-    ElMessage.success('保存成功')
+    message.success('保存成功')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '保存失败')
+    message.error(error instanceof Error ? error.message : '保存失败')
   } finally {
     saving.value = false
   }
 }
 
-function valueTypeTag(type: string) {
-  const map: Record<string, string> = { string: '', int: 'warning', bool: 'success', json: 'info' }
+function valueTypeTag(type: string): 'default' | 'warning' | 'success' | 'info' {
+  const map: Record<string, 'default' | 'warning' | 'success' | 'info'> = {
+    string: 'default',
+    int: 'warning',
+    bool: 'success',
+    json: 'info',
+  }
   return map[type] ?? 'info'
 }
+
+const columns = computed<DataTableColumns<SystemConfigItem>>(() => [
+  { key: 'config_key', title: '配置键', minWidth: 200 },
+  {
+    key: 'value',
+    title: '值',
+    minWidth: 240,
+    render: (row) => {
+      if (row.is_secret) {
+        return h('div', { class: 'secret-cell' }, [
+          h(NInput, {
+            value: editForm.value[row.id],
+            type: 'password',
+            showPasswordOn: 'click',
+            disabled: !canUpdateConfig.value,
+            placeholder: row.has_value ? '留空则保留旧值，输入新值则覆盖' : '请输入敏感配置值',
+            'onUpdate:value': (v: string) => (editForm.value[row.id] = v),
+          }),
+          h(
+            NTag,
+            { type: row.has_value ? 'error' : 'default', size: 'small' },
+            { default: () => (row.has_value ? '已配置' : '未配置') },
+          ),
+        ])
+      }
+      if (isBoolConfig(row)) {
+        return h(NSwitch, {
+          value: boolValue(row),
+          disabled: !canUpdateConfig.value,
+          'onUpdate:value': (v: boolean) => updateBoolValue(row, v),
+        })
+      }
+      return h(NInput, {
+        value: editForm.value[row.id],
+        type: row.value_type === 'json' ? 'textarea' : 'text',
+        rows: 3,
+        disabled: !canUpdateConfig.value,
+        'onUpdate:value': (v: string) => (editForm.value[row.id] = v),
+      })
+    },
+  },
+  {
+    key: 'value_type',
+    title: '类型',
+    width: 90,
+    align: 'center',
+    render: (row) => h(NTag, { type: valueTypeTag(row.value_type), size: 'small' }, { default: () => row.value_type }),
+  },
+  { key: 'description', title: '说明', minWidth: 160, ellipsis: { tooltip: true } },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      if (!canUpdateConfig.value) return null
+      return h(
+        NButton,
+        {
+          type: 'primary',
+          size: 'small',
+          loading: saving.value,
+          disabled: !isDirty(row),
+          onClick: () => saveConfig(row),
+        },
+        { default: () => '保存' },
+      )
+    },
+  },
+])
 
 onMounted(() => {
   void loadConfigs()
@@ -130,88 +214,41 @@ onMounted(() => {
   <div class="system-settings-page">
     <div class="system-settings-page__header">
       <h2>系统设置</h2>
-      <el-button :icon="Refresh" :loading="loading" @click="loadConfigs">刷新</el-button>
+      <NButton :loading="loading" @click="loadConfigs">
+        <template #icon>
+          <NIcon><RefreshOutline /></NIcon>
+        </template>
+        刷新
+      </NButton>
     </div>
 
     <QueryState :loading="loading" :error-message="errorMessage" @retry="loadConfigs">
       <template v-if="!canViewConfig">
-        <el-card>
+        <NCard>
           <EmptyState title="暂无权限" description="当前账号没有系统配置查看权限。" />
-        </el-card>
+        </NCard>
       </template>
 
       <template v-else-if="groups.length === 0">
-        <el-card>
+        <NCard>
           <EmptyState title="暂无配置" description="当前没有可展示的系统配置。" />
-        </el-card>
+        </NCard>
       </template>
 
       <template v-else>
-        <el-tabs v-model="activeGroup" @tab-change="handleGroupChange">
-          <el-tab-pane v-for="group in groups" :key="group.group_name" :label="group.group_name" :name="group.group_name" />
-        </el-tabs>
+        <NTabs :value="activeGroup" type="line" @update:value="handleGroupChange">
+          <NTabPane v-for="group in groups" :key="group.group_name" :name="group.group_name" :tab="group.group_name" />
+        </NTabs>
 
-        <el-card v-if="currentGroup">
-          <el-table :data="currentGroup.items" stripe>
-            <el-table-column label="配置键" prop="config_key" min-width="200" />
-            <el-table-column label="值" min-width="240">
-              <template #default="{ row }">
-                <template v-if="row.is_secret">
-                  <div class="secret-cell">
-                    <el-input
-                      v-model="editForm[row.id]"
-                      size="small"
-                      type="password"
-                      show-password
-                      :disabled="!canUpdateConfig"
-                      :placeholder="row.has_value ? '留空则保留旧值，输入新值则覆盖' : '请输入敏感配置值'"
-                    />
-                    <el-tag :type="row.has_value ? 'danger' : 'info'" size="small">{{ row.has_value ? '已配置' : '未配置' }}</el-tag>
-                  </div>
-                </template>
-                <template v-else>
-                  <el-switch
-                    v-if="isBoolConfig(row)"
-                    :model-value="boolValue(row)"
-                    :disabled="!canUpdateConfig"
-                    inline-prompt
-                    active-text="开"
-                    inactive-text="关"
-                    @update:model-value="(value: boolean) => updateBoolValue(row, value)"
-                  />
-                  <el-input
-                    v-else
-                    v-model="editForm[row.id]"
-                    size="small"
-                    :type="row.value_type === 'json' ? 'textarea' : 'text'"
-                    :rows="3"
-                    :disabled="!canUpdateConfig"
-                  />
-                </template>
-              </template>
-            </el-table-column>
-            <el-table-column label="类型" width="90" align="center">
-              <template #default="{ row }">
-                <el-tag :type="valueTypeTag(row.value_type)" size="small">{{ row.value_type }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="说明" prop="description" min-width="160" show-overflow-tooltip />
-            <el-table-column label="操作" width="100" align="center">
-              <template #default="{ row }">
-                <el-button
-                  v-if="canUpdateConfig"
-                  type="primary"
-                  size="small"
-                  :loading="saving"
-                  :disabled="!isDirty(row)"
-                  @click="saveConfig(row)"
-                >
-                  保存
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
+        <NCard v-if="currentGroup" :bordered="false">
+          <NDataTable
+            :columns="columns"
+            :data="currentGroup.items"
+            :row-key="(row: SystemConfigItem) => row.id"
+            striped
+            :bordered="false"
+          />
+        </NCard>
       </template>
     </QueryState>
   </div>

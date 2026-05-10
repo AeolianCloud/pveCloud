@@ -1,40 +1,68 @@
 <script setup lang="ts">
+import { NButton, NDataTable, NSpace, NTag, type DataTableColumns } from 'naive-ui'
+import { computed, h } from 'vue'
+
 import type { SalesRegionItem } from '../../../api/product-catalog'
 
-defineProps<{
+const props = defineProps<{
   regions: SalesRegionItem[]
   loading: boolean
   statusLabel: (status: string) => string
   statusTagType: (status: string) => string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   create: []
   edit: [item: SalesRegionItem]
+  delete: [item: SalesRegionItem]
 }>()
+
+type TagType = 'success' | 'warning' | 'error' | 'info' | 'default'
+
+const columns = computed<DataTableColumns<SalesRegionItem>>(() => [
+  { key: 'name', title: '名称', minWidth: 180 },
+  { key: 'code', title: 'Code', minWidth: 140 },
+  {
+    key: 'status',
+    title: '状态',
+    width: 120,
+    render: (row) =>
+      h(NTag, { type: props.statusTagType(row.status) as TagType, size: 'small' }, { default: () => props.statusLabel(row.status) }),
+  },
+  {
+    key: 'visible',
+    title: '展示',
+    width: 90,
+    render: (row) => (row.visible ? '是' : '否'),
+  },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 180,
+    fixed: 'right',
+    render: (row) =>
+      h(NSpace, { size: 8 }, {
+        default: () => [
+          h(NButton, { text: true, type: 'primary', onClick: () => emit('edit', row) }, { default: () => '编辑' }),
+          h(NButton, { text: true, type: 'error', onClick: () => emit('delete', row) }, { default: () => '删除' }),
+        ],
+      }),
+  },
+])
 </script>
 
 <template>
   <div class="toolbar">
-    <el-button type="primary" @click="$emit('create')">新增地域</el-button>
+    <NButton type="primary" @click="$emit('create')">新增地域</NButton>
   </div>
-  <el-table :data="regions" v-loading="loading" border stripe>
-    <el-table-column prop="name" label="名称" min-width="180" />
-    <el-table-column prop="code" label="Code" min-width="140" />
-    <el-table-column label="状态" width="120">
-      <template #default="{ row }">
-        <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-      </template>
-    </el-table-column>
-    <el-table-column prop="visible" label="展示" width="90">
-      <template #default="{ row }">{{ row.visible ? '是' : '否' }}</template>
-    </el-table-column>
-    <el-table-column label="操作" width="160" fixed="right">
-      <template #default="{ row }">
-        <el-button link type="primary" @click="$emit('edit', row)">编辑</el-button>
-      </template>
-    </el-table-column>
-  </el-table>
+  <NDataTable
+    :columns="columns"
+    :data="regions"
+    :loading="loading"
+    :row-key="(row: SalesRegionItem) => row.id"
+    striped
+    bordered
+  />
 </template>
 
 <style scoped>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NLayout, NLayoutContent, NLayoutHeader, NLayoutSider } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 
 import { useAppStore } from '../store/modules/app'
@@ -8,10 +9,7 @@ import AppSidebar from './components/AppSidebar.vue'
 
 const appStore = useAppStore()
 const isMobile = computed(() => appStore.device === 'mobile')
-const sidebarWidth = computed(() => {
-  if (isMobile.value) return '220px'
-  return appStore.sidebarOpened ? '220px' : '64px'
-})
+const collapsed = computed(() => !appStore.sidebarOpened)
 
 function handleResize() {
   appStore.syncDevice(window.innerWidth)
@@ -35,27 +33,33 @@ onBeforeUnmount(() => {
       @click="appStore.closeSidebar()"
     ></div>
 
-    <el-container class="layout-shell">
-      <el-aside
+    <NLayout has-sider class="layout-shell">
+      <NLayoutSider
+        bordered
+        :collapsed="collapsed"
+        :collapsed-width="64"
+        :width="220"
+        :native-scrollbar="false"
+        :show-trigger="false"
+        :inverted="true"
         class="layout-aside"
         :class="{
           'layout-aside--mobile': isMobile,
           'layout-aside--hidden': isMobile && !appStore.sidebarOpened,
         }"
-        :width="sidebarWidth"
       >
         <AppSidebar />
-      </el-aside>
+      </NLayoutSider>
 
-      <el-container>
-        <el-header class="layout-header">
+      <NLayout>
+        <NLayoutHeader bordered class="layout-header">
           <AppHeader />
-        </el-header>
-        <el-main class="layout-main">
+        </NLayoutHeader>
+        <NLayoutContent class="layout-main" :native-scrollbar="false">
           <AppMain />
-        </el-main>
-      </el-container>
-    </el-container>
+        </NLayoutContent>
+      </NLayout>
+    </NLayout>
   </div>
 </template>
 
@@ -76,16 +80,11 @@ onBeforeUnmount(() => {
   background: rgba(0, 0, 0, 0.5);
 }
 
-.layout-aside {
-  position: relative;
-  z-index: 100;
-  transition: width 0.2s ease;
-}
-
 .layout-aside--mobile {
-  position: fixed;
+  position: fixed !important;
   inset: 0 auto 0 0;
   height: 100vh;
+  z-index: 100;
   transition: transform 0.2s ease;
 }
 
@@ -96,20 +95,15 @@ onBeforeUnmount(() => {
 .layout-header {
   height: 60px;
   padding: 0 20px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  background: #fff;
 }
 
 .layout-main {
   padding: 20px;
-  background: var(--el-bg-color-page);
+  background: #f5f7fb;
+  min-height: calc(100vh - 60px);
 }
 
 @media (max-width: 991px) {
-  .layout-aside--mobile {
-    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.15);
-  }
-
   .layout-main {
     padding: 16px;
   }

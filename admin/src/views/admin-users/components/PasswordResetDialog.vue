@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { NAlert, NButton, NForm, NFormItem, NInput, NModal } from 'naive-ui'
 import { nextTick, ref, watch } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInst, FormRules } from 'naive-ui'
 
 import type { PasswordFormState } from '../types'
 
@@ -8,7 +9,7 @@ const props = defineProps<{
   visible: boolean
   targetLabel: string
   form: PasswordFormState
-  rules: FormRules<PasswordFormState>
+  rules: FormRules
   submitting: boolean
 }>()
 
@@ -18,66 +19,60 @@ const emit = defineEmits<{
   closed: []
 }>()
 
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInst | null>(null)
 
 watch(
   () => props.visible,
   (value) => {
     if (value) {
-      void nextTick(() => {
-        formRef.value?.clearValidate()
-      })
+      void nextTick(() => formRef.value?.restoreValidation())
     }
   },
 )
 
 async function handleSubmit() {
-  if (!formRef.value) {
-    return
-  }
+  if (!formRef.value) return
   await formRef.value.validate()
   emit('submit')
+}
+
+function handleAfterLeave() {
+  emit('closed')
 }
 </script>
 
 <template>
-  <el-dialog
-    :model-value="props.visible"
+  <NModal
+    :show="props.visible"
+    preset="card"
     title="重置管理员密码"
-    width="480px"
-    destroy-on-close
-    @update:model-value="emit('update:visible', $event)"
-    @closed="emit('closed')"
+    style="width: 480px"
+    :mask-closable="false"
+    :on-after-leave="handleAfterLeave"
+    @update:show="emit('update:visible', $event)"
   >
-    <el-alert
-      type="warning"
-      :closable="false"
-      class="password-reset-dialog__alert"
-      title="密码重置后会立即生效，请通过安全渠道告知管理员。"
-    />
-    <el-form ref="formRef" :model="props.form" :rules="props.rules" label-width="84px">
-      <el-form-item label="管理员">
-        <el-input :model-value="props.targetLabel || '-'" disabled />
-      </el-form-item>
-      <el-form-item label="新密码" prop="password">
-        <el-input
-          v-model="props.form.password"
+    <NAlert type="warning" :show-icon="true" style="margin-bottom: 16px">
+      密码重置后会立即生效，请通过安全渠道告知管理员。
+    </NAlert>
+    <NForm ref="formRef" :model="props.form" :rules="props.rules as any" label-placement="top">
+      <NFormItem label="管理员">
+        <NInput :value="props.targetLabel || '-'" disabled />
+      </NFormItem>
+      <NFormItem label="新密码" path="password">
+        <NInput
+          v-model:value="props.form.password"
           type="password"
-          show-password
+          show-password-on="click"
           placeholder="请输入 6 到 72 位新密码"
         />
-      </el-form-item>
-    </el-form>
+      </NFormItem>
+    </NForm>
 
     <template #footer>
-      <el-button @click="emit('update:visible', false)">取消</el-button>
-      <el-button type="danger" :loading="props.submitting" @click="handleSubmit">确认重置</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="emit('update:visible', false)">取消</NButton>
+        <NButton type="error" :loading="props.submitting" @click="handleSubmit">确认重置</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>
-
-<style scoped>
-.password-reset-dialog__alert {
-  margin-bottom: 16px;
-}
-</style>

@@ -1,15 +1,16 @@
 <script setup lang="ts">
+import { NButton, NForm, NFormItem, NInput, NModal } from 'naive-ui'
+import type { FormInst, FormRules } from 'naive-ui'
 import { ref } from 'vue'
-import type { FormInstance, FormRules } from 'element-plus'
 
 import type { PasswordFormState } from '../types'
 
 const visible = defineModel<boolean>('visible', { required: true })
-const formRef = ref<FormInstance>()
+const formRef = ref<FormInst | null>(null)
 
 defineProps<{
   form: PasswordFormState
-  rules: FormRules<PasswordFormState>
+  rules: FormRules
   submitting: boolean
 }>()
 
@@ -24,13 +25,17 @@ async function submit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="重置密码" width="420px">
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-      <el-form-item label="新密码" prop="password"><el-input v-model="form.password" type="password" show-password /></el-form-item>
-    </el-form>
+  <NModal :show="visible" preset="card" title="重置密码" style="width: 420px" @update:show="visible = $event">
+    <NForm ref="formRef" :model="form" :rules="rules as any" label-placement="top">
+      <NFormItem label="新密码" path="password">
+        <NInput v-model:value="form.password" type="password" show-password-on="click" />
+      </NFormItem>
+    </NForm>
     <template #footer>
-      <el-button @click="visible = false">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="submit">保存</el-button>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <NButton @click="visible = false">取消</NButton>
+        <NButton type="primary" :loading="submitting" @click="submit">保存</NButton>
+      </div>
     </template>
-  </el-dialog>
+  </NModal>
 </template>

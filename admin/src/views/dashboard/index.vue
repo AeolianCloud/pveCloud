@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { Checked, Key, Refresh, UserFilled, WarningFilled } from '@element-plus/icons-vue'
-import { computed, onMounted, ref, type Component } from 'vue'
+import {
+  CheckmarkCircleOutline,
+  KeyOutline,
+  PersonCircleOutline,
+  RefreshOutline,
+  WarningOutline,
+} from '@vicons/ionicons5'
+import { NButton, NCard, NDescriptions, NDescriptionsItem, NGi, NGrid, NIcon, NTag } from 'naive-ui'
+import { computed, h, onMounted, ref, type Component } from 'vue'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
@@ -18,10 +25,10 @@ const metrics = ref<DashboardMetric[]>([])
 const canViewDashboard = computed(() => permissionStore.hasPermission('page.dashboard'))
 
 const metricMeta: Record<string, { icon: Component }> = {
-  active_admins: { icon: UserFilled },
-  active_roles: { icon: Checked },
-  active_sessions: { icon: Key },
-  risk_logs_today: { icon: WarningFilled },
+  active_admins: { icon: PersonCircleOutline },
+  active_roles: { icon: CheckmarkCircleOutline },
+  active_sessions: { icon: KeyOutline },
+  risk_logs_today: { icon: WarningOutline },
 }
 
 const metricCards = computed(() =>
@@ -29,7 +36,7 @@ const metricCards = computed(() =>
     key: metric.key,
     title: metric.title,
     value: `${metric.value.toLocaleString()}${metric.unit ? ` ${metric.unit}` : ''}`,
-    icon: metricMeta[metric.key]?.icon || UserFilled,
+    icon: metricMeta[metric.key]?.icon || PersonCircleOutline,
   })),
 )
 
@@ -54,6 +61,8 @@ async function loadDashboard() {
   }
 }
 
+const refreshIcon = () => h(NIcon, null, { default: () => h(RefreshOutline) })
+
 onMounted(() => {
   void loadDashboard()
 })
@@ -63,45 +72,44 @@ onMounted(() => {
   <div class="dashboard-page">
     <div class="dashboard-page__header">
       <h2>工作台</h2>
-      <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
+      <NButton :loading="loading" :render-icon="refreshIcon" @click="loadDashboard">刷新</NButton>
     </div>
 
     <QueryState :loading="loading" :error-message="errorMessage" @retry="loadDashboard">
       <template v-if="!canViewDashboard">
-        <el-card>
+        <NCard>
           <EmptyState title="暂无权限" description="当前账号没有控制台数据查看权限。" />
-        </el-card>
+        </NCard>
       </template>
 
       <template v-else-if="metricCards.length === 0">
-        <el-card>
+        <NCard>
           <EmptyState title="暂无数据" description="当前没有可展示的指标。" />
-        </el-card>
+        </NCard>
       </template>
 
       <template v-else>
-        <el-row :gutter="16">
-          <el-col v-for="item in metricCards" :key="item.key" :xs="24" :sm="12" :lg="6">
+        <NGrid :x-gap="16" :y-gap="16" cols="1 s:2 m:2 l:4" responsive="screen">
+          <NGi v-for="item in metricCards" :key="item.key">
             <MetricCard :title="item.title" :value="item.value" :icon="item.icon" />
-          </el-col>
-        </el-row>
+          </NGi>
+        </NGrid>
 
-        <el-card>
-          <template #header>登录信息</template>
-          <el-descriptions :column="{ xs: 1, sm: 2, lg: 4 }" border>
-            <el-descriptions-item label="账号">
+        <NCard title="登录信息">
+          <NDescriptions bordered :column="4" label-placement="left" size="small">
+            <NDescriptionsItem label="账号">
               {{ authStore.admin?.username || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="姓名">
+            </NDescriptionsItem>
+            <NDescriptionsItem label="姓名">
               {{ authStore.admin?.display_name || '-' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <el-tag :type="authStore.admin?.status === 'active' ? 'success' : 'info'" size="small">
+            </NDescriptionsItem>
+            <NDescriptionsItem label="状态">
+              <NTag :type="authStore.admin?.status === 'active' ? 'success' : 'default'" size="small">
                 {{ authStore.admin?.status === 'active' ? '正常' : authStore.admin?.status || '-' }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
+              </NTag>
+            </NDescriptionsItem>
+          </NDescriptions>
+        </NCard>
       </template>
     </QueryState>
   </div>
@@ -124,9 +132,5 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-}
-
-.el-col {
-  margin-bottom: 16px;
 }
 </style>

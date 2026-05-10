@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NCard, NIcon } from 'naive-ui'
 import type { Component } from 'vue'
 
 defineProps<{
@@ -9,21 +10,23 @@ defineProps<{
 </script>
 
 <template>
-  <el-card shadow="hover" class="metric-card">
-    <div class="metric-card__icon">
-      <el-icon :size="20">
-        <component :is="icon" />
-      </el-icon>
+  <NCard hoverable class="metric-card" :bordered="false">
+    <div class="metric-card__row">
+      <div class="metric-card__icon">
+        <NIcon :size="20">
+          <component :is="icon" />
+        </NIcon>
+      </div>
+      <div class="metric-card__body">
+        <div class="metric-card__title">{{ title }}</div>
+        <div class="metric-card__value">{{ value }}</div>
+      </div>
     </div>
-    <div class="metric-card__body">
-      <div class="metric-card__title">{{ title }}</div>
-      <div class="metric-card__value">{{ value }}</div>
-    </div>
-  </el-card>
+  </NCard>
 </template>
 
 <style scoped>
-.metric-card :deep(.el-card__body) {
+.metric-card__row {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -37,20 +40,20 @@ defineProps<{
   align-items: center;
   justify-content: center;
   color: #fff;
-  background: var(--el-color-primary);
+  background: #2563eb;
   flex-shrink: 0;
 }
 
 .metric-card__title {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.6);
   margin-bottom: 2px;
 }
 
 .metric-card__value {
   font-size: 24px;
   font-weight: 700;
-  color: var(--el-text-color-primary);
+  color: rgba(15, 23, 42, 0.92);
   line-height: 1.2;
 }
 </style>

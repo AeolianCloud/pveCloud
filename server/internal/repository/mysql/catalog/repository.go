@@ -208,6 +208,46 @@ func (r *Repository) UpdatePlanStatus(ctx context.Context, db *gorm.DB, id uint6
 	return r.queryDB(db).WithContext(ctx).Model(&ProductPlan{}).Where("id = ?", id).Update("status", status).Error
 }
 
+func (r *Repository) CountPlansByProductID(ctx context.Context, db *gorm.DB, productID uint64) (int64, error) {
+	var count int64
+	if err := r.queryDB(db).WithContext(ctx).Model(&ProductPlan{}).Where("product_id = ?", productID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) CountPlanRegionsByRegionID(ctx context.Context, db *gorm.DB, regionID uint64) (int64, error) {
+	var count int64
+	if err := r.queryDB(db).WithContext(ctx).Model(&PlanRegion{}).Where("region_id = ?", regionID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) CountPlanOSTemplatesByTemplateID(ctx context.Context, db *gorm.DB, templateID uint64) (int64, error) {
+	var count int64
+	if err := r.queryDB(db).WithContext(ctx).Model(&PlanOSTemplate{}).Where("template_id = ?", templateID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *Repository) DeleteProduct(ctx context.Context, db *gorm.DB, id uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&Product{}).Error
+}
+
+func (r *Repository) DeletePlan(ctx context.Context, db *gorm.DB, id uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&ProductPlan{}).Error
+}
+
+func (r *Repository) DeleteSalesRegion(ctx context.Context, db *gorm.DB, id uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&SalesRegion{}).Error
+}
+
+func (r *Repository) DeleteServerOSTemplate(ctx context.Context, db *gorm.DB, id uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&ServerOSTemplate{}).Error
+}
+
 func (r *Repository) DeletePlanPrices(ctx context.Context, db *gorm.DB, planID uint64) error {
 	return r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Delete(&PlanPrice{}).Error
 }

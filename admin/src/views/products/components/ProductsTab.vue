@@ -1,43 +1,71 @@
 <script setup lang="ts">
+import { NButton, NDataTable, NSpace, NTag, type DataTableColumns } from 'naive-ui'
+import { computed, h } from 'vue'
+
 import type { ProductItem } from '../../../api/product-catalog'
 
-defineProps<{
+const props = defineProps<{
   products: ProductItem[]
   loading: boolean
   statusLabel: (status: string) => string
   statusTagType: (status: string) => string
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   create: []
   edit: [item: ProductItem]
   toggleStatus: [item: ProductItem]
+  delete: [item: ProductItem]
 }>()
+
+type TagType = 'success' | 'warning' | 'error' | 'info' | 'default'
+
+const columns = computed<DataTableColumns<ProductItem>>(() => [
+  { key: 'name', title: '名称', minWidth: 180 },
+  { key: 'slug', title: 'Slug', minWidth: 160 },
+  {
+    key: 'status',
+    title: '状态',
+    width: 120,
+    render: (row) =>
+      h(NTag, { type: props.statusTagType(row.status) as TagType, size: 'small' }, { default: () => props.statusLabel(row.status) }),
+  },
+  {
+    key: 'visible',
+    title: '展示',
+    width: 90,
+    render: (row) => (row.visible ? '是' : '否'),
+  },
+  { key: 'sort_order', title: '排序', width: 90 },
+  {
+    key: 'actions',
+    title: '操作',
+    width: 280,
+    fixed: 'right',
+    render: (row) =>
+      h(NSpace, { size: 8 }, {
+        default: () => [
+          h(NButton, { text: true, type: 'primary', onClick: () => emit('edit', row) }, { default: () => '编辑' }),
+          h(NButton, { text: true, type: 'warning', onClick: () => emit('toggleStatus', row) }, { default: () => '切换状态' }),
+          h(NButton, { text: true, type: 'error', onClick: () => emit('delete', row) }, { default: () => '删除' }),
+        ],
+      }),
+  },
+])
 </script>
 
 <template>
   <div class="toolbar">
-    <el-button type="primary" @click="$emit('create')">新增产品</el-button>
+    <NButton type="primary" @click="$emit('create')">新增产品</NButton>
   </div>
-  <el-table :data="products" v-loading="loading" border stripe>
-    <el-table-column prop="name" label="名称" min-width="180" />
-    <el-table-column prop="slug" label="Slug" min-width="160" />
-    <el-table-column label="状态" width="120">
-      <template #default="{ row }">
-        <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
-      </template>
-    </el-table-column>
-    <el-table-column prop="visible" label="展示" width="90">
-      <template #default="{ row }">{{ row.visible ? '是' : '否' }}</template>
-    </el-table-column>
-    <el-table-column prop="sort_order" label="排序" width="90" />
-    <el-table-column label="操作" width="220" fixed="right">
-      <template #default="{ row }">
-        <el-button link type="primary" @click="$emit('edit', row)">编辑</el-button>
-        <el-button link type="warning" @click="$emit('toggleStatus', row)">切换状态</el-button>
-      </template>
-    </el-table-column>
-  </el-table>
+  <NDataTable
+    :columns="columns"
+    :data="products"
+    :loading="loading"
+    :row-key="(row: ProductItem) => row.id"
+    striped
+    bordered
+  />
 </template>
 
 <style scoped>

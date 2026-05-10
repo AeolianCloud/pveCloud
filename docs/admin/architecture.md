@@ -161,10 +161,12 @@ views/<page>/
 
 ## 样式原则
 
-- 管理端基础控件优先使用 Element Plus
+- 管理端基础控件统一使用 Naive UI（`naive-ui`），图标统一使用 `@vicons/ionicons5`
+- 不再使用 Element Plus 与 `@element-plus/icons-vue`，新增页面/组件不得引入 `el-*` 组件或相关样式
+- 不并行引入第二套 UI 框架；通过 Naive UI `n-config-provider` 注入主题与本地化
 - 全局样式只承载 tokens、reset、shell 和少量共享样式
 - 页面私有样式放在页面或组件内
-- 不建议替代 Element Plus 的本地工具类体系
+- 不建设替代 Naive UI 的本地工具类体系
 
 ## 本地开发
 

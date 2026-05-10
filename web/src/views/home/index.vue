@@ -17,8 +17,8 @@
             <RouterLink to="/products" class="btn-dark inline-flex items-center justify-center rounded-full border px-7 py-3 text-sm font-black">
               查看产品配置
             </RouterLink>
-            <RouterLink to="/pricing" class="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-7 py-3 text-sm font-black text-neutral-950 hover:border-neutral-950 hover:bg-neutral-50 hover:-translate-y-px">
-              对比价格方案
+            <RouterLink to="/register" class="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-7 py-3 text-sm font-black text-neutral-950 hover:border-neutral-950 hover:bg-neutral-50 hover:-translate-y-px">
+              注册账号
             </RouterLink>
           </div>
         </div>
@@ -136,7 +136,7 @@
             <p class="mt-4 max-w-2xl text-sm leading-6 text-neutral-600">当前阶段只做产品展示和用户账号入口，不展示订单、支付或实例交付承诺。</p>
           </div>
           <RouterLink to="/register" class="btn-dark inline-flex justify-center rounded-full border px-7 py-3 text-sm font-black">
-            免费注册
+            注册
           </RouterLink>
         </div>
       </div>

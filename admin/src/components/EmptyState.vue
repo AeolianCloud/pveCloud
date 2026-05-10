@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NEmpty } from 'naive-ui'
+
 defineProps<{
   title: string
   description?: string
@@ -6,14 +8,14 @@ defineProps<{
 </script>
 
 <template>
-  <el-empty :description="description || title">
-    <template #description>
+  <NEmpty>
+    <template #default>
       <div class="empty-state">
         <strong>{{ title }}</strong>
         <p v-if="description">{{ description }}</p>
       </div>
     </template>
-  </el-empty>
+  </NEmpty>
 </template>
 
 <style scoped>
@@ -30,7 +32,7 @@ defineProps<{
 .empty-state p {
   max-width: 360px;
   margin: 0 auto;
-  color: var(--el-text-color-secondary);
+  color: rgba(15, 23, 42, 0.55);
   line-height: 1.6;
 }
 </style>

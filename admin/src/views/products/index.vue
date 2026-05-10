@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { NCard, NTabPane, NTabs } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
 
 import {
   createProduct,
   createProductPlan,
   createSalesRegion,
   createServerOsTemplate,
+  deleteProduct,
+  deleteProductPlan,
+  deleteSalesRegion,
+  deleteServerOsTemplate,
   getProductPlans,
   getProducts,
   getPlanOsTemplates,
@@ -34,6 +38,7 @@ import {
   type ServerOsTemplateItem,
   type ServerOsTemplatePayload,
 } from '../../api/product-catalog'
+import { confirm, message } from '../../utils/feedback'
 import PlanPricesDialog from './components/PlanPricesDialog.vue'
 import PlanRelationsDialog from './components/PlanRelationsDialog.vue'
 import ProductEditorDialog from './components/ProductEditorDialog.vue'
@@ -137,7 +142,7 @@ async function loadAll() {
     templateList.value = templates
     await Promise.all(planList.value.map((plan) => loadPlanRelations(plan.id)))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '产品目录加载失败')
+    message.error(error instanceof Error ? error.message : '产品目录加载失败')
   } finally {
     loading.products = false
     loading.plans = false
@@ -176,7 +181,7 @@ async function saveProduct() {
   } else if (productFormId.value != null) {
     await updateProduct(productFormId.value, productForm)
   }
-  ElMessage.success('已保存产品')
+  message.success('已保存产品')
   productDialogVisible.value = false
   await loadAll()
 }
@@ -184,7 +189,14 @@ async function saveProduct() {
 async function toggleProductStatus(item: ProductItem) {
   const nextStatus = item.status === 'active' ? 'inactive' : 'active'
   await updateProductStatus(item.id, nextStatus)
-  ElMessage.success('状态已更新')
+  message.success('状态已更新')
+  await loadAll()
+}
+
+async function removeProduct(item: ProductItem) {
+  if (!(await confirmDelete(`确认删除产品"${item.name}"吗？存在套餐时后端会拒绝删除。`))) return
+  await deleteProduct(item.id)
+  message.success('产品已删除')
   await loadAll()
 }
 
@@ -207,7 +219,7 @@ async function savePlan() {
   } else if (planFormId.value != null) {
     await updateProductPlan(planFormId.value, planForm)
   }
-  ElMessage.success('已保存套餐')
+  message.success('已保存套餐')
   planDialogVisible.value = false
   await loadAll()
 }
@@ -231,7 +243,7 @@ async function saveRegion() {
   } else if (regionFormId.value != null) {
     await updateSalesRegion(regionFormId.value, regionForm)
   }
-  ElMessage.success('已保存地域')
+  message.success('已保存地域')
   regionDialogVisible.value = false
   await loadAll()
 }
@@ -255,7 +267,7 @@ async function saveTemplate() {
   } else if (templateFormId.value != null) {
     await updateServerOsTemplate(templateFormId.value, templateForm)
   }
-  ElMessage.success('已保存模板')
+  message.success('已保存模板')
   templateDialogVisible.value = false
   await loadAll()
 }
@@ -281,7 +293,7 @@ async function openPriceDialog(item: ProductPlanItem) {
 async function savePrices() {
   if (!priceTargetPlan.value) return
   await updatePlanPrices(priceTargetPlan.value.id, priceForm)
-  ElMessage.success('已保存价格')
+  message.success('已保存价格')
   priceDialogVisible.value = false
   await loadPlanRelations(priceTargetPlan.value.id)
 }
@@ -299,7 +311,7 @@ async function saveRelations() {
     updatePlanRegions(relationTargetPlan.value.id, selectedRegionIds.value),
     updatePlanOsTemplates(relationTargetPlan.value.id, selectedTemplateIds.value),
   ])
-  ElMessage.success('已保存关联')
+  message.success('已保存关联')
   relationDialogVisible.value = false
   await loadPlanRelations(relationTargetPlan.value.id)
 }
@@ -307,8 +319,38 @@ async function saveRelations() {
 async function togglePlanStatus(item: ProductPlanItem) {
   const nextStatus = item.status === 'active' ? 'inactive' : 'active'
   await updateProductPlanStatus(item.id, nextStatus)
-  ElMessage.success('状态已更新')
+  message.success('状态已更新')
   await loadAll()
+}
+
+async function removePlan(item: ProductPlanItem) {
+  if (!(await confirmDelete(`确认删除套餐"${item.name}"吗？套餐价格和关联配置会一并删除。`))) return
+  await deleteProductPlan(item.id)
+  message.success('套餐已删除')
+  await loadAll()
+}
+
+async function removeRegion(item: SalesRegionItem) {
+  if (!(await confirmDelete(`确认删除销售地域"${item.name}"吗？仍被套餐关联时后端会拒绝删除。`))) return
+  await deleteSalesRegion(item.id)
+  message.success('销售地域已删除')
+  await loadAll()
+}
+
+async function removeTemplate(item: ServerOsTemplateItem) {
+  if (!(await confirmDelete(`确认删除系统模板"${item.name}"吗？仍被套餐关联时后端会拒绝删除。`))) return
+  await deleteServerOsTemplate(item.id)
+  message.success('系统模板已删除')
+  await loadAll()
+}
+
+async function confirmDelete(content: string) {
+  try {
+    await confirm({ title: '确认删除', content, type: 'warning', positiveText: '删除' })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function planPublishIssues(item: ProductPlanItem) {
@@ -336,7 +378,7 @@ function statusTagType(status: string) {
   if (status === 'active') return 'success'
   if (status === 'sold_out') return 'warning'
   if (status === 'inactive') return 'info'
-  return ''
+  return 'default'
 }
 
 onMounted(loadAll)
@@ -345,9 +387,9 @@ onMounted(loadAll)
 <template>
   <section class="products-page">
     <div class="section-pad">
-      <el-card>
-        <el-tabs v-model="activeTabs">
-          <el-tab-pane label="产品" name="products">
+      <NCard>
+        <NTabs v-model:value="activeTabs" type="line" animated>
+          <NTabPane name="products" tab="产品">
             <ProductsTab
               :products="productList"
               :loading="loading.products"
@@ -356,10 +398,11 @@ onMounted(loadAll)
               @create="openCreateProduct"
               @edit="openEditProduct"
               @toggle-status="toggleProductStatus"
+              @delete="removeProduct"
             />
-          </el-tab-pane>
+          </NTabPane>
 
-          <el-tab-pane label="套餐" name="plans">
+          <NTabPane name="plans" tab="套餐">
             <ProductPlansTab
               :plans="planList"
               :products-by-id="productsById"
@@ -372,10 +415,11 @@ onMounted(loadAll)
               @prices="openPriceDialog"
               @relations="openRelationDialog"
               @toggle-status="togglePlanStatus"
+              @delete="removePlan"
             />
-          </el-tab-pane>
+          </NTabPane>
 
-          <el-tab-pane label="地域" name="regions">
+          <NTabPane name="regions" tab="地域">
             <SalesRegionsTab
               :regions="regionList"
               :loading="loading.regions"
@@ -383,10 +427,11 @@ onMounted(loadAll)
               :status-tag-type="statusTagType"
               @create="openCreateRegion"
               @edit="openEditRegion"
+              @delete="removeRegion"
             />
-          </el-tab-pane>
+          </NTabPane>
 
-          <el-tab-pane label="系统模板" name="templates">
+          <NTabPane name="templates" tab="系统模板">
             <ServerOsTemplatesTab
               :templates="templateList"
               :loading="loading.templates"
@@ -394,24 +439,57 @@ onMounted(loadAll)
               :status-tag-type="statusTagType"
               @create="openCreateTemplate"
               @edit="openEditTemplate"
+              @delete="removeTemplate"
             />
-          </el-tab-pane>
-        </el-tabs>
-      </el-card>
+          </NTabPane>
+        </NTabs>
+      </NCard>
     </div>
 
-    <ProductEditorDialog v-model:visible="productDialogVisible" :mode="productDialogMode" :form="productForm" @save="saveProduct" />
-    <ProductPlanEditorDialog v-model:visible="planDialogVisible" :mode="planDialogMode" :form="planForm" :products="productList" @save="savePlan" />
-    <SalesRegionEditorDialog v-model:visible="regionDialogVisible" :mode="regionDialogMode" :form="regionForm" @save="saveRegion" />
-    <ServerOsTemplateEditorDialog v-model:visible="templateDialogVisible" :mode="templateDialogMode" :form="templateForm" @save="saveTemplate" />
-    <PlanPricesDialog v-model:visible="priceDialogVisible" :target-plan="priceTargetPlan" :prices="priceForm" @save="savePrices" />
+    <ProductEditorDialog
+      :visible="productDialogVisible"
+      :mode="productDialogMode"
+      :form="productForm"
+      @update:visible="productDialogVisible = $event"
+      @save="saveProduct"
+    />
+    <ProductPlanEditorDialog
+      :visible="planDialogVisible"
+      :mode="planDialogMode"
+      :form="planForm"
+      :products="productList"
+      @update:visible="planDialogVisible = $event"
+      @save="savePlan"
+    />
+    <SalesRegionEditorDialog
+      :visible="regionDialogVisible"
+      :mode="regionDialogMode"
+      :form="regionForm"
+      @update:visible="regionDialogVisible = $event"
+      @save="saveRegion"
+    />
+    <ServerOsTemplateEditorDialog
+      :visible="templateDialogVisible"
+      :mode="templateDialogMode"
+      :form="templateForm"
+      @update:visible="templateDialogVisible = $event"
+      @save="saveTemplate"
+    />
+    <PlanPricesDialog
+      :visible="priceDialogVisible"
+      :target-plan="priceTargetPlan"
+      :prices="priceForm"
+      @update:visible="priceDialogVisible = $event"
+      @save="savePrices"
+    />
     <PlanRelationsDialog
-      v-model:visible="relationDialogVisible"
+      :visible="relationDialogVisible"
       v-model:selected-region-ids="selectedRegionIds"
       v-model:selected-template-ids="selectedTemplateIds"
       :target-plan="relationTargetPlan"
       :regions="regionList"
       :templates="templateList"
+      @update:visible="relationDialogVisible = $event"
       @save="saveRelations"
     />
   </section>
