@@ -114,6 +114,182 @@ textarea {
   animation-delay: 120ms;
 }
 
+.hero-orb {
+  position: absolute;
+  width: 28rem;
+  height: 28rem;
+  pointer-events: none;
+  border: 1px solid rgb(17 17 17 / 8%);
+  border-radius: 999px;
+  filter: blur(0.2px);
+  opacity: 0.55;
+  animation: hero-orb 9s ease-in-out infinite;
+}
+
+.hero-orb-left {
+  top: 6rem;
+  left: -13rem;
+  background: radial-gradient(circle, rgb(17 17 17 / 6%) 0, transparent 62%);
+}
+
+.hero-orb-right {
+  right: -10rem;
+  bottom: 2rem;
+  animation-delay: -3s;
+  background: radial-gradient(circle, rgb(17 17 17 / 5%) 0, transparent 64%);
+}
+
+.hero-stack > * {
+  animation: hero-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.hero-stack > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+
+.hero-title {
+  animation-delay: 120ms !important;
+}
+
+.hero-copy {
+  animation-delay: 200ms !important;
+}
+
+.hero-actions {
+  animation-delay: 280ms !important;
+}
+
+.hero-mini-grid {
+  animation-delay: 360ms !important;
+}
+
+.hero-mini-grid > * {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.hero-mini-grid > *:hover {
+  border-color: #111111;
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgb(17 17 17 / 9%);
+}
+
+.hero-dashboard {
+  animation-duration: 620ms;
+  animation-delay: 180ms;
+}
+
+.hero-dashboard .rounded-2xl,
+.hero-dashboard .flex.justify-between {
+  animation: soft-fade-rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.hero-dashboard .grid.grid-cols-2 > *:nth-child(1) {
+  animation-delay: 300ms;
+}
+
+.hero-dashboard .grid.grid-cols-2 > *:nth-child(2) {
+  animation-delay: 360ms;
+}
+
+.hero-dashboard .grid.grid-cols-2 > *:nth-child(3) {
+  animation-delay: 420ms;
+}
+
+.hero-dashboard .grid.grid-cols-2 > *:nth-child(4) {
+  animation-delay: 480ms;
+}
+
+.hero-dashboard .rounded-2xl.border-neutral-950 {
+  animation-delay: 540ms;
+}
+
+.hero-dashboard .rounded-2xl.border-neutral-950 .flex:nth-child(1) {
+  animation-delay: 620ms;
+}
+
+.hero-dashboard .rounded-2xl.border-neutral-950 .flex:nth-child(2) {
+  animation-delay: 680ms;
+}
+
+.hero-dashboard .rounded-2xl.border-neutral-950 .flex:nth-child(3) {
+  animation-delay: 740ms;
+}
+
+.pulse-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #111111;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0 rgb(17 17 17 / 32%);
+  animation: pulse-dot 1.7s ease-out infinite;
+}
+
+.status-pill {
+  animation: status-pulse 2.4s ease-in-out infinite;
+}
+
+.meter-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #111111, #525252);
+  border-radius: inherit;
+  transform-origin: left;
+  animation: meter-fill 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.meter-bar-delayed {
+  animation-delay: 140ms;
+}
+
+.meter-bar-late {
+  animation-delay: 260ms;
+}
+
+.home-animated section:nth-of-type(n + 2) > div,
+.home-animated section:nth-of-type(n + 2) .surface-pop,
+.home-animated section:nth-of-type(n + 2) .soft-lift,
+.home-animated section:nth-of-type(n + 2) .interactive-card {
+  animation: soft-fade-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.home-animated section:nth-of-type(2) > div:first-child {
+  animation-delay: 120ms;
+}
+
+.home-animated section:nth-of-type(2) .interactive-card:nth-child(1) {
+  animation-delay: 220ms;
+}
+
+.home-animated section:nth-of-type(2) .interactive-card:nth-child(2) {
+  animation-delay: 300ms;
+}
+
+.home-animated section:nth-of-type(2) .interactive-card:nth-child(3) {
+  animation-delay: 380ms;
+}
+
+.home-animated section:nth-of-type(3) .soft-lift:nth-child(1) {
+  animation-delay: 140ms;
+}
+
+.home-animated section:nth-of-type(3) .soft-lift:nth-child(2) {
+  animation-delay: 220ms;
+}
+
+.home-animated section:nth-of-type(3) .soft-lift:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.home-animated section:nth-of-type(3) .soft-lift:nth-child(4) {
+  animation-delay: 380ms;
+}
+
+.home-animated section:nth-of-type(4) .surface-pop {
+  animation-delay: 180ms;
+}
+
 .field-focus:focus {
   box-shadow: 0 0 0 4px rgb(17 17 17 / 8%);
 }
@@ -182,5 +358,86 @@ textarea {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hero-orb {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(1.5rem, -1rem, 0) scale(1.08);
+  }
+}
+
+@keyframes pulse-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgb(17 17 17 / 32%);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 0.55rem rgb(17 17 17 / 0%);
+  }
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(17 17 17 / 0%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 0.35rem rgb(17 17 17 / 8%);
+  }
+}
+
+@keyframes meter-fill {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes soft-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb,
+  .hero-stack > *,
+  .hero-dashboard,
+  .pulse-dot,
+  .status-pill,
+  .meter-bar,
+  .page-reveal,
+  .surface-pop,
+  .stagger-reveal > * {
+    animation: none !important;
   }
 }

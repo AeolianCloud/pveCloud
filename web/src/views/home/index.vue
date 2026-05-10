@@ -1,19 +1,26 @@
+<script setup lang="ts">
+import TrafficPanel from './components/TrafficPanel.vue'
+</script>
+
 <template>
-  <div class="page-reveal bg-white">
+  <div class="page-reveal home-animated bg-white">
     <section class="relative overflow-hidden border-b border-neutral-200">
       <div class="absolute inset-x-0 top-0 h-px bg-neutral-950"></div>
+      <div class="hero-orb hero-orb-left"></div>
+      <div class="hero-orb hero-orb-right"></div>
       <div class="mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-28">
-        <div>
+        <div class="hero-stack relative z-10">
           <div class="chip-hover mb-8 inline-flex items-center gap-2 rounded-full border border-neutral-950 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-neutral-950">
+            <span class="pulse-dot"></span>
             Game Cloud / High Frequency Nodes
           </div>
-          <h1 class="max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-neutral-950 sm:text-6xl lg:text-7xl">
+          <h1 class="hero-title max-w-4xl text-5xl font-black leading-[0.95] tracking-tight text-neutral-950 sm:text-6xl lg:text-7xl">
             给游戏开服准备的轻量云平台
           </h1>
-          <p class="mt-8 max-w-2xl text-lg leading-8 text-neutral-600">
+          <p class="hero-copy mt-8 max-w-2xl text-lg leading-8 text-neutral-600">
             面向 Minecraft、Steam 游戏服、联机社区和独立项目展示高主频计算、大带宽节点与基础防护能力。当前仅展示产品入口，购买能力即将开放。
           </p>
-          <div class="mt-10 flex flex-col gap-3 sm:flex-row">
+          <div class="hero-actions mt-10 flex flex-col gap-3 sm:flex-row">
             <RouterLink to="/products" class="btn-dark inline-flex items-center justify-center rounded-full border px-7 py-3 text-sm font-black">
               查看产品配置
             </RouterLink>
@@ -21,33 +28,51 @@
               注册账号
             </RouterLink>
           </div>
+          <div class="hero-mini-grid mt-10 grid gap-3 sm:grid-cols-3">
+            <div class="rounded-2xl border border-neutral-200 bg-white/85 p-4 backdrop-blur">
+              <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">响应</div>
+              <div class="mt-2 text-2xl font-black text-neutral-950">毫秒级</div>
+            </div>
+            <div class="rounded-2xl border border-neutral-200 bg-white/85 p-4 backdrop-blur">
+              <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">节点</div>
+              <div class="mt-2 text-2xl font-black text-neutral-950">多区域</div>
+            </div>
+            <div class="rounded-2xl border border-neutral-200 bg-white/85 p-4 backdrop-blur">
+              <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">状态</div>
+              <div class="mt-2 text-2xl font-black text-neutral-950">持续在线</div>
+            </div>
+          </div>
         </div>
 
-        <div class="surface-pop rounded-[2rem] border border-neutral-950 bg-white p-4 shadow-[12px_12px_0_#111]">
+        <div class="surface-pop hero-dashboard relative rounded-[2rem] border border-neutral-950 bg-white p-4 shadow-[12px_12px_0_#111]">
           <div class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-5">
             <div class="flex items-center justify-between border-b border-neutral-200 pb-4">
               <div>
                 <div class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Live Node Preview</div>
                 <div class="mt-1 text-xl font-black text-neutral-950">CN-HZ-GAME-01</div>
               </div>
-              <span class="rounded-full border border-neutral-950 bg-white px-3 py-1 text-xs font-black">在线</span>
+              <span class="status-pill rounded-full border border-neutral-950 bg-white px-3 py-1 text-xs font-black">在线</span>
             </div>
             <div class="mt-5 grid grid-cols-2 gap-3">
               <div class="rounded-2xl border border-neutral-200 bg-white p-4">
                 <div class="text-xs text-neutral-500">CPU</div>
                 <div class="mt-2 text-2xl font-black">5.2GHz</div>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100"><div class="meter-bar w-[72%]"></div></div>
               </div>
               <div class="rounded-2xl border border-neutral-200 bg-white p-4">
                 <div class="text-xs text-neutral-500">带宽</div>
                 <div class="mt-2 text-2xl font-black">100M</div>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100"><div class="meter-bar meter-bar-delayed w-[86%]"></div></div>
               </div>
               <div class="rounded-2xl border border-neutral-200 bg-white p-4">
                 <div class="text-xs text-neutral-500">防护</div>
                 <div class="mt-2 text-2xl font-black">基础</div>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100"><div class="meter-bar meter-bar-late w-[64%]"></div></div>
               </div>
               <div class="rounded-2xl border border-neutral-200 bg-white p-4">
                 <div class="text-xs text-neutral-500">部署</div>
                 <div class="mt-2 text-2xl font-black">分钟级</div>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-neutral-100"><div class="meter-bar meter-bar-delayed w-[92%]"></div></div>
               </div>
             </div>
             <div class="mt-5 rounded-2xl border border-neutral-950 bg-white p-5">
@@ -59,6 +84,7 @@
               </div>
             </div>
           </div>
+          <TrafficPanel />
         </div>
       </div>
     </section>
