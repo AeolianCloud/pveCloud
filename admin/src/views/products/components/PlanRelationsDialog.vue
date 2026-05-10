@@ -2,17 +2,19 @@
 import { NButton, NForm, NFormItem, NModal, NSelect } from 'naive-ui'
 import { computed } from 'vue'
 
-import type { ProductPlanItem, SalesRegionItem, ServerOsTemplateItem } from '../../../api/product-catalog'
+import type { NetworkTypeItem, ProductPlanItem, SalesRegionItem, ServerOsTemplateItem } from '../../../api/product-catalog'
 
 const props = defineProps<{
   visible: boolean
   targetPlan: ProductPlanItem | null
   regions: SalesRegionItem[]
   templates: ServerOsTemplateItem[]
+  networkTypes: NetworkTypeItem[]
 }>()
 
 const selectedRegionIds = defineModel<number[]>('selectedRegionIds', { required: true })
 const selectedTemplateIds = defineModel<number[]>('selectedTemplateIds', { required: true })
+const selectedNetworkTypeIds = defineModel<number[]>('selectedNetworkTypeIds', { required: true })
 
 const emit = defineEmits<{
   'update:visible': [value: boolean]
@@ -25,6 +27,10 @@ const regionOptions = computed(() =>
 
 const templateOptions = computed(() =>
   props.templates.map((t) => ({ label: t.name, value: t.id })),
+)
+
+const networkTypeOptions = computed(() =>
+  props.networkTypes.map((item) => ({ label: item.name, value: item.id })),
 )
 </script>
 
@@ -51,6 +57,15 @@ const templateOptions = computed(() =>
         <NSelect
           v-model:value="selectedTemplateIds"
           :options="templateOptions"
+          multiple
+          filterable
+          style="width: 100%"
+        />
+      </NFormItem>
+      <NFormItem label="网络类型">
+        <NSelect
+          v-model:value="selectedNetworkTypeIds"
+          :options="networkTypeOptions"
           multiple
           filterable
           style="width: 100%"

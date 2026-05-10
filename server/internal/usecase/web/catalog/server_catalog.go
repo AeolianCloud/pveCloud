@@ -43,6 +43,7 @@ type ServerCatalogPlan struct {
 	Prices         []ServerCatalogPlanPrice
 	Regions        []ServerCatalogRegion
 	OSTemplates    []ServerCatalogOSTemplate
+	NetworkTypes   []ServerCatalogNetworkType
 }
 
 type ServerCatalogPlanPrice struct {
@@ -72,6 +73,13 @@ type ServerCatalogOSTemplate struct {
 	Summary      *string
 }
 
+type ServerCatalogNetworkType struct {
+	NetworkTypeNo string
+	Code          string
+	Name          string
+	Summary       *string
+}
+
 func NewServerCatalogService(products *mysqlcatalog.Repository) *ServerCatalogService {
 	return &ServerCatalogService{products: products}
 }
@@ -95,7 +103,7 @@ func (s *ServerCatalogService) Show(ctx context.Context) (ServerCatalog, error) 
 		return ServerCatalog{}, err
 	}
 	if len(plans) == 0 {
-		return ServerCatalog{Products: catalogProducts(products, nil, nil, nil, nil)}, nil
+		return ServerCatalog{Products: catalogProducts(products, nil, nil, nil, nil, nil)}, nil
 	}
 
 	planIDs := make([]uint64, 0, len(plans))
@@ -115,8 +123,12 @@ func (s *ServerCatalogService) Show(ctx context.Context) (ServerCatalog, error) 
 	if err != nil {
 		return ServerCatalog{}, err
 	}
+	networkTypes, err := s.planNetworkTypes(ctx, planIDs)
+	if err != nil {
+		return ServerCatalog{}, err
+	}
 
-	return ServerCatalog{Products: catalogProducts(products, plans, prices, regions, templates)}, nil
+	return ServerCatalog{Products: catalogProducts(products, plans, prices, regions, templates, networkTypes)}, nil
 }
 
 func (s *ServerCatalogService) planPrices(ctx context.Context, planIDs []uint64) (map[uint64][]ServerCatalogPlanPrice, error) {
@@ -155,16 +167,29 @@ func (s *ServerCatalogService) planTemplates(ctx context.Context, planIDs []uint
 	return result, nil
 }
 
-func catalogProducts(products []mysqlcatalog.Product, plans []mysqlcatalog.ProductPlan, prices map[uint64][]ServerCatalogPlanPrice, regions map[uint64][]ServerCatalogRegion, templates map[uint64][]ServerCatalogOSTemplate) []ServerCatalogProduct {
+func (s *ServerCatalogService) planNetworkTypes(ctx context.Context, planIDs []uint64) (map[uint64][]ServerCatalogNetworkType, error) {
+	rows, err := s.products.ActivePlanNetworkTypes(ctx, planIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uint64][]ServerCatalogNetworkType)
+	for _, row := range rows {
+		result[row.PlanID] = append(result[row.PlanID], ServerCatalogNetworkType{NetworkTypeNo: row.NetworkTypeNo, Code: row.Code, Name: row.Name, Summary: row.Summary})
+	}
+	return result, nil
+}
+
+func catalogProducts(products []mysqlcatalog.Product, plans []mysqlcatalog.ProductPlan, prices map[uint64][]ServerCatalogPlanPrice, regions map[uint64][]ServerCatalogRegion, templates map[uint64][]ServerCatalogOSTemplate, networkTypes map[uint64][]ServerCatalogNetworkType) []ServerCatalogProduct {
 	plansByProduct := make(map[uint64][]ServerCatalogPlan)
 	for _, plan := range plans {
 		planPrices := prices[plan.ID]
 		planRegions := regions[plan.ID]
 		planTemplates := templates[plan.ID]
-		if !domaincatalog.HasRenderablePlanParts(len(planPrices), len(planRegions), len(planTemplates)) {
+		planNetworkTypes := networkTypes[plan.ID]
+		if !domaincatalog.HasRenderablePlanParts(len(planPrices), len(planRegions), len(planTemplates), len(planNetworkTypes)) {
 			continue
 		}
-		plansByProduct[plan.ProductID] = append(plansByProduct[plan.ProductID], ServerCatalogPlan{PlanNo: plan.PlanNo, Code: plan.Code, Name: plan.Name, Summary: plan.Summary, CPUCores: plan.CPUCores, MemoryMB: plan.MemoryMB, SystemDiskGB: plan.SystemDiskGB, DataDiskGB: plan.DataDiskGB, BandwidthMbps: plan.BandwidthMbps, TrafficGB: plan.TrafficGB, PublicIPCount: plan.PublicIPCount, Virtualization: plan.Virtualization, Architecture: plan.Architecture, IsFeatured: plan.IsFeatured, Status: plan.Status, Prices: planPrices, Regions: planRegions, OSTemplates: planTemplates})
+		plansByProduct[plan.ProductID] = append(plansByProduct[plan.ProductID], ServerCatalogPlan{PlanNo: plan.PlanNo, Code: plan.Code, Name: plan.Name, Summary: plan.Summary, CPUCores: plan.CPUCores, MemoryMB: plan.MemoryMB, SystemDiskGB: plan.SystemDiskGB, DataDiskGB: plan.DataDiskGB, BandwidthMbps: plan.BandwidthMbps, TrafficGB: plan.TrafficGB, PublicIPCount: plan.PublicIPCount, Virtualization: plan.Virtualization, Architecture: plan.Architecture, IsFeatured: plan.IsFeatured, Status: plan.Status, Prices: planPrices, Regions: planRegions, OSTemplates: planTemplates, NetworkTypes: planNetworkTypes})
 	}
 
 	items := make([]ServerCatalogProduct, 0, len(products))

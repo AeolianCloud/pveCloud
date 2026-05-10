@@ -5,19 +5,25 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import {
   createProduct,
   createProductPlan,
+  createNetworkType,
   createSalesRegion,
   createServerOsTemplate,
+  deleteNetworkType,
   deleteProduct,
   deleteProductPlan,
   deleteSalesRegion,
   deleteServerOsTemplate,
   getProductPlans,
   getProducts,
+  getNetworkTypes,
+  getPlanNetworkTypes,
   getPlanOsTemplates,
   getPlanPrices,
   getPlanRegions,
   getSalesRegions,
   getServerOsTemplates,
+  updateNetworkType,
+  updatePlanNetworkTypes,
   updatePlanOsTemplates,
   updatePlanPrices,
   updatePlanRegions,
@@ -27,6 +33,8 @@ import {
   updateProductStatus,
   updateSalesRegion,
   updateServerOsTemplate,
+  type NetworkTypeItem,
+  type NetworkTypePayload,
   type PlanPriceItem,
   type PlanPricePayload,
   type ProductItem,
@@ -45,6 +53,8 @@ import ProductEditorDialog from './components/ProductEditorDialog.vue'
 import ProductPlanEditorDialog from './components/ProductPlanEditorDialog.vue'
 import ProductPlansTab from './components/ProductPlansTab.vue'
 import ProductsTab from './components/ProductsTab.vue'
+import NetworkTypeEditorDialog from './components/NetworkTypeEditorDialog.vue'
+import NetworkTypesTab from './components/NetworkTypesTab.vue'
 import SalesRegionEditorDialog from './components/SalesRegionEditorDialog.vue'
 import SalesRegionsTab from './components/SalesRegionsTab.vue'
 import ServerOsTemplateEditorDialog from './components/ServerOsTemplateEditorDialog.vue'
@@ -55,17 +65,20 @@ const productList = ref<ProductItem[]>([])
 const planList = ref<ProductPlanItem[]>([])
 const regionList = ref<SalesRegionItem[]>([])
 const templateList = ref<ServerOsTemplateItem[]>([])
+const networkTypeList = ref<NetworkTypeItem[]>([])
 const planPriceMap = reactive<Record<number, PlanPriceItem[]>>({})
 const planRegionMap = reactive<Record<number, SalesRegionItem[]>>({})
 const planTemplateMap = reactive<Record<number, ServerOsTemplateItem[]>>({})
+const planNetworkTypeMap = reactive<Record<number, NetworkTypeItem[]>>({})
 
 const activeTabs = ref<ProductCatalogTabKey>('products')
-const loading = reactive({ products: false, plans: false, regions: false, templates: false })
+const loading = reactive({ products: false, plans: false, regions: false, templates: false, networkTypes: false })
 
 const productDialogVisible = ref(false)
 const planDialogVisible = ref(false)
 const regionDialogVisible = ref(false)
 const templateDialogVisible = ref(false)
+const networkTypeDialogVisible = ref(false)
 const relationDialogVisible = ref(false)
 const priceDialogVisible = ref(false)
 
@@ -73,6 +86,7 @@ const productDialogMode = ref<DialogMode>('create')
 const planDialogMode = ref<DialogMode>('create')
 const regionDialogMode = ref<DialogMode>('create')
 const templateDialogMode = ref<DialogMode>('create')
+const networkTypeDialogMode = ref<DialogMode>('create')
 
 const productForm = reactive<ProductPayload>({ type: 'server', slug: '', name: '', summary: '', description: '', status: 'draft', visible: true, sort_order: 0 })
 const productFormId = ref<number | null>(null)
@@ -86,9 +100,13 @@ const regionFormId = ref<number | null>(null)
 const templateForm = reactive<ServerOsTemplatePayload>({ code: '', name: '', os_family: 'linux', distribution: '', version: '', architecture: 'x86_64', summary: '', status: 'active', visible: true, sort_order: 0 })
 const templateFormId = ref<number | null>(null)
 
+const networkTypeForm = reactive<NetworkTypePayload>({ code: '', name: '', summary: '', status: 'active', visible: true, sort_order: 0 })
+const networkTypeFormId = ref<number | null>(null)
+
 const relationTargetPlan = ref<ProductPlanItem | null>(null)
 const selectedRegionIds = ref<number[]>([])
 const selectedTemplateIds = ref<number[]>([])
+const selectedNetworkTypeIds = ref<number[]>([])
 
 const priceTargetPlan = ref<ProductPlanItem | null>(null)
 const priceForm = reactive<PlanPricePayload[]>(makePriceForm())
@@ -124,22 +142,30 @@ function resetTemplateForm() {
   Object.assign(templateForm, { code: '', name: '', os_family: 'linux', distribution: '', version: '', architecture: 'x86_64', summary: '', status: 'active', visible: true, sort_order: 0 })
 }
 
+function resetNetworkTypeForm() {
+  networkTypeFormId.value = null
+  Object.assign(networkTypeForm, { code: '', name: '', summary: '', status: 'active', visible: true, sort_order: 0 })
+}
+
 async function loadAll() {
   loading.products = true
   loading.plans = true
   loading.regions = true
   loading.templates = true
+  loading.networkTypes = true
   try {
-    const [products, plans, regions, templates] = await Promise.all([
+    const [products, plans, regions, templates, networkTypes] = await Promise.all([
       getProducts({ per_page: 100 }),
       getProductPlans({ per_page: 100 }),
       getSalesRegions(),
       getServerOsTemplates(),
+      getNetworkTypes(),
     ])
     productList.value = products.list
     planList.value = plans.list
     regionList.value = regions
     templateList.value = templates
+    networkTypeList.value = networkTypes
     await Promise.all(planList.value.map((plan) => loadPlanRelations(plan.id)))
   } catch (error) {
     message.error(error instanceof Error ? error.message : '产品目录加载失败')
@@ -148,18 +174,21 @@ async function loadAll() {
     loading.plans = false
     loading.regions = false
     loading.templates = false
+    loading.networkTypes = false
   }
 }
 
 async function loadPlanRelations(planId: number) {
-  const [prices, regions, templates] = await Promise.all([
+  const [prices, regions, templates, networkTypes] = await Promise.all([
     getPlanPrices(planId),
     getPlanRegions(planId),
     getPlanOsTemplates(planId),
+    getPlanNetworkTypes(planId),
   ])
   planPriceMap[planId] = prices
   planRegionMap[planId] = regions
   planTemplateMap[planId] = templates
+  planNetworkTypeMap[planId] = networkTypes
 }
 
 function openCreateProduct() {
@@ -272,6 +301,30 @@ async function saveTemplate() {
   await loadAll()
 }
 
+function openCreateNetworkType() {
+  resetNetworkTypeForm()
+  networkTypeDialogMode.value = 'create'
+  networkTypeDialogVisible.value = true
+}
+
+function openEditNetworkType(item: NetworkTypeItem) {
+  networkTypeDialogMode.value = 'edit'
+  networkTypeFormId.value = item.id
+  Object.assign(networkTypeForm, { code: item.code, name: item.name, summary: item.summary || '', status: item.status as NetworkTypePayload['status'], visible: item.visible, sort_order: item.sort_order })
+  networkTypeDialogVisible.value = true
+}
+
+async function saveNetworkType() {
+  if (networkTypeDialogMode.value === 'create') {
+    await createNetworkType(networkTypeForm)
+  } else if (networkTypeFormId.value != null) {
+    await updateNetworkType(networkTypeFormId.value, networkTypeForm)
+  }
+  message.success('已保存网络类型')
+  networkTypeDialogVisible.value = false
+  await loadAll()
+}
+
 async function openPriceDialog(item: ProductPlanItem) {
   priceTargetPlan.value = item
   const list = planPriceMap[item.id] || []
@@ -302,6 +355,7 @@ async function openRelationDialog(item: ProductPlanItem) {
   relationTargetPlan.value = item
   selectedRegionIds.value = (planRegionMap[item.id] || []).map((region) => region.id)
   selectedTemplateIds.value = (planTemplateMap[item.id] || []).map((template) => template.id)
+  selectedNetworkTypeIds.value = (planNetworkTypeMap[item.id] || []).map((networkType) => networkType.id)
   relationDialogVisible.value = true
 }
 
@@ -310,6 +364,7 @@ async function saveRelations() {
   await Promise.all([
     updatePlanRegions(relationTargetPlan.value.id, selectedRegionIds.value),
     updatePlanOsTemplates(relationTargetPlan.value.id, selectedTemplateIds.value),
+    updatePlanNetworkTypes(relationTargetPlan.value.id, selectedNetworkTypeIds.value),
   ])
   message.success('已保存关联')
   relationDialogVisible.value = false
@@ -344,6 +399,13 @@ async function removeTemplate(item: ServerOsTemplateItem) {
   await loadAll()
 }
 
+async function removeNetworkType(item: NetworkTypeItem) {
+  if (!(await confirmDelete(`确认删除网络类型"${item.name}"吗？仍被套餐关联时后端会拒绝删除。`))) return
+  await deleteNetworkType(item.id)
+  message.success('网络类型已删除')
+  await loadAll()
+}
+
 async function confirmDelete(content: string) {
   try {
     await confirm({ title: '确认删除', content, type: 'warning', positiveText: '删除' })
@@ -361,6 +423,7 @@ function planPublishIssues(item: ProductPlanItem) {
   if (!(planPriceMap[item.id] || []).some((price) => price.status === 'active')) issues.push('缺启用价格')
   if ((planRegionMap[item.id] || []).length === 0) issues.push('缺销售地域')
   if ((planTemplateMap[item.id] || []).length === 0) issues.push('缺系统模板')
+  if ((planNetworkTypeMap[item.id] || []).length === 0) issues.push('缺网络类型')
   return issues
 }
 
@@ -442,6 +505,18 @@ onMounted(loadAll)
               @delete="removeTemplate"
             />
           </NTabPane>
+
+          <NTabPane name="networkTypes" tab="网络类型">
+            <NetworkTypesTab
+              :network-types="networkTypeList"
+              :loading="loading.networkTypes"
+              :status-label="statusLabel"
+              :status-tag-type="statusTagType"
+              @create="openCreateNetworkType"
+              @edit="openEditNetworkType"
+              @delete="removeNetworkType"
+            />
+          </NTabPane>
         </NTabs>
       </NCard>
     </div>
@@ -475,6 +550,13 @@ onMounted(loadAll)
       @update:visible="templateDialogVisible = $event"
       @save="saveTemplate"
     />
+    <NetworkTypeEditorDialog
+      :visible="networkTypeDialogVisible"
+      :mode="networkTypeDialogMode"
+      :form="networkTypeForm"
+      @update:visible="networkTypeDialogVisible = $event"
+      @save="saveNetworkType"
+    />
     <PlanPricesDialog
       :visible="priceDialogVisible"
       :target-plan="priceTargetPlan"
@@ -486,9 +568,11 @@ onMounted(loadAll)
       :visible="relationDialogVisible"
       v-model:selected-region-ids="selectedRegionIds"
       v-model:selected-template-ids="selectedTemplateIds"
+      v-model:selected-network-type-ids="selectedNetworkTypeIds"
       :target-plan="relationTargetPlan"
       :regions="regionList"
       :templates="templateList"
+      :network-types="networkTypeList"
       @update:visible="relationDialogVisible = $event"
       @save="saveRelations"
     />

@@ -64,6 +64,7 @@ onMounted(loadDetail)
           <div class="rounded-2xl bg-neutral-50 p-4"><dt class="text-xs font-black text-neutral-500">计费周期</dt><dd class="mt-1 font-black">{{ cycleText[order.billing_cycle] || order.billing_cycle }}</dd></div>
           <div class="rounded-2xl bg-neutral-50 p-4"><dt class="text-xs font-black text-neutral-500">销售地域</dt><dd class="mt-1 font-black">{{ order.region_name }}</dd></div>
           <div class="rounded-2xl bg-neutral-50 p-4"><dt class="text-xs font-black text-neutral-500">系统模板</dt><dd class="mt-1 font-black">{{ order.template_name }}</dd></div>
+          <div class="rounded-2xl bg-neutral-50 p-4"><dt class="text-xs font-black text-neutral-500">网络类型</dt><dd class="mt-1 font-black">{{ order.network_type_name }}</dd></div>
           <div class="rounded-2xl bg-neutral-50 p-4"><dt class="text-xs font-black text-neutral-500">创建时间</dt><dd class="mt-1 font-black">{{ order.created_at }}</dd></div>
         </dl>
         <section class="mt-8"><h2 class="text-lg font-black">配置快照</h2><div class="mt-4 grid gap-3 text-sm md:grid-cols-4"><div class="rounded-xl border p-3">{{ order.cpu_cores }} 核 CPU</div><div class="rounded-xl border p-3">{{ formatMemory(order.memory_mb) }} 内存</div><div class="rounded-xl border p-3">{{ order.system_disk_gb + order.data_disk_gb }}GB 磁盘</div><div class="rounded-xl border p-3">{{ order.bandwidth_mbps }}M 带宽</div></div></section>

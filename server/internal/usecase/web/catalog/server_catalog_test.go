@@ -27,8 +27,12 @@ func TestCatalogProductsRequireRenderablePlanParts(t *testing.T) {
 		10: []ServerCatalogOSTemplate{{TemplateNo: "T1", Code: "debian", Name: "Debian"}},
 		20: []ServerCatalogOSTemplate{{TemplateNo: "T1", Code: "debian", Name: "Debian"}},
 	}
+	networkTypes := map[uint64][]ServerCatalogNetworkType{
+		10: []ServerCatalogNetworkType{{NetworkTypeNo: "N1", Code: "classic", Name: "经典网络"}},
+		20: []ServerCatalogNetworkType{{NetworkTypeNo: "N1", Code: "classic", Name: "经典网络"}},
+	}
 
-	result := catalogProducts(products, plans, prices, regions, templates)
+	result := catalogProducts(products, plans, prices, regions, templates, networkTypes)
 
 	require.Len(t, result, 1)
 	require.Equal(t, "P1", result[0].ProductNo)

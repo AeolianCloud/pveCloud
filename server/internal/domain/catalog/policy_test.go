@@ -17,8 +17,9 @@ func TestCatalogVisibilityPolicy(t *testing.T) {
 	require.False(t, IsPublicServerPlan("inactive", true))
 	require.False(t, IsPublicServerPlan("active", false))
 
-	require.True(t, HasRenderablePlanParts(1, 1, 1))
-	require.False(t, HasRenderablePlanParts(0, 1, 1))
-	require.False(t, HasRenderablePlanParts(1, 0, 1))
-	require.False(t, HasRenderablePlanParts(1, 1, 0))
+	require.True(t, HasRenderablePlanParts(1, 1, 1, 1))
+	require.False(t, HasRenderablePlanParts(0, 1, 1, 1))
+	require.False(t, HasRenderablePlanParts(1, 0, 1, 1))
+	require.False(t, HasRenderablePlanParts(1, 1, 0, 1))
+	require.False(t, HasRenderablePlanParts(1, 1, 1, 0))
 }

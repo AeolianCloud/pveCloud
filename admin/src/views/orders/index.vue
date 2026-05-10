@@ -178,7 +178,7 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
     render: (row) =>
       h('div', null, [
         h('div', { class: 'strong' }, row.product_name),
-        h('div', { class: 'muted' }, `${row.plan_name} · ${cycleText[row.billing_cycle] || row.billing_cycle}`),
+        h('div', { class: 'muted' }, `${row.plan_name} · ${cycleText[row.billing_cycle] || row.billing_cycle} · ${row.network_type_name || '-'}`),
       ]),
   },
   {

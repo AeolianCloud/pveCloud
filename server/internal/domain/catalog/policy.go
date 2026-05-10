@@ -19,6 +19,6 @@ func IsPublicServerPlan(status string, visible bool) bool {
 	return visible && (status == StatusActive || status == StatusSoldOut)
 }
 
-func HasRenderablePlanParts(priceCount int, regionCount int, templateCount int) bool {
-	return priceCount > 0 && regionCount > 0 && templateCount > 0
+func HasRenderablePlanParts(priceCount int, regionCount int, templateCount int, networkTypeCount int) bool {
+	return priceCount > 0 && regionCount > 0 && templateCount > 0 && networkTypeCount > 0
 }

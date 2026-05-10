@@ -32,6 +32,7 @@ export interface ServerCatalogPlan {
   prices: ServerCatalogPlanPrice[]
   regions: ServerCatalogRegion[]
   os_templates: ServerCatalogOSTemplate[]
+  network_types: ServerCatalogNetworkType[]
 }
 
 export interface ServerCatalogPlanPrice {
@@ -58,6 +59,13 @@ export interface ServerCatalogOSTemplate {
   distribution: string
   version: string
   architecture: string
+  summary: string | null
+}
+
+export interface ServerCatalogNetworkType {
+  network_type_no: string
+  code: string
+  name: string
   summary: string | null
 }
 

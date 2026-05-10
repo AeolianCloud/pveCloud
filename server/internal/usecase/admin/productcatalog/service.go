@@ -244,6 +244,10 @@ func (s *ProductCatalogService) DeletePlan(ctx context.Context, operatorID uint6
 		if err != nil {
 			return err
 		}
+		networkTypes, err := s.catalog.PlanNetworkTypeRelations(ctx, tx, id)
+		if err != nil {
+			return err
+		}
 		if err := s.catalog.DeletePlanPrices(ctx, tx, id); err != nil {
 			return err
 		}
@@ -253,6 +257,9 @@ func (s *ProductCatalogService) DeletePlan(ctx context.Context, operatorID uint6
 		if err := s.catalog.DeletePlanOSTemplates(ctx, tx, id); err != nil {
 			return err
 		}
+		if err := s.catalog.DeletePlanNetworkTypes(ctx, tx, id); err != nil {
+			return err
+		}
 		if err := s.catalog.DeletePlan(ctx, tx, id); err != nil {
 			return err
 		}
@@ -260,6 +267,7 @@ func (s *ProductCatalogService) DeletePlan(ctx context.Context, operatorID uint6
 		before["prices"] = priceAuditList(prices)
 		before["regions"] = regions
 		before["os_templates"] = templates
+		before["network_types"] = networkTypes
 		return s.record(ctx, tx, operatorID, "product_plan.delete", textutil.Uint64String(id), before, nil, "删除服务器套餐")
 	})
 }
@@ -355,6 +363,25 @@ func (s *ProductCatalogService) PlanOSTemplates(ctx context.Context, id uint64) 
 		items = append(items, templateItem(template))
 	}
 	return items, nil
+}
+
+func (s *ProductCatalogService) UpdatePlanNetworkTypes(ctx context.Context, operatorID uint64, id uint64, req admindto.PlanRelationRequest) (admindto.PlanRelationResponse, error) {
+	return s.updatePlanRelations(ctx, operatorID, id, req.IDs, "network_type")
+}
+
+func (s *ProductCatalogService) PlanNetworkTypes(ctx context.Context, id uint64) ([]admindto.NetworkTypeItem, error) {
+	if err := s.ensurePlanExists(ctx, id); err != nil {
+		return nil, err
+	}
+	items, err := s.catalog.PlanNetworkTypes(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]admindto.NetworkTypeItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, networkTypeItem(item))
+	}
+	return result, nil
 }
 
 func (s *ProductCatalogService) SalesRegions(ctx context.Context, query admindto.SalesRegionListQuery) ([]admindto.SalesRegionItem, error) {
@@ -503,6 +530,79 @@ func (s *ProductCatalogService) DeleteServerOSTemplate(ctx context.Context, oper
 	})
 }
 
+func (s *ProductCatalogService) NetworkTypes(ctx context.Context, query admindto.NetworkTypeListQuery) ([]admindto.NetworkTypeItem, error) {
+	items, err := s.catalog.NetworkTypes(ctx, mysqlcatalog.NetworkTypeListFilters{Status: query.Status, Keyword: query.Keyword})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]admindto.NetworkTypeItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, networkTypeItem(item))
+	}
+	return result, nil
+}
+
+func (s *ProductCatalogService) CreateNetworkType(ctx context.Context, operatorID uint64, req admindto.NetworkTypeRequest) (admindto.NetworkTypeItem, error) {
+	item := networkTypeFromRequest(req)
+	if item.NetworkTypeNo == "" {
+		item.NetworkTypeNo = generatedNo("NET")
+	}
+	if err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		if err := s.catalog.CreateNetworkType(ctx, tx, &item); err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "network_type.create", textutil.Uint64String(item.ID), nil, networkTypeAudit(item), "创建网络类型")
+	}); err != nil {
+		return admindto.NetworkTypeItem{}, err
+	}
+	return networkTypeItem(item), nil
+}
+
+func (s *ProductCatalogService) UpdateNetworkType(ctx context.Context, operatorID uint64, id uint64, req admindto.NetworkTypeRequest) (admindto.NetworkTypeItem, error) {
+	var updated mysqlcatalog.NetworkType
+	if err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findNetworkTypeForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		updates := networkTypeFromRequest(req)
+		if updates.NetworkTypeNo == "" {
+			updates.NetworkTypeNo = current.NetworkTypeNo
+		}
+		if err := s.catalog.UpdateNetworkType(ctx, tx, id, networkTypeUpdateMap(updates)); err != nil {
+			return err
+		}
+		updated, err = s.catalog.FindNetworkTypeByIDForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "network_type.update", textutil.Uint64String(id), networkTypeAudit(current), networkTypeAudit(updated), "更新网络类型")
+	}); err != nil {
+		return admindto.NetworkTypeItem{}, err
+	}
+	return networkTypeItem(updated), nil
+}
+
+func (s *ProductCatalogService) DeleteNetworkType(ctx context.Context, operatorID uint64, id uint64) error {
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.findNetworkTypeForUpdate(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		relationCount, err := s.catalog.CountPlanNetworkTypesByNetworkTypeID(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if relationCount > 0 {
+			return apperrors.ErrConflict.WithMessage("网络类型仍被套餐关联，不能删除")
+		}
+		if err := s.catalog.DeleteNetworkType(ctx, tx, id); err != nil {
+			return err
+		}
+		return s.record(ctx, tx, operatorID, "network_type.delete", textutil.Uint64String(id), networkTypeAudit(current), nil, "删除网络类型")
+	})
+}
+
 func (s *ProductCatalogService) updatePlanRelations(ctx context.Context, operatorID uint64, planID uint64, ids []uint64, relationType string) (admindto.PlanRelationResponse, error) {
 	uniqueIDs := uniqueUint64(ids)
 	if err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
@@ -529,24 +629,44 @@ func (s *ProductCatalogService) updatePlanRelations(ctx context.Context, operato
 			}
 			return s.record(ctx, tx, operatorID, "product_plan.regions.update", textutil.Uint64String(planID), before, relations, "更新套餐销售地域")
 		}
-		if err := s.ensureIDsExist(ctx, tx, &mysqlcatalog.ServerOSTemplate{}, uniqueIDs); err != nil {
+		if relationType == "os_template" {
+			if err := s.ensureIDsExist(ctx, tx, &mysqlcatalog.ServerOSTemplate{}, uniqueIDs); err != nil {
+				return err
+			}
+			before, err := s.catalog.PlanOSTemplateRelations(ctx, tx, planID)
+			if err != nil {
+				return err
+			}
+			if err := s.catalog.DeletePlanOSTemplates(ctx, tx, planID); err != nil {
+				return err
+			}
+			relations := make([]mysqlcatalog.PlanOSTemplate, 0, len(uniqueIDs))
+			for index, id := range uniqueIDs {
+				relations = append(relations, mysqlcatalog.PlanOSTemplate{PlanID: planID, TemplateID: id, Status: "active", SortOrder: index + 1})
+			}
+			if err := s.catalog.CreatePlanOSTemplates(ctx, tx, relations); err != nil {
+				return err
+			}
+			return s.record(ctx, tx, operatorID, "product_plan.os_templates.update", textutil.Uint64String(planID), before, relations, "更新套餐系统模板")
+		}
+		if err := s.ensureIDsExist(ctx, tx, &mysqlcatalog.NetworkType{}, uniqueIDs); err != nil {
 			return err
 		}
-		before, err := s.catalog.PlanOSTemplateRelations(ctx, tx, planID)
+		before, err := s.catalog.PlanNetworkTypeRelations(ctx, tx, planID)
 		if err != nil {
 			return err
 		}
-		if err := s.catalog.DeletePlanOSTemplates(ctx, tx, planID); err != nil {
+		if err := s.catalog.DeletePlanNetworkTypes(ctx, tx, planID); err != nil {
 			return err
 		}
-		relations := make([]mysqlcatalog.PlanOSTemplate, 0, len(uniqueIDs))
+		relations := make([]mysqlcatalog.PlanNetworkType, 0, len(uniqueIDs))
 		for index, id := range uniqueIDs {
-			relations = append(relations, mysqlcatalog.PlanOSTemplate{PlanID: planID, TemplateID: id, Status: "active", SortOrder: index + 1})
+			relations = append(relations, mysqlcatalog.PlanNetworkType{PlanID: planID, NetworkTypeID: id, Status: "active", SortOrder: index + 1})
 		}
-		if err := s.catalog.CreatePlanOSTemplates(ctx, tx, relations); err != nil {
+		if err := s.catalog.CreatePlanNetworkTypes(ctx, tx, relations); err != nil {
 			return err
 		}
-		return s.record(ctx, tx, operatorID, "product_plan.os_templates.update", textutil.Uint64String(planID), before, relations, "更新套餐系统模板")
+		return s.record(ctx, tx, operatorID, "product_plan.network_types.update", textutil.Uint64String(planID), before, relations, "更新套餐网络类型")
 	}); err != nil {
 		return admindto.PlanRelationResponse{}, err
 	}
@@ -629,6 +749,14 @@ func (s *ProductCatalogService) findServerOSTemplateForUpdate(ctx context.Contex
 	return template, err
 }
 
+func (s *ProductCatalogService) findNetworkTypeForUpdate(ctx context.Context, tx *gorm.DB, id uint64) (mysqlcatalog.NetworkType, error) {
+	item, err := s.catalog.FindNetworkTypeByIDForUpdate(ctx, tx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return mysqlcatalog.NetworkType{}, apperrors.ErrNotFound.WithMessage("资源不存在")
+	}
+	return item, err
+}
+
 func uniqueUint64(ids []uint64) []uint64 {
 	seen := map[uint64]bool{}
 	result := make([]uint64, 0, len(ids))
@@ -682,6 +810,14 @@ func templateUpdateMap(template mysqlcatalog.ServerOSTemplate) map[string]any {
 	return map[string]any{"template_no": template.TemplateNo, "code": template.Code, "name": template.Name, "os_family": template.OSFamily, "distribution": template.Distribution, "version": template.Version, "architecture": template.Architecture, "summary": template.Summary, "status": template.Status, "visible": template.Visible, "sort_order": template.SortOrder}
 }
 
+func networkTypeFromRequest(req admindto.NetworkTypeRequest) mysqlcatalog.NetworkType {
+	return mysqlcatalog.NetworkType{NetworkTypeNo: strings.TrimSpace(req.NetworkTypeNo), Code: strings.TrimSpace(req.Code), Name: strings.TrimSpace(req.Name), Summary: textutil.NormalizeOptionalString(req.Summary), Status: strings.TrimSpace(req.Status), Visible: req.Visible, SortOrder: req.SortOrder}
+}
+
+func networkTypeUpdateMap(item mysqlcatalog.NetworkType) map[string]any {
+	return map[string]any{"network_type_no": item.NetworkTypeNo, "code": item.Code, "name": item.Name, "summary": item.Summary, "status": item.Status, "visible": item.Visible, "sort_order": item.SortOrder}
+}
+
 func productItem(product mysqlcatalog.Product) admindto.ProductItem {
 	return admindto.ProductItem{ID: product.ID, ProductNo: product.ProductNo, Type: product.Type, Slug: product.Slug, Name: product.Name, Summary: product.Summary, Description: product.Description, Status: product.Status, Visible: product.Visible, SortOrder: product.SortOrder, CreatedAt: product.CreatedAt, UpdatedAt: product.UpdatedAt}
 }
@@ -702,6 +838,10 @@ func templateItem(template mysqlcatalog.ServerOSTemplate) admindto.ServerOSTempl
 	return admindto.ServerOSTemplateItem{ID: template.ID, TemplateNo: template.TemplateNo, Code: template.Code, Name: template.Name, OSFamily: template.OSFamily, Distribution: template.Distribution, Version: template.Version, Architecture: template.Architecture, Summary: template.Summary, Status: template.Status, Visible: template.Visible, SortOrder: template.SortOrder, CreatedAt: template.CreatedAt, UpdatedAt: template.UpdatedAt}
 }
 
+func networkTypeItem(item mysqlcatalog.NetworkType) admindto.NetworkTypeItem {
+	return admindto.NetworkTypeItem{ID: item.ID, NetworkTypeNo: item.NetworkTypeNo, Code: item.Code, Name: item.Name, Summary: item.Summary, Status: item.Status, Visible: item.Visible, SortOrder: item.SortOrder, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt}
+}
+
 func productAudit(product mysqlcatalog.Product) map[string]any {
 	return map[string]any{"id": product.ID, "product_no": product.ProductNo, "slug": product.Slug, "name": product.Name, "status": product.Status, "visible": product.Visible}
 }
@@ -713,6 +853,9 @@ func regionAudit(region mysqlcatalog.SalesRegion) map[string]any {
 }
 func templateAudit(template mysqlcatalog.ServerOSTemplate) map[string]any {
 	return map[string]any{"id": template.ID, "template_no": template.TemplateNo, "code": template.Code, "name": template.Name, "status": template.Status, "visible": template.Visible}
+}
+func networkTypeAudit(item mysqlcatalog.NetworkType) map[string]any {
+	return map[string]any{"id": item.ID, "network_type_no": item.NetworkTypeNo, "code": item.Code, "name": item.Name, "status": item.Status, "visible": item.Visible}
 }
 func priceAuditList(prices []mysqlcatalog.PlanPrice) []map[string]any {
 	items := make([]map[string]any, 0, len(prices))

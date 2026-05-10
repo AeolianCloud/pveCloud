@@ -21,18 +21,21 @@ type ListFilters struct {
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 
-func (r *Repository) CatalogSelection(ctx context.Context, planNo, cycle, regionNo, templateNo string) (CatalogSelection, error) {
+func (r *Repository) CatalogSelection(ctx context.Context, planNo, cycle, regionNo, templateNo, networkTypeNo string) (CatalogSelection, error) {
 	var row CatalogSelection
 	err := r.db.WithContext(ctx).Table("product_plans AS plans").
 		Select(`products.product_no, products.type AS product_type, products.name AS product_name, products.summary AS product_summary,
 			plans.plan_no, plans.code AS plan_code, plans.name AS plan_name, plans.summary AS plan_summary, plans.cpu_cores, plans.memory_mb, plans.system_disk_gb, plans.data_disk_gb, plans.bandwidth_mbps, plans.traffic_gb, plans.public_ip_count, plans.virtualization, plans.architecture,
 			prices.billing_cycle, prices.price_cents, prices.original_price_cents, prices.currency,
 			regions.region_no, regions.code AS region_code, regions.name AS region_name,
+			network_types.network_type_no, network_types.code AS network_type_code, network_types.name AS network_type_name,
 			templates.template_no, templates.code AS template_code, templates.name AS template_name, templates.os_family, templates.distribution AS os_distribution, templates.version AS os_version, templates.architecture AS os_architecture`).
 		Joins("JOIN products ON products.id = plans.product_id").
 		Joins("JOIN plan_prices AS prices ON prices.plan_id = plans.id AND prices.billing_cycle = ? AND prices.status = ?", cycle, "active").
 		Joins("JOIN plan_regions AS plan_regions ON plan_regions.plan_id = plans.id AND plan_regions.status = ?", "active").
 		Joins("JOIN sales_regions AS regions ON regions.id = plan_regions.region_id AND regions.region_no = ? AND regions.status = ? AND regions.visible = 1", regionNo, "active").
+		Joins("JOIN plan_network_types AS plan_network_types ON plan_network_types.plan_id = plans.id AND plan_network_types.status = ?", "active").
+		Joins("JOIN network_types AS network_types ON network_types.id = plan_network_types.network_type_id AND network_types.network_type_no = ? AND network_types.status = ? AND network_types.visible = 1", networkTypeNo, "active").
 		Joins("JOIN plan_os_templates AS plan_templates ON plan_templates.plan_id = plans.id AND plan_templates.status = ?", "active").
 		Joins("JOIN server_os_templates AS templates ON templates.id = plan_templates.template_id AND templates.template_no = ? AND templates.status = ? AND templates.visible = 1", templateNo, "active").
 		Where("plans.plan_no = ? AND plans.status = ? AND plans.visible = 1 AND products.type = ? AND products.status = ? AND products.visible = 1", planNo, "active", "server", "active").

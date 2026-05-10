@@ -34,6 +34,11 @@ type ServerOSTemplateListFilters struct {
 	Keyword string
 }
 
+type NetworkTypeListFilters struct {
+	Status  string
+	Keyword string
+}
+
 type PlanRegionRow struct {
 	PlanID   uint64
 	RegionNo string
@@ -54,6 +59,14 @@ type PlanOSTemplateRow struct {
 	Version      string
 	Architecture string
 	Summary      *string
+}
+
+type PlanNetworkTypeRow struct {
+	PlanID        uint64
+	NetworkTypeNo string
+	Code          string
+	Name          string
+	Summary       *string
 }
 
 func NewRepository(db *gorm.DB) *Repository {
@@ -108,6 +121,15 @@ func (r *Repository) ServerOSTemplates(ctx context.Context, filters ServerOSTemp
 	return templates, nil
 }
 
+func (r *Repository) NetworkTypes(ctx context.Context, filters NetworkTypeListFilters) ([]NetworkType, error) {
+	query := r.applyNetworkTypeFilters(r.db.WithContext(ctx).Model(&NetworkType{}), filters)
+	var items []NetworkType
+	if err := query.Order("sort_order ASC, id DESC").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (r *Repository) CreateProduct(ctx context.Context, db *gorm.DB, product *Product) error {
 	return r.queryDB(db).WithContext(ctx).Create(product).Error
 }
@@ -122,6 +144,10 @@ func (r *Repository) CreateSalesRegion(ctx context.Context, db *gorm.DB, region 
 
 func (r *Repository) CreateServerOSTemplate(ctx context.Context, db *gorm.DB, template *ServerOSTemplate) error {
 	return r.queryDB(db).WithContext(ctx).Create(template).Error
+}
+
+func (r *Repository) CreateNetworkType(ctx context.Context, db *gorm.DB, networkType *NetworkType) error {
+	return r.queryDB(db).WithContext(ctx).Create(networkType).Error
 }
 
 func (r *Repository) FindProductByID(ctx context.Context, db *gorm.DB, id uint64) (Product, error) {
@@ -172,6 +198,15 @@ func (r *Repository) FindServerOSTemplateByIDForUpdate(ctx context.Context, db *
 	return template, err
 }
 
+func (r *Repository) FindNetworkTypeByIDForUpdate(ctx context.Context, db *gorm.DB, id uint64) (NetworkType, error) {
+	var item NetworkType
+	err := r.queryDB(db).WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", id).
+		First(&item).Error
+	return item, err
+}
+
 func (r *Repository) UpdateProduct(ctx context.Context, db *gorm.DB, id uint64, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
@@ -198,6 +233,13 @@ func (r *Repository) UpdateServerOSTemplate(ctx context.Context, db *gorm.DB, id
 		return nil
 	}
 	return r.queryDB(db).WithContext(ctx).Model(&ServerOSTemplate{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *Repository) UpdateNetworkType(ctx context.Context, db *gorm.DB, id uint64, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.queryDB(db).WithContext(ctx).Model(&NetworkType{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *Repository) UpdateProductStatus(ctx context.Context, db *gorm.DB, id uint64, status string) error {
@@ -232,6 +274,14 @@ func (r *Repository) CountPlanOSTemplatesByTemplateID(ctx context.Context, db *g
 	return count, nil
 }
 
+func (r *Repository) CountPlanNetworkTypesByNetworkTypeID(ctx context.Context, db *gorm.DB, networkTypeID uint64) (int64, error) {
+	var count int64
+	if err := r.queryDB(db).WithContext(ctx).Model(&PlanNetworkType{}).Where("network_type_id = ?", networkTypeID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (r *Repository) DeleteProduct(ctx context.Context, db *gorm.DB, id uint64) error {
 	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&Product{}).Error
 }
@@ -248,6 +298,10 @@ func (r *Repository) DeleteServerOSTemplate(ctx context.Context, db *gorm.DB, id
 	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&ServerOSTemplate{}).Error
 }
 
+func (r *Repository) DeleteNetworkType(ctx context.Context, db *gorm.DB, id uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("id = ?", id).Delete(&NetworkType{}).Error
+}
+
 func (r *Repository) DeletePlanPrices(ctx context.Context, db *gorm.DB, planID uint64) error {
 	return r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Delete(&PlanPrice{}).Error
 }
@@ -258,6 +312,10 @@ func (r *Repository) DeletePlanRegions(ctx context.Context, db *gorm.DB, planID 
 
 func (r *Repository) DeletePlanOSTemplates(ctx context.Context, db *gorm.DB, planID uint64) error {
 	return r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Delete(&PlanOSTemplate{}).Error
+}
+
+func (r *Repository) DeletePlanNetworkTypes(ctx context.Context, db *gorm.DB, planID uint64) error {
+	return r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Delete(&PlanNetworkType{}).Error
 }
 
 func (r *Repository) CreatePlanPrices(ctx context.Context, db *gorm.DB, prices []PlanPrice) error {
@@ -279,6 +337,13 @@ func (r *Repository) CreatePlanOSTemplates(ctx context.Context, db *gorm.DB, tem
 		return nil
 	}
 	return r.queryDB(db).WithContext(ctx).Create(&templates).Error
+}
+
+func (r *Repository) CreatePlanNetworkTypes(ctx context.Context, db *gorm.DB, networkTypes []PlanNetworkType) error {
+	if len(networkTypes) == 0 {
+		return nil
+	}
+	return r.queryDB(db).WithContext(ctx).Create(&networkTypes).Error
 }
 
 func (r *Repository) PlanPrices(ctx context.Context, planID uint64) ([]PlanPrice, error) {
@@ -303,6 +368,14 @@ func (r *Repository) PlanRegionRelations(ctx context.Context, db *gorm.DB, planI
 
 func (r *Repository) PlanOSTemplateRelations(ctx context.Context, db *gorm.DB, planID uint64) ([]PlanOSTemplate, error) {
 	var rows []PlanOSTemplate
+	if err := r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (r *Repository) PlanNetworkTypeRelations(ctx context.Context, db *gorm.DB, planID uint64) ([]PlanNetworkType, error) {
+	var rows []PlanNetworkType
 	if err := r.queryDB(db).WithContext(ctx).Where("plan_id = ?", planID).Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -359,6 +432,19 @@ func (r *Repository) PlanOSTemplates(ctx context.Context, planID uint64) ([]Serv
 		return nil, err
 	}
 	return templates, nil
+}
+
+func (r *Repository) PlanNetworkTypes(ctx context.Context, planID uint64) ([]NetworkType, error) {
+	var items []NetworkType
+	if err := r.db.WithContext(ctx).Table("network_types AS network_types").
+		Select("network_types.*").
+		Joins("JOIN plan_network_types AS rel ON rel.network_type_id = network_types.id").
+		Where("rel.plan_id = ?", planID).
+		Order("rel.sort_order ASC, network_types.sort_order ASC, network_types.id ASC").
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *Repository) CountByID(ctx context.Context, db *gorm.DB, model any, id uint64) (int64, error) {
@@ -436,6 +522,19 @@ func (r *Repository) ActivePlanOSTemplates(ctx context.Context, planIDs []uint64
 	return rows, nil
 }
 
+func (r *Repository) ActivePlanNetworkTypes(ctx context.Context, planIDs []uint64) ([]PlanNetworkTypeRow, error) {
+	var rows []PlanNetworkTypeRow
+	if err := r.db.WithContext(ctx).Table("plan_network_types AS rel").
+		Select("rel.plan_id, network_types.network_type_no, network_types.code, network_types.name, network_types.summary").
+		Joins("JOIN network_types AS network_types ON network_types.id = rel.network_type_id").
+		Where("rel.plan_id IN ? AND rel.status = ? AND network_types.status = ? AND network_types.visible = 1", planIDs, "active", "active").
+		Order("rel.sort_order ASC, network_types.sort_order ASC, network_types.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (r *Repository) applyProductFilters(db *gorm.DB, filters ProductListFilters) *gorm.DB {
 	if strings.TrimSpace(filters.Type) != "" {
 		db = db.Where("type = ?", strings.TrimSpace(filters.Type))
@@ -482,6 +581,17 @@ func (r *Repository) applyServerOSTemplateFilters(db *gorm.DB, filters ServerOST
 	if keyword := strings.TrimSpace(filters.Keyword); keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("template_no LIKE ? OR code LIKE ? OR name LIKE ?", like, like, like)
+	}
+	return db
+}
+
+func (r *Repository) applyNetworkTypeFilters(db *gorm.DB, filters NetworkTypeListFilters) *gorm.DB {
+	if strings.TrimSpace(filters.Status) != "" {
+		db = db.Where("status = ?", strings.TrimSpace(filters.Status))
+	}
+	if keyword := strings.TrimSpace(filters.Keyword); keyword != "" {
+		like := "%" + keyword + "%"
+		db = db.Where("network_type_no LIKE ? OR code LIKE ? OR name LIKE ?", like, like, like)
 	}
 	return db
 }

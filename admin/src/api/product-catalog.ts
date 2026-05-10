@@ -148,6 +148,29 @@ export interface ServerOsTemplatePayload {
   sort_order: number
 }
 
+export interface NetworkTypeItem {
+  id: number
+  network_type_no: string
+  code: string
+  name: string
+  summary: string | null
+  status: string
+  visible: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface NetworkTypePayload {
+  network_type_no?: string
+  code: string
+  name: string
+  summary?: string | null
+  status: 'active' | 'inactive'
+  visible: boolean
+  sort_order: number
+}
+
 export async function getProducts(params?: Record<string, unknown>) {
   const response = await http.get<ApiEnvelope<PaginatedData<ProductItem>>>('/products', { params })
   return response.data.data
@@ -221,6 +244,16 @@ export async function updatePlanOsTemplates(id: number, ids: number[]) {
   return response.data.data
 }
 
+export async function updatePlanNetworkTypes(id: number, ids: number[]) {
+  const response = await http.put<ApiEnvelope<{ plan_id: number; related_ids: number[] }>>(`/product-plans/${id}/network-types`, { ids })
+  return response.data.data
+}
+
+export async function getPlanNetworkTypes(id: number) {
+  const response = await http.get<ApiEnvelope<NetworkTypeItem[]>>(`/product-plans/${id}/network-types`)
+  return response.data.data
+}
+
 export async function getPlanOsTemplates(id: number) {
   const response = await http.get<ApiEnvelope<ServerOsTemplateItem[]>>(`/product-plans/${id}/os-templates`)
   return response.data.data
@@ -262,4 +295,23 @@ export async function updateServerOsTemplate(id: number, payload: ServerOsTempla
 
 export async function deleteServerOsTemplate(id: number) {
   await http.delete<ApiEnvelope<null>>(`/server-os-templates/${id}`)
+}
+
+export async function getNetworkTypes(params?: Record<string, unknown>) {
+  const response = await http.get<ApiEnvelope<NetworkTypeItem[]>>('/network-types', { params })
+  return response.data.data
+}
+
+export async function createNetworkType(payload: NetworkTypePayload) {
+  const response = await http.post<ApiEnvelope<NetworkTypeItem>>('/network-types', payload)
+  return response.data.data
+}
+
+export async function updateNetworkType(id: number, payload: NetworkTypePayload) {
+  const response = await http.put<ApiEnvelope<NetworkTypeItem>>(`/network-types/${id}`, payload)
+  return response.data.data
+}
+
+export async function deleteNetworkType(id: number) {
+  await http.delete<ApiEnvelope<null>>(`/network-types/${id}`)
 }

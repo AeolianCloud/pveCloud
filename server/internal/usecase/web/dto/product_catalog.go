@@ -14,24 +14,25 @@ type ServerCatalogProduct struct {
 }
 
 type ServerCatalogPlan struct {
-	PlanNo         string                    `json:"plan_no"`
-	Code           string                    `json:"code"`
-	Name           string                    `json:"name"`
-	Summary        *string                   `json:"summary"`
-	CPUCores       int                       `json:"cpu_cores"`
-	MemoryMB       int                       `json:"memory_mb"`
-	SystemDiskGB   int                       `json:"system_disk_gb"`
-	DataDiskGB     int                       `json:"data_disk_gb"`
-	BandwidthMbps  int                       `json:"bandwidth_mbps"`
-	TrafficGB      *int                      `json:"traffic_gb"`
-	PublicIPCount  int                       `json:"public_ip_count"`
-	Virtualization string                    `json:"virtualization"`
-	Architecture   string                    `json:"architecture"`
-	IsFeatured     bool                      `json:"is_featured"`
-	Status         string                    `json:"status"`
-	Prices         []ServerCatalogPlanPrice  `json:"prices"`
-	Regions        []ServerCatalogRegion     `json:"regions"`
-	OSTemplates    []ServerCatalogOSTemplate `json:"os_templates"`
+	PlanNo         string                     `json:"plan_no"`
+	Code           string                     `json:"code"`
+	Name           string                     `json:"name"`
+	Summary        *string                    `json:"summary"`
+	CPUCores       int                        `json:"cpu_cores"`
+	MemoryMB       int                        `json:"memory_mb"`
+	SystemDiskGB   int                        `json:"system_disk_gb"`
+	DataDiskGB     int                        `json:"data_disk_gb"`
+	BandwidthMbps  int                        `json:"bandwidth_mbps"`
+	TrafficGB      *int                       `json:"traffic_gb"`
+	PublicIPCount  int                        `json:"public_ip_count"`
+	Virtualization string                     `json:"virtualization"`
+	Architecture   string                     `json:"architecture"`
+	IsFeatured     bool                       `json:"is_featured"`
+	Status         string                     `json:"status"`
+	Prices         []ServerCatalogPlanPrice   `json:"prices"`
+	Regions        []ServerCatalogRegion      `json:"regions"`
+	OSTemplates    []ServerCatalogOSTemplate  `json:"os_templates"`
+	NetworkTypes   []ServerCatalogNetworkType `json:"network_types"`
 }
 
 type ServerCatalogPlanPrice struct {
@@ -59,4 +60,11 @@ type ServerCatalogOSTemplate struct {
 	Version      string  `json:"version"`
 	Architecture string  `json:"architecture"`
 	Summary      *string `json:"summary"`
+}
+
+type ServerCatalogNetworkType struct {
+	NetworkTypeNo string  `json:"network_type_no"`
+	Code          string  `json:"code"`
+	Name          string  `json:"name"`
+	Summary       *string `json:"summary"`
 }

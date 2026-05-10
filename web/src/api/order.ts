@@ -14,6 +14,7 @@ export interface OrderItem {
   product_name: string
   plan_name: string
   billing_cycle: string
+  network_type_name: string
   total_amount_cents: number
   currency: string
   created_at: string
@@ -44,6 +45,9 @@ export interface OrderDetail extends OrderItem {
   region_no: string
   region_code: string
   region_name: string
+  network_type_no: string
+  network_type_code: string
+  network_type_name: string
   template_no: string
   template_code: string
   template_name: string
@@ -58,6 +62,7 @@ export interface CreateOrderPayload {
   billing_cycle: string
   region_no: string
   template_no: string
+  network_type_no: string
   quantity: 1
   client_token: string
   user_note?: string | null

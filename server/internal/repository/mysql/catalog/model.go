@@ -122,6 +122,26 @@ func (ServerOSTemplate) TableName() string {
 }
 
 /**
+ * NetworkType 映射 network_types 网络类型表。
+ */
+type NetworkType struct {
+	ID            uint64    `gorm:"column:id;primaryKey"`
+	NetworkTypeNo string    `gorm:"column:network_type_no"`
+	Code          string    `gorm:"column:code"`
+	Name          string    `gorm:"column:name"`
+	Summary       *string   `gorm:"column:summary"`
+	Status        string    `gorm:"column:status"`
+	Visible       bool      `gorm:"column:visible"`
+	SortOrder     int       `gorm:"column:sort_order"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at"`
+}
+
+func (NetworkType) TableName() string {
+	return "network_types"
+}
+
+/**
  * PlanRegion 映射 plan_regions 套餐销售地域关联表。
  */
 type PlanRegion struct {
@@ -149,4 +169,19 @@ type PlanOSTemplate struct {
 
 func (PlanOSTemplate) TableName() string {
 	return "plan_os_templates"
+}
+
+/**
+ * PlanNetworkType 映射 plan_network_types 套餐网络类型关联表。
+ */
+type PlanNetworkType struct {
+	PlanID        uint64    `gorm:"column:plan_id;primaryKey"`
+	NetworkTypeID uint64    `gorm:"column:network_type_id;primaryKey"`
+	Status        string    `gorm:"column:status"`
+	SortOrder     int       `gorm:"column:sort_order"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+func (PlanNetworkType) TableName() string {
+	return "plan_network_types"
 }

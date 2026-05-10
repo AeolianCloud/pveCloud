@@ -11,13 +11,14 @@ type PageResponse[T any] struct {
 }
 
 type OrderCreateRequest struct {
-	PlanNo       string  `json:"plan_no" validate:"required,max=64"`
-	BillingCycle string  `json:"billing_cycle" validate:"required,oneof=monthly quarterly semi_yearly yearly"`
-	RegionNo     string  `json:"region_no" validate:"required,max=64"`
-	TemplateNo   string  `json:"template_no" validate:"required,max=64"`
-	Quantity     int     `json:"quantity" validate:"omitempty,min=1,max=1"`
-	ClientToken  string  `json:"client_token" validate:"required,max=128"`
-	UserNote     *string `json:"user_note" validate:"omitempty,max=500"`
+	PlanNo        string  `json:"plan_no" validate:"required,max=64"`
+	BillingCycle  string  `json:"billing_cycle" validate:"required,oneof=monthly quarterly semi_yearly yearly"`
+	RegionNo      string  `json:"region_no" validate:"required,max=64"`
+	TemplateNo    string  `json:"template_no" validate:"required,max=64"`
+	NetworkTypeNo string  `json:"network_type_no" validate:"required,max=64"`
+	Quantity      int     `json:"quantity" validate:"omitempty,min=1,max=1"`
+	ClientToken   string  `json:"client_token" validate:"required,max=128"`
+	UserNote      *string `json:"user_note" validate:"omitempty,max=500"`
 }
 
 type OrderListQuery struct {
@@ -32,6 +33,7 @@ type OrderItem struct {
 	ProductName      string     `json:"product_name"`
 	PlanName         string     `json:"plan_name"`
 	BillingCycle     string     `json:"billing_cycle"`
+	NetworkTypeName  string     `json:"network_type_name"`
 	TotalAmountCents uint64     `json:"total_amount_cents"`
 	Currency         string     `json:"currency"`
 	CreatedAt        time.Time  `json:"created_at"`
@@ -63,6 +65,9 @@ type OrderDetail struct {
 	RegionNo           string  `json:"region_no"`
 	RegionCode         string  `json:"region_code"`
 	RegionName         string  `json:"region_name"`
+	NetworkTypeNo      string  `json:"network_type_no"`
+	NetworkTypeCode    string  `json:"network_type_code"`
+	NetworkTypeName    string  `json:"network_type_name"`
 	TemplateNo         string  `json:"template_no"`
 	TemplateCode       string  `json:"template_code"`
 	TemplateName       string  `json:"template_name"`

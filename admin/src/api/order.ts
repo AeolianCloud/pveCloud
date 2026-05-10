@@ -15,6 +15,7 @@ export interface AdminOrderItem {
   product_name: string
   plan_name: string
   billing_cycle: string
+  network_type_name: string
   total_amount_cents: number
   currency: string
   admin_note: string | null
@@ -48,6 +49,9 @@ export interface AdminOrderDetail extends AdminOrderItem {
   region_no: string
   region_code: string
   region_name: string
+  network_type_no: string
+  network_type_code: string
+  network_type_name: string
   template_no: string
   template_code: string
   template_name: string

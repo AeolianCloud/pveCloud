@@ -35,10 +35,53 @@ CREATE TABLE IF NOT EXISTS `plan_network_types` (
   CONSTRAINT `fk_plan_network_types_network_type` FOREIGN KEY (`network_type_id`) REFERENCES `network_types` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='套餐网络类型关联';
 
-ALTER TABLE `orders`
-  ADD COLUMN IF NOT EXISTS `network_type_no` VARCHAR(64) NULL COMMENT '网络类型编号快照' AFTER `region_name`,
-  ADD COLUMN IF NOT EXISTS `network_type_code` VARCHAR(64) NULL COMMENT '网络类型编码快照' AFTER `network_type_no`,
-  ADD COLUMN IF NOT EXISTS `network_type_name` VARCHAR(128) NULL COMMENT '网络类型名称快照' AFTER `network_type_code`;
+SET @orders_network_type_no_column_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'orders'
+    AND COLUMN_NAME = 'network_type_no'
+);
+SET @add_orders_network_type_no_column_sql := IF(
+  @orders_network_type_no_column_exists = 0,
+  'ALTER TABLE `orders` ADD COLUMN `network_type_no` VARCHAR(64) NULL COMMENT ''网络类型编号快照'' AFTER `region_name`',
+  'SELECT 1'
+);
+PREPARE add_orders_network_type_no_column_stmt FROM @add_orders_network_type_no_column_sql;
+EXECUTE add_orders_network_type_no_column_stmt;
+DEALLOCATE PREPARE add_orders_network_type_no_column_stmt;
+
+SET @orders_network_type_code_column_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'orders'
+    AND COLUMN_NAME = 'network_type_code'
+);
+SET @add_orders_network_type_code_column_sql := IF(
+  @orders_network_type_code_column_exists = 0,
+  'ALTER TABLE `orders` ADD COLUMN `network_type_code` VARCHAR(64) NULL COMMENT ''网络类型编码快照'' AFTER `network_type_no`',
+  'SELECT 1'
+);
+PREPARE add_orders_network_type_code_column_stmt FROM @add_orders_network_type_code_column_sql;
+EXECUTE add_orders_network_type_code_column_stmt;
+DEALLOCATE PREPARE add_orders_network_type_code_column_stmt;
+
+SET @orders_network_type_name_column_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'orders'
+    AND COLUMN_NAME = 'network_type_name'
+);
+SET @add_orders_network_type_name_column_sql := IF(
+  @orders_network_type_name_column_exists = 0,
+  'ALTER TABLE `orders` ADD COLUMN `network_type_name` VARCHAR(128) NULL COMMENT ''网络类型名称快照'' AFTER `network_type_code`',
+  'SELECT 1'
+);
+PREPARE add_orders_network_type_name_column_stmt FROM @add_orders_network_type_name_column_sql;
+EXECUTE add_orders_network_type_name_column_stmt;
+DEALLOCATE PREPARE add_orders_network_type_name_column_stmt;
 
 INSERT INTO `network_types` (`network_type_no`, `code`, `name`, `summary`, `status`, `visible`, `sort_order`) VALUES
   ('NET-CLASSIC-001', 'classic', '经典网络', '默认经典网络类型，后续可映射到 PVE 网络', 'active', 1, 10)

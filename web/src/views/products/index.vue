@@ -7,6 +7,7 @@ import { getApiErrorMessage } from '../../api/request'
 import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
 import { useAuthStore } from '../../stores/auth'
+import AppSelect, { type AppSelectOption } from '../../components/AppSelect.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -17,6 +18,13 @@ const catalogError = ref('')
 const catalogPlans = ref<Array<ServerCatalogPlan & { productName: string }>>([])
 const selectedRegion = ref('all')
 const orderingPlanNo = ref('')
+const orderDialogVisible = ref(false)
+const orderPlan = ref<(ServerCatalogPlan & { productName: string }) | null>(null)
+const selectedBillingCycle = ref('')
+const selectedOrderRegion = ref('')
+const selectedTemplate = ref('')
+const selectedNetworkType = ref('')
+const userNote = ref('')
 
 const regionFilters = computed(() => {
   const regions = new Map<string, string>()
@@ -54,33 +62,94 @@ const formatMemory = (memoryMb: number) => {
   return `${memoryMb}MB`
 }
 
-const firstAvailable = <T,>(items: T[]) => items[0]
+const selectedPrice = computed(() =>
+  orderPlan.value?.prices.find((item) => item.billing_cycle === selectedBillingCycle.value) || null,
+)
 
-async function createPlanOrder(plan: ServerCatalogPlan) {
+const cycleLabels: Record<string, string> = {
+  monthly: '月付',
+  quarterly: '季付',
+  semi_yearly: '半年付',
+  yearly: '年付',
+}
+
+const formatCycle = (cycle: string) => cycleLabels[cycle] || cycle
+
+const formatMoney = (cents: number) => `¥${Math.round(cents / 100)}`
+
+const billingCycleOptions = computed<AppSelectOption[]>(() =>
+  (orderPlan.value?.prices || []).map((price) => ({
+    label: formatCycle(price.billing_cycle),
+    value: price.billing_cycle,
+    description: `${formatMoney(price.price_cents)} · ${price.currency}`,
+  })),
+)
+
+const regionOptions = computed<AppSelectOption[]>(() =>
+  (orderPlan.value?.regions || []).map((region) => ({
+    label: region.name,
+    value: region.region_no,
+    description: [region.country, region.city, region.summary].filter(Boolean).join(' · '),
+  })),
+)
+
+const templateOptions = computed<AppSelectOption[]>(() =>
+  (orderPlan.value?.os_templates || []).map((template) => ({
+    label: template.name,
+    value: template.template_no,
+    description: [template.distribution, template.version, template.architecture, template.summary].filter(Boolean).join(' · '),
+  })),
+)
+
+const networkTypeOptions = computed<AppSelectOption[]>(() =>
+  (orderPlan.value?.network_types || []).map((networkType) => ({
+    label: networkType.name,
+    value: networkType.network_type_no,
+    description: networkType.summary || `Code: ${networkType.code}`,
+  })),
+)
+
+async function openOrderDialog(plan: ServerCatalogPlan & { productName: string }) {
   if (plan.status === 'sold_out') return
   if (!authStore.isAuthenticated) {
     await router.push({ path: '/login', query: { redirect: '/products' } })
     return
   }
-  const price = firstAvailable(plan.prices)
-  const region = selectedRegion.value === 'all'
-    ? firstAvailable(plan.regions)
-    : plan.regions.find((item) => item.region_no === selectedRegion.value) || firstAvailable(plan.regions)
-  const template = firstAvailable(plan.os_templates)
-  if (!price || !region || !template) {
-    toast.error('当前套餐缺少价格、地域或系统模板，暂不可下单')
+  if (!plan.prices.length || !plan.regions.length || !plan.os_templates.length || !plan.network_types.length) {
+    toast.error('当前套餐缺少价格、地域、系统模板或网络类型，暂不可下单')
+    return
+  }
+  orderPlan.value = plan
+  selectedBillingCycle.value = plan.prices[0].billing_cycle
+  selectedOrderRegion.value = selectedRegion.value === 'all'
+    ? plan.regions[0].region_no
+    : (plan.regions.find((item) => item.region_no === selectedRegion.value)?.region_no || plan.regions[0].region_no)
+  selectedTemplate.value = plan.os_templates[0].template_no
+  selectedNetworkType.value = plan.network_types[0].network_type_no
+  userNote.value = ''
+  orderDialogVisible.value = true
+}
+
+async function createPlanOrder() {
+  const plan = orderPlan.value
+  if (!plan) return
+  if (!selectedBillingCycle.value || !selectedOrderRegion.value || !selectedTemplate.value || !selectedNetworkType.value) {
+    toast.error('请选择完整购买配置')
     return
   }
   orderingPlanNo.value = plan.plan_no
   try {
     const order = await createOrder({
       plan_no: plan.plan_no,
-      billing_cycle: price.billing_cycle,
-      region_no: region.region_no,
-      template_no: template.template_no,
+      billing_cycle: selectedBillingCycle.value,
+      region_no: selectedOrderRegion.value,
+      template_no: selectedTemplate.value,
+      network_type_no: selectedNetworkType.value,
       quantity: 1,
+      user_note: userNote.value.trim() || null,
       client_token: `web-${plan.plan_no}-${Date.now()}`,
     })
+    orderDialogVisible.value = false
     await router.push(`/user/orders/${order.order_no}`)
   } catch (err) {
     const message = getApiErrorMessage(err, '订单创建失败')
@@ -178,7 +247,7 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">{{ plan.system_disk_gb + plan.data_disk_gb }}GB</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">{{ plan.bandwidth_mbps }}M</dd></div>
           </dl>
-          <button type="button" class="mt-6 block w-full rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" :disabled="plan.status === 'sold_out' || orderingPlanNo === plan.plan_no" @click="createPlanOrder(plan)">{{ plan.status === 'sold_out' ? '暂时售罄' : authStore.isAuthenticated ? (orderingPlanNo === plan.plan_no ? '创建中...' : '创建订单') : '登录后创建订单' }}</button>
+          <button type="button" class="mt-6 block w-full rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" :disabled="plan.status === 'sold_out' || orderingPlanNo === plan.plan_no" @click="openOrderDialog(plan)">{{ plan.status === 'sold_out' ? '暂时售罄' : authStore.isAuthenticated ? (orderingPlanNo === plan.plan_no ? '创建中...' : '配置并创建订单') : '登录后创建订单' }}</button>
         </article>
       </div>
 
@@ -277,5 +346,69 @@ onMounted(async () => {
         </div>
       </div>
     </section>
+
+    <div v-if="orderDialogVisible && orderPlan" class="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/45 px-4 py-6 sm:items-center" @click.self="orderDialogVisible = false">
+      <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.75rem] border border-neutral-950 bg-white p-5 shadow-[10px_10px_0_#111] sm:p-7">
+        <div class="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
+          <div>
+            <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Create Order</p>
+            <h2 class="mt-2 text-2xl font-black text-neutral-950">确认购买配置</h2>
+            <p class="mt-2 text-sm text-neutral-500">固定套餐规格不可修改，请选择地域、系统模板和网络类型。</p>
+          </div>
+          <button type="button" class="rounded-full border border-neutral-300 px-3 py-1 text-sm font-black" @click="orderDialogVisible = false">关闭</button>
+        </div>
+
+        <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+          <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+            <p class="text-sm font-black text-neutral-500">{{ orderPlan.productName }}</p>
+            <h3 class="mt-2 text-2xl font-black text-neutral-950">{{ orderPlan.name }}</h3>
+            <dl class="mt-5 space-y-3 text-sm">
+              <div class="flex justify-between"><dt class="text-neutral-500">CPU</dt><dd class="font-bold">{{ orderPlan.cpu_cores }} 核</dd></div>
+              <div class="flex justify-between"><dt class="text-neutral-500">内存</dt><dd class="font-bold">{{ formatMemory(orderPlan.memory_mb) }}</dd></div>
+              <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">{{ orderPlan.system_disk_gb + orderPlan.data_disk_gb }}GB</dd></div>
+              <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">{{ orderPlan.bandwidth_mbps }}M</dd></div>
+              <div class="flex justify-between"><dt class="text-neutral-500">公网 IP</dt><dd class="font-bold">{{ orderPlan.public_ip_count }} 个</dd></div>
+            </dl>
+          </div>
+
+          <div class="space-y-5">
+            <div>
+              <label class="mb-2 block text-sm font-black text-neutral-800">计费周期</label>
+              <AppSelect v-model="selectedBillingCycle" :options="billingCycleOptions" placeholder="请选择计费周期" />
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-black text-neutral-800">销售地域</label>
+              <AppSelect v-model="selectedOrderRegion" :options="regionOptions" placeholder="请选择销售地域" />
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-black text-neutral-800">系统模板</label>
+              <AppSelect v-model="selectedTemplate" :options="templateOptions" placeholder="请选择系统模板" />
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-black text-neutral-800">网络类型</label>
+              <AppSelect v-model="selectedNetworkType" :options="networkTypeOptions" placeholder="请选择网络类型" />
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-black text-neutral-800">备注</label>
+              <textarea v-model="userNote" rows="3" class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="可填写开服用途或其它人工处理说明" />
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-col gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-neutral-500">订单金额</p>
+            <p class="text-3xl font-black text-neutral-950">{{ selectedPrice ? formatMoney(selectedPrice.price_cents) : '价格待定' }}</p>
+          </div>
+          <button type="button" :disabled="orderingPlanNo === orderPlan.plan_no" class="btn-dark rounded-full border px-8 py-3 text-sm font-black disabled:opacity-50" @click="createPlanOrder">
+            {{ orderingPlanNo === orderPlan.plan_no ? '创建中...' : '确认创建订单' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

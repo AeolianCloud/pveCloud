@@ -34,6 +34,9 @@ type Order struct {
 	RegionNo           string     `gorm:"column:region_no"`
 	RegionCode         string     `gorm:"column:region_code"`
 	RegionName         string     `gorm:"column:region_name"`
+	NetworkTypeNo      string     `gorm:"column:network_type_no"`
+	NetworkTypeCode    string     `gorm:"column:network_type_code"`
+	NetworkTypeName    string     `gorm:"column:network_type_name"`
 	TemplateNo         string     `gorm:"column:template_no"`
 	TemplateCode       string     `gorm:"column:template_code"`
 	TemplateName       string     `gorm:"column:template_name"`
@@ -78,6 +81,9 @@ type CatalogSelection struct {
 	RegionNo           string
 	RegionCode         string
 	RegionName         string
+	NetworkTypeNo      string
+	NetworkTypeCode    string
+	NetworkTypeName    string
 	TemplateNo         string
 	TemplateCode       string
 	TemplateName       string

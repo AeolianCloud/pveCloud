@@ -298,6 +298,40 @@ func (h *ProductCatalogHandler) PlanOSTemplates(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *ProductCatalogHandler) UpdatePlanNetworkTypes(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	var req admindto.PlanRelationRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.UpdatePlanNetworkTypes(c.Request.Context(), operatorID, id, req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) PlanNetworkTypes(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.PlanNetworkTypes(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *ProductCatalogHandler) SalesRegions(c *gin.Context) {
 	var query admindto.SalesRegionListQuery
 	if !bindQuery(c, &query) {
@@ -426,6 +460,73 @@ func (h *ProductCatalogHandler) DeleteServerOSTemplate(c *gin.Context) {
 		return
 	}
 	if err := h.service.DeleteServerOSTemplate(c.Request.Context(), operatorID, id); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, nil)
+}
+
+func (h *ProductCatalogHandler) NetworkTypes(c *gin.Context) {
+	var query admindto.NetworkTypeListQuery
+	if !bindQuery(c, &query) {
+		return
+	}
+	result, err := h.service.NetworkTypes(c.Request.Context(), query)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) CreateNetworkType(c *gin.Context) {
+	var req admindto.NetworkTypeRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.CreateNetworkType(c.Request.Context(), operatorID, req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) UpdateNetworkType(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	var req admindto.NetworkTypeRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	result, err := h.service.UpdateNetworkType(c.Request.Context(), operatorID, id, req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *ProductCatalogHandler) DeleteNetworkType(c *gin.Context) {
+	id, ok := httputil.AdminPathID(c)
+	if !ok {
+		return
+	}
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	if err := h.service.DeleteNetworkType(c.Request.Context(), operatorID, id); err != nil {
 		response.Error(c, err)
 		return
 	}

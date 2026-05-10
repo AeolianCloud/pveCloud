@@ -192,6 +192,34 @@ type ServerOSTemplateItem struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+type NetworkTypeListQuery struct {
+	Keyword string `form:"keyword" validate:"omitempty,max=96"`
+	Status  string `form:"status" validate:"omitempty,oneof=active inactive"`
+}
+
+type NetworkTypeRequest struct {
+	NetworkTypeNo string  `json:"network_type_no" validate:"omitempty,max=64"`
+	Code          string  `json:"code" validate:"required,min=2,max=64"`
+	Name          string  `json:"name" validate:"required,min=1,max=128"`
+	Summary       *string `json:"summary" validate:"omitempty,max=255"`
+	Status        string  `json:"status" validate:"required,oneof=active inactive"`
+	Visible       bool    `json:"visible"`
+	SortOrder     int     `json:"sort_order" validate:"omitempty,min=0,max=100000"`
+}
+
+type NetworkTypeItem struct {
+	ID            uint64    `json:"id"`
+	NetworkTypeNo string    `json:"network_type_no"`
+	Code          string    `json:"code"`
+	Name          string    `json:"name"`
+	Summary       *string   `json:"summary"`
+	Status        string    `json:"status"`
+	Visible       bool      `json:"visible"`
+	SortOrder     int       `json:"sort_order"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 type PlanRelationRequest struct {
 	IDs []uint64 `json:"ids" validate:"required,dive,min=1"`
 }

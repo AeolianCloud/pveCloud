@@ -62,6 +62,7 @@ func serverCatalogPlans(plans []catalog.ServerCatalogPlan) []webdto.ServerCatalo
 			Prices:         serverCatalogPlanPrices(plan.Prices),
 			Regions:        serverCatalogRegions(plan.Regions),
 			OSTemplates:    serverCatalogOSTemplates(plan.OSTemplates),
+			NetworkTypes:   serverCatalogNetworkTypes(plan.NetworkTypes),
 		})
 	}
 	return items
@@ -107,6 +108,19 @@ func serverCatalogOSTemplates(templates []catalog.ServerCatalogOSTemplate) []web
 			Version:      template.Version,
 			Architecture: template.Architecture,
 			Summary:      template.Summary,
+		})
+	}
+	return items
+}
+
+func serverCatalogNetworkTypes(networkTypes []catalog.ServerCatalogNetworkType) []webdto.ServerCatalogNetworkType {
+	items := make([]webdto.ServerCatalogNetworkType, 0, len(networkTypes))
+	for _, item := range networkTypes {
+		items = append(items, webdto.ServerCatalogNetworkType{
+			NetworkTypeNo: item.NetworkTypeNo,
+			Code:          item.Code,
+			Name:          item.Name,
+			Summary:       item.Summary,
 		})
 	}
 	return items

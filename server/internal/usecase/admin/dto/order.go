@@ -26,6 +26,7 @@ type AdminOrderItem struct {
 	ProductName      string           `json:"product_name"`
 	PlanName         string           `json:"plan_name"`
 	BillingCycle     string           `json:"billing_cycle"`
+	NetworkTypeName  string           `json:"network_type_name"`
 	TotalAmountCents uint64           `json:"total_amount_cents"`
 	Currency         string           `json:"currency"`
 	AdminNote        *string          `json:"admin_note"`
@@ -60,6 +61,9 @@ type AdminOrderDetail struct {
 	RegionNo           string  `json:"region_no"`
 	RegionCode         string  `json:"region_code"`
 	RegionName         string  `json:"region_name"`
+	NetworkTypeNo      string  `json:"network_type_no"`
+	NetworkTypeCode    string  `json:"network_type_code"`
+	NetworkTypeName    string  `json:"network_type_name"`
 	TemplateNo         string  `json:"template_no"`
 	TemplateCode       string  `json:"template_code"`
 	TemplateName       string  `json:"template_name"`
