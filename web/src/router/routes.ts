@@ -18,14 +18,6 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
-    path: '/pricing',
-    name: 'pricing',
-    component: () => import('../views/pricing/index.vue'),
-    meta: {
-      title: '价格',
-    },
-  },
-  {
     path: '/login',
     name: 'login',
     component: () => import('../views/auth/login.vue'),
@@ -81,6 +73,24 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../views/real-name/index.vue'),
     meta: {
       title: '实名认证',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/orders',
+    name: 'orders',
+    component: () => import('../views/orders/index.vue'),
+    meta: {
+      title: '订单管理',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/orders/:orderNo',
+    name: 'order-detail',
+    component: () => import('../views/orders/detail.vue'),
+    meta: {
+      title: '订单详情',
       requiresAuth: true,
     },
   },

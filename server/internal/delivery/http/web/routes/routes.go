@@ -36,4 +36,8 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *api.App) {
 	protected.GET("/user/real-name", routes.RealName.Status)
 	protected.POST("/user/real-name", routes.RealName.Submit)
 	protected.POST("/user/real-name/sync", routes.RealName.Sync)
+	protected.POST("/orders", routes.Order.Create)
+	protected.GET("/orders", routes.Order.List)
+	protected.GET("/orders/:order_no", routes.Order.Detail)
+	protected.POST("/orders/:order_no/cancel", routes.Order.Cancel)
 }

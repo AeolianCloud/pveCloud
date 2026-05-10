@@ -1,13 +1,43 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { createOrder } from '../../api/order'
 import { getServerCatalog, type ServerCatalogPlan } from '../../api/product-catalog'
 import { getApiErrorMessage } from '../../api/request'
+import { useConfirm } from '../../composables/useConfirm'
+import { useToast } from '../../composables/useToast'
+import { useAuthStore } from '../../stores/auth'
 
+const router = useRouter()
+const authStore = useAuthStore()
+const confirmDialog = useConfirm()
+const toast = useToast()
 const catalogLoading = ref(false)
 const catalogError = ref('')
 const catalogPlans = ref<Array<ServerCatalogPlan & { productName: string }>>([])
+const selectedRegion = ref('all')
+const orderingPlanNo = ref('')
 
-const featuredPlans = computed(() => catalogPlans.value.slice(0, 4))
+const regionFilters = computed(() => {
+  const regions = new Map<string, string>()
+  for (const plan of catalogPlans.value) {
+    for (const region of plan.regions) {
+      regions.set(region.region_no, region.name)
+    }
+  }
+  return Array.from(regions, ([regionNo, name]) => ({ regionNo, name }))
+})
+
+const filteredPlans = computed(() => {
+  if (selectedRegion.value === 'all') {
+    return catalogPlans.value
+  }
+  return catalogPlans.value.filter((plan) =>
+    plan.regions.some((region) => region.region_no === selectedRegion.value),
+  )
+})
+
+const featuredPlans = computed(() => filteredPlans.value.slice(0, 4))
 
 const formatPrice = (plan: ServerCatalogPlan) => {
   const monthly = plan.prices.find((item) => item.billing_cycle === 'monthly') || plan.prices[0]
@@ -22,6 +52,52 @@ const formatMemory = (memoryMb: number) => {
     return `${Math.round(memoryMb / 1024)}GB`
   }
   return `${memoryMb}MB`
+}
+
+const firstAvailable = <T,>(items: T[]) => items[0]
+
+async function createPlanOrder(plan: ServerCatalogPlan) {
+  if (plan.status === 'sold_out') return
+  if (!authStore.isAuthenticated) {
+    await router.push({ path: '/login', query: { redirect: '/products' } })
+    return
+  }
+  const price = firstAvailable(plan.prices)
+  const region = selectedRegion.value === 'all'
+    ? firstAvailable(plan.regions)
+    : plan.regions.find((item) => item.region_no === selectedRegion.value) || firstAvailable(plan.regions)
+  const template = firstAvailable(plan.os_templates)
+  if (!price || !region || !template) {
+    toast.error('当前套餐缺少价格、地域或系统模板，暂不可下单')
+    return
+  }
+  orderingPlanNo.value = plan.plan_no
+  try {
+    const order = await createOrder({
+      plan_no: plan.plan_no,
+      billing_cycle: price.billing_cycle,
+      region_no: region.region_no,
+      template_no: template.template_no,
+      quantity: 1,
+      client_token: `web-${plan.plan_no}-${Date.now()}`,
+    })
+    await router.push(`/user/orders/${order.order_no}`)
+  } catch (err) {
+    const message = getApiErrorMessage(err, '订单创建失败')
+    if (message.includes('实名')) {
+      const confirmed = await confirmDialog.confirm({
+        title: '需要实名认证',
+        message: `${message}，是否前往实名认证？`,
+        confirmText: '去认证',
+        cancelText: '稍后再说',
+      })
+      if (confirmed) await router.push('/user/real-name')
+    } else {
+      toast.error(message)
+    }
+  } finally {
+    orderingPlanNo.value = ''
+  }
 }
 
 onMounted(async () => {
@@ -53,10 +129,28 @@ onMounted(async () => {
 
     <section class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
       <div class="mb-8 flex flex-wrap gap-3">
-        <span class="rounded-full border border-neutral-950 bg-neutral-950 px-4 py-2 text-xs font-black text-white">全部</span>
-        <span class="chip-hover rounded-full border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700">Minecraft</span>
-        <span class="chip-hover rounded-full border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700">Steam 游戏服</span>
-        <span class="chip-hover rounded-full border border-neutral-300 px-4 py-2 text-xs font-black text-neutral-700">高防节点</span>
+        <button
+          type="button"
+          :class="[
+            'rounded-full border px-4 py-2 text-xs font-black',
+            selectedRegion === 'all' ? 'border-neutral-950 bg-neutral-950 text-white' : 'chip-hover border-neutral-300 text-neutral-700',
+          ]"
+          @click="selectedRegion = 'all'"
+        >
+          全部
+        </button>
+        <button
+          v-for="region in regionFilters"
+          :key="region.regionNo"
+          type="button"
+          :class="[
+            'rounded-full border px-4 py-2 text-xs font-black',
+            selectedRegion === region.regionNo ? 'border-neutral-950 bg-neutral-950 text-white' : 'chip-hover border-neutral-300 text-neutral-700',
+          ]"
+          @click="selectedRegion = region.regionNo"
+        >
+          {{ region.name }}
+        </button>
       </div>
 
       <div v-if="catalogLoading" class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6 text-sm font-bold text-neutral-600">
@@ -84,11 +178,15 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">{{ plan.system_disk_gb + plan.data_disk_gb }}GB</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">{{ plan.bandwidth_mbps }}M</dd></div>
           </dl>
-          <RouterLink to="/login" class="mt-6 block rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
+          <button type="button" class="mt-6 block w-full rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" :disabled="plan.status === 'sold_out' || orderingPlanNo === plan.plan_no" @click="createPlanOrder(plan)">{{ plan.status === 'sold_out' ? '暂时售罄' : authStore.isAuthenticated ? (orderingPlanNo === plan.plan_no ? '创建中...' : '创建订单') : '登录后创建订单' }}</button>
         </article>
       </div>
 
-      <div v-else class="stagger-reveal grid gap-5 lg:grid-cols-4">
+      <div v-else-if="catalogPlans.length" class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6 text-sm font-bold text-neutral-600">
+        当前地域暂无可展示套餐
+      </div>
+
+      <div v-else-if="!catalogLoading && !catalogError" class="stagger-reveal grid gap-5 lg:grid-cols-4">
         <article class="interactive-card rounded-[1.5rem] border border-neutral-200 bg-white p-6">
           <div class="flex items-start justify-between gap-4">
             <div>

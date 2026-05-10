@@ -676,7 +676,7 @@
 
 ## 产品目录
 
-产品目录只维护服务器产品展示和可售约束，不创建订单、不发起支付、不创建实例、不绑定 PVE 节点。
+产品目录维护服务器产品展示和可售约束。订单 MVP 创建订单时读取产品目录并保存快照，但产品目录本身不发起支付、不创建实例、不绑定 PVE 节点。
 
 ### `GET /admin-api/products`
 
@@ -706,6 +706,14 @@
 - 作用：切换产品 `draft`、`active`、`inactive` 状态
 - 审计：`product.status.update`
 
+### `DELETE /admin-api/products/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:delete` 或 `product:*`
+- 作用：删除产品主数据
+- 约束：产品存在套餐时不得删除，应先处理套餐；历史订单只依赖订单快照，不阻止删除
+- 审计：`product.delete`
+
 ### `GET /admin-api/product-plans`
 
 - 鉴权：管理端 Bearer Token
@@ -734,6 +742,14 @@
 - 操作权限：`product:publish` 或 `product:*`
 - 作用：切换套餐 `draft`、`active`、`inactive`、`sold_out` 状态
 - 审计：`product_plan.status.update`
+
+### `DELETE /admin-api/product-plans/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:delete` 或 `product:*`
+- 作用：删除固定服务器套餐
+- 约束：同事务删除套餐周期价格、套餐销售地域关联和套餐系统模板关联；历史订单只依赖订单快照，不阻止删除
+- 审计：`product_plan.delete`
 
 ### `PUT /admin-api/product-plans/{id}/prices`
 
@@ -796,6 +812,14 @@
 - 作用：编辑销售地域
 - 审计：`sales_region.update`
 
+### `DELETE /admin-api/sales-regions/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:delete` 或 `product:*`
+- 作用：删除销售地域
+- 约束：销售地域仍被套餐关联时不得删除；历史订单只依赖订单快照，不阻止删除
+- 审计：`sales_region.delete`
+
 ### `GET /admin-api/server-os-templates`
 
 - 鉴权：管理端 Bearer Token
@@ -816,13 +840,21 @@
 - 作用：编辑服务器系统模板
 - 审计：`server_os_template.update`
 
+### `DELETE /admin-api/server-os-templates/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`product:delete` 或 `product:*`
+- 作用：删除服务器系统模板
+- 约束：系统模板仍被套餐关联时不得删除；历史订单只依赖订单快照，不阻止删除
+- 审计：`server_os_template.delete`
+
 ### `GET /api/server-catalog`
 
 - 鉴权：公开接口，不要求用户登录
 - 作用：返回 Web 可展示服务器产品目录聚合数据
 - 返回范围：已上架且可见的服务器产品、套餐、周期价格、销售地域和服务器系统模板
 - 展示约束：套餐需要至少有一个 active 周期价格、一个 active 且 visible 的销售地域、一个 active 且 visible 的服务器系统模板才进入公开目录
-- 禁止返回：订单、支付、实例、库存扣减、PVE 节点、PVE 模板 ID 或资源池信息
+- 禁止返回：支付、实例、库存扣减、PVE 节点、PVE 模板 ID 或资源池信息
 
 ## 暂未开放的管理域
 
@@ -832,8 +864,7 @@
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户账号自助、用户实名和服务器产品目录接口除外）
-- 订单
+- 用户端业务 API（公开站点配置、用户账号自助、用户实名、服务器产品目录和订单 MVP 接口除外）
 - 支付
 - 实例
 - 工单

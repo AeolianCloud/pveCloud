@@ -11,6 +11,7 @@ import (
 	dashboardhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/dashboard"
 	fileattachmenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/fileattachment"
 	adminmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/middleware"
+	adminorderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/order"
 	productcataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/productcatalog"
 	adminrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/realname"
 	"github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/system"
@@ -19,6 +20,7 @@ import (
 	webauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/auth"
 	cataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/catalog"
 	webmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/middleware"
+	weborderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/order"
 	webrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/realname"
 	siteconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/siteconfig"
 	userprofilehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/userprofile"
@@ -31,12 +33,14 @@ import (
 	adminauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/auth"
 	dashboardusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/dashboard"
 	fileattachmentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/fileattachment"
+	adminorderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/order"
 	productcatalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/productcatalog"
 	adminrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/realname"
 	systemconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/systemconfig"
 	webuserusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/webuser"
 	webauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/auth"
 	catalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/catalog"
+	weborderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/order"
 	webrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/realname"
 	siteconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/siteconfig"
 	userprofileusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/userprofile"
@@ -54,6 +58,7 @@ type AdminRouteSet struct {
 	FileAttachment *fileattachmenthttp.FileAttachmentHandler
 	ProductCatalog *productcataloghttp.ProductCatalogHandler
 	RealName       *adminrealnamehttp.RealNameHandler
+	Order          *adminorderhttp.Handler
 	Audit          *audithttp.AdminAuditHandler
 	AuthMiddleware gin.HandlerFunc
 }
@@ -64,6 +69,7 @@ type WebRouteSet struct {
 	UserProfile    *userprofilehttp.UserProfileHandler
 	ProductCatalog *cataloghttp.Handler
 	RealName       *webrealnamehttp.RealNameHandler
+	Order          *weborderhttp.Handler
 	AuthMiddleware gin.HandlerFunc
 }
 
@@ -79,6 +85,7 @@ func NewRouteSets(app *App) RouteSets {
 
 	siteConfigRepository := mysqlsystemconfig.NewRepository(app.DB)
 	productCatalogRepository := mysqlcatalog.NewRepository(app.DB)
+	webRealNameService := webrealnameusecase.NewRealNameService(app.DB, app.Redis)
 
 	return RouteSets{
 		Admin: AdminRouteSet{
@@ -93,6 +100,7 @@ func NewRouteSets(app *App) RouteSets {
 			FileAttachment: fileattachmenthttp.NewFileAttachmentHandler(fileattachmentusecase.NewFileAttachmentService(app.DB, auditService, app.Config.Storage)),
 			ProductCatalog: productcataloghttp.NewProductCatalogHandler(productcatalogusecase.NewProductCatalogService(app.DB, auditService)),
 			RealName:       adminrealnamehttp.NewRealNameHandler(adminrealnameusecase.NewRealNameService(app.DB, app.Redis, auditService)),
+			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService)),
 			Audit:          audithttp.NewAdminAuditHandler(auditService, adminmiddleware.CurrentAdminPermissionCodes),
 			AuthMiddleware: adminmiddleware.AdminAuth(adminAuthService),
 		},
@@ -101,7 +109,8 @@ func NewRouteSets(app *App) RouteSets {
 			Auth:           webauthhttp.NewUserAuthHandler(webAuthService),
 			UserProfile:    userprofilehttp.NewUserProfileHandler(userprofileusecase.NewUserProfileService(app.DB)),
 			ProductCatalog: cataloghttp.NewHandler(catalogusecase.NewServerCatalogService(productCatalogRepository)),
-			RealName:       webrealnamehttp.NewRealNameHandler(webrealnameusecase.NewRealNameService(app.DB, app.Redis)),
+			RealName:       webrealnamehttp.NewRealNameHandler(webRealNameService),
+			Order:          weborderhttp.NewHandler(weborderusecase.NewService(app.DB, webRealNameService)),
 			AuthMiddleware: webmiddleware.UserAuth(webAuthService),
 		},
 	}

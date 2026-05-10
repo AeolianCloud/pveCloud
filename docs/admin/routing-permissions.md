@@ -20,6 +20,7 @@
 | Web 用户管理 | `/web/users` | `page.web-users` 或 `page.web-user-sessions` |
 | 实名管理 | `/web/real-names` | `page.real-name-management` |
 | 产品管理 | `/products` | `page.products` |
+| 订单管理 | `/orders` | `page.orders` |
 
 管理员设置页面使用 `permissionMode: any` 时，只要具备管理员账号、管理组权限或管理员会话入口之一即可进入页面；页面内部能力继续按按钮或功能块权限控制。
 
