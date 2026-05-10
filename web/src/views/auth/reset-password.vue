@@ -48,15 +48,14 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col justify-center bg-white px-4 py-12 sm:px-6 lg:px-8">
-    <div class="sm:mx-auto sm:w-full sm:max-w-md">
-      <p class="text-center text-sm font-black uppercase tracking-[0.18em] text-neutral-500">Reset Password</p>
-      <h2 class="mt-4 text-center text-3xl font-black text-neutral-950">重置密码</h2>
-      <p class="mt-3 text-center text-sm text-neutral-500">请输入您的新密码</p>
-    </div>
+  <div class="flex justify-center bg-white px-4 pt-8 pb-4 sm:pt-10 lg:pt-12">
+    <div class="w-full max-w-md">
+      <div class="surface-pop rounded-[1.5rem] border border-neutral-950 bg-white p-6 shadow-[8px_8px_0_#111] sm:p-7">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Reset Password</p>
+        <h2 class="mt-3 text-3xl font-black text-neutral-950">重置密码</h2>
+        <p class="mt-3 text-sm text-neutral-500">请输入您的新密码</p>
 
-    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="rounded-[1.5rem] border border-neutral-950 bg-white p-7 shadow-[8px_8px_0_#111]">
+        <div class="mt-6">
         <div v-if="success" class="rounded-xl border border-neutral-300 bg-neutral-50 p-4">
           <h3 class="text-sm font-black text-neutral-950">密码重置成功</h3>
           <p class="mt-2 text-sm leading-6 text-neutral-600">密码已成功重置，即将跳转到登录页面。</p>
@@ -72,14 +71,15 @@ const handleSubmit = async () => {
           <div v-if="error" class="rounded-xl border border-neutral-950 bg-neutral-50 p-3 text-sm font-bold text-neutral-950">{{ error }}</div>
           <div>
             <label for="password" class="mb-2 block text-sm font-black text-neutral-800">新密码</label>
-            <input id="password" v-model="password" name="password" type="password" required class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="请输入新密码" />
+            <input id="password" v-model="password" name="password" type="password" required class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="请输入新密码" />
           </div>
           <div>
             <label for="confirm-password" class="mb-2 block text-sm font-black text-neutral-800">确认新密码</label>
-            <input id="confirm-password" v-model="confirmPassword" name="confirm-password" type="password" required class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="请再次输入新密码" />
+            <input id="confirm-password" v-model="confirmPassword" name="confirm-password" type="password" required class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="请再次输入新密码" />
           </div>
           <button type="submit" :disabled="loading" class="btn-dark w-full rounded-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '重置中...' : '重置密码' }}</button>
         </form>
+        </div>
       </div>
     </div>
   </div>

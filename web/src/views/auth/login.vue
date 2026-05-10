@@ -26,16 +26,9 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-white px-4 py-12">
+  <div class="flex justify-center bg-white px-4 pt-8 pb-4 sm:pt-10 lg:pt-12">
     <div class="w-full max-w-md">
-      <div class="mb-8 text-center">
-        <RouterLink to="/" class="inline-flex items-center gap-3 text-neutral-950">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-950 text-sm font-black">P</span>
-          <span class="text-xl font-black tracking-tight">PVECloud</span>
-        </RouterLink>
-      </div>
-
-      <div class="rounded-[1.5rem] border border-neutral-950 bg-white p-7 shadow-[8px_8px_0_#111]">
+      <div class="surface-pop rounded-[1.5rem] border border-neutral-950 bg-white p-6 shadow-[8px_8px_0_#111] sm:p-7">
         <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Account Login</p>
         <h2 class="mt-3 text-3xl font-black text-neutral-950">登录</h2>
 
@@ -49,7 +42,7 @@ const handleLogin = async () => {
             <input
               v-model="username"
               type="text"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入用户名"
             />
           </div>
@@ -59,7 +52,7 @@ const handleLogin = async () => {
             <input
               v-model="password"
               type="password"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入密码"
             />
           </div>
@@ -69,7 +62,7 @@ const handleLogin = async () => {
               <input type="checkbox" class="rounded border-neutral-300 text-neutral-950" />
               记住我
             </label>
-            <RouterLink to="/forgot-password" class="font-bold text-neutral-950 underline decoration-2 underline-offset-4">
+            <RouterLink to="/forgot-password" class="link-underline font-bold text-neutral-950">
               忘记密码？
             </RouterLink>
           </div>
@@ -84,7 +77,7 @@ const handleLogin = async () => {
 
           <div class="text-center text-sm text-neutral-500">
             还没有账号？
-            <RouterLink to="/register" class="font-bold text-neutral-950">免费注册</RouterLink>
+            <RouterLink to="/register" class="link-underline font-bold text-neutral-950">免费注册</RouterLink>
           </div>
         </form>
       </div>

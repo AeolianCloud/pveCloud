@@ -12,6 +12,20 @@ a {
   text-decoration: none;
 }
 
+a,
+button,
+input,
+select,
+textarea {
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
 .btn-dark {
   color: #ffffff !important;
   background-color: #111111;
@@ -21,6 +35,7 @@ a {
 .btn-dark:hover {
   color: #ffffff !important;
   background-color: #262626;
+  transform: translateY(-1px);
 }
 
 button,
@@ -33,4 +48,68 @@ textarea {
 ::selection {
   color: #ffffff;
   background: #111111;
+}
+
+.surface-pop {
+  animation: surface-pop 420ms ease both;
+}
+
+.surface-pop:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 10px 10px 0 #111111;
+}
+
+.field-focus:focus {
+  box-shadow: 0 0 0 4px rgb(17 17 17 / 8%);
+}
+
+.link-underline {
+  position: relative;
+}
+
+.link-underline::after {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  left: 0;
+  height: 2px;
+  content: '';
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 180ms ease;
+}
+
+.link-underline:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.page-fade-slide-enter-active,
+.page-fade-slide-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.page-fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@keyframes surface-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

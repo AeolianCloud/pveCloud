@@ -32,16 +32,9 @@ const handleRegister = async () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-white px-4 py-12">
+  <div class="flex justify-center bg-white px-4 pt-8 pb-4 sm:pt-10 lg:pt-12">
     <div class="w-full max-w-md">
-      <div class="mb-8 text-center">
-        <RouterLink to="/" class="inline-flex items-center gap-3 text-neutral-950">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-950 text-sm font-black">P</span>
-          <span class="text-xl font-black tracking-tight">PVECloud</span>
-        </RouterLink>
-      </div>
-
-      <div class="rounded-[1.5rem] border border-neutral-950 bg-white p-7 shadow-[8px_8px_0_#111]">
+      <div class="surface-pop rounded-[1.5rem] border border-neutral-950 bg-white p-6 shadow-[8px_8px_0_#111] sm:p-7">
         <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Create Account</p>
         <h2 class="mt-3 text-3xl font-black text-neutral-950">注册</h2>
 
@@ -55,7 +48,7 @@ const handleRegister = async () => {
             <input
               v-model="username"
               type="text"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入用户名"
             />
           </div>
@@ -65,7 +58,7 @@ const handleRegister = async () => {
             <input
               v-model="email"
               type="email"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入邮箱"
             />
           </div>
@@ -75,7 +68,7 @@ const handleRegister = async () => {
             <input
               v-model="password"
               type="password"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入密码"
             />
           </div>
@@ -85,7 +78,7 @@ const handleRegister = async () => {
             <input
               v-model="confirmPassword"
               type="password"
-              class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
+              class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请再次输入密码"
             />
           </div>
@@ -100,7 +93,7 @@ const handleRegister = async () => {
 
           <div class="text-center text-sm text-neutral-500">
             已有账号？
-            <RouterLink to="/login" class="font-bold text-neutral-950">立即登录</RouterLink>
+            <RouterLink to="/login" class="link-underline font-bold text-neutral-950">立即登录</RouterLink>
           </div>
         </form>
       </div>

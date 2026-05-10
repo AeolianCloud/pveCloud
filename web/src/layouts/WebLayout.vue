@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+
+const route = useRoute()
+const isCompactAuthPage = computed(() =>
+  ['login', 'register', 'forgot-password', 'reset-password'].includes(String(route.name)),
+)
 </script>
 
 <template>
@@ -16,13 +22,13 @@ import { RouterLink, RouterView } from 'vue-router'
             <span class="text-lg font-black tracking-tight">PVECloud</span>
           </RouterLink>
           <nav class="hidden items-center gap-8 md:flex">
-            <RouterLink to="/products" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink to="/products" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
               产品中心
             </RouterLink>
-            <RouterLink to="/pricing" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink to="/pricing" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
               价格方案
             </RouterLink>
-            <RouterLink to="/login" class="text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink to="/login" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
               登录
             </RouterLink>
             <RouterLink
@@ -36,11 +42,15 @@ import { RouterLink, RouterView } from 'vue-router'
       </div>
     </header>
 
-    <main class="min-h-[calc(100vh-4rem)]">
-      <RouterView />
+    <main :class="isCompactAuthPage ? 'min-h-0' : 'min-h-[calc(100vh-4rem)]'">
+      <RouterView v-slot="{ Component, route: currentRoute }">
+        <Transition name="page-fade-slide" mode="out-in">
+          <component :is="Component" :key="currentRoute.fullPath" />
+        </Transition>
+      </RouterView>
     </main>
 
-    <footer class="mt-20 border-t border-neutral-200 bg-white">
+    <footer :class="['border-t border-neutral-200 bg-white', isCompactAuthPage ? 'mt-8' : 'mt-20']">
       <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div class="grid gap-8 md:grid-cols-4">
           <div>
@@ -53,17 +63,17 @@ import { RouterLink, RouterView } from 'vue-router'
           <div>
             <h4 class="mb-4 text-sm font-black text-neutral-950">产品</h4>
             <ul class="space-y-2 text-sm text-neutral-500">
-              <li><RouterLink to="/products" class="hover:text-neutral-950">游戏云服务器</RouterLink></li>
-              <li><RouterLink to="/products" class="hover:text-neutral-950">高主频实例</RouterLink></li>
-              <li><RouterLink to="/products" class="hover:text-neutral-950">大带宽节点</RouterLink></li>
+              <li><RouterLink to="/products" class="link-underline hover:text-neutral-950">游戏云服务器</RouterLink></li>
+              <li><RouterLink to="/products" class="link-underline hover:text-neutral-950">高主频实例</RouterLink></li>
+              <li><RouterLink to="/products" class="link-underline hover:text-neutral-950">大带宽节点</RouterLink></li>
             </ul>
           </div>
           <div>
             <h4 class="mb-4 text-sm font-black text-neutral-950">支持</h4>
             <ul class="space-y-2 text-sm text-neutral-500">
-              <li><a href="#" class="hover:text-neutral-950">帮助中心</a></li>
-              <li><a href="#" class="hover:text-neutral-950">工单系统</a></li>
-              <li><a href="#" class="hover:text-neutral-950">联系客服</a></li>
+              <li><a href="#" class="link-underline hover:text-neutral-950">帮助中心</a></li>
+              <li><a href="#" class="link-underline hover:text-neutral-950">工单系统</a></li>
+              <li><a href="#" class="link-underline hover:text-neutral-950">联系客服</a></li>
             </ul>
           </div>
           <div>
