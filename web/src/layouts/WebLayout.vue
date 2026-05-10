@@ -8,6 +8,7 @@ const authStore = useAuthStore()
 const isCompactAuthPage = computed(() =>
   ['login', 'register', 'forgot-password', 'reset-password'].includes(String(route.name)),
 )
+const isActivePath = (path: string) => path === '/' ? route.path === '/' : route.path.startsWith(path)
 </script>
 
 <template>
@@ -24,13 +25,13 @@ const isCompactAuthPage = computed(() =>
             <span class="text-lg font-black tracking-tight">PVECloud</span>
           </RouterLink>
           <nav class="hidden items-center gap-8 md:flex">
-            <RouterLink to="/" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink to="/" :class="['link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950', isActivePath('/') ? 'nav-link-active' : '']">
               首页
             </RouterLink>
-            <RouterLink to="/products" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink to="/products" :class="['link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950', isActivePath('/products') ? 'nav-link-active' : '']">
               产品中心
             </RouterLink>
-            <RouterLink v-if="!authStore.isAuthenticated" to="/login" class="link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+            <RouterLink v-if="!authStore.isAuthenticated" to="/login" :class="['link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950', isActivePath('/login') ? 'nav-link-active' : '']">
               登录
             </RouterLink>
             <RouterLink

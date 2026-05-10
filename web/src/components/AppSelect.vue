@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
   <div ref="rootRef" class="relative">
     <button
       type="button"
-      class="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-left transition hover:border-neutral-400 hover:bg-neutral-50 focus:border-neutral-500 focus:outline-none focus:ring-4 focus:ring-neutral-200"
+    class="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-left transition hover:border-neutral-950 hover:bg-neutral-50 focus:border-neutral-950 focus:outline-none focus:ring-4 focus:ring-neutral-200"
       :aria-expanded="open"
       @click="open = !open"
     >
@@ -108,14 +108,19 @@ onBeforeUnmount(() => {
 }
 
 .app-select__option:hover {
-  background: #e2e8f0;
+  background: #f5f5f5;
 }
 
 .app-select__option--selected {
-  background: #dbeafe;
+  background: #111111;
+  color: #ffffff;
+}
+
+.app-select__option--selected span {
+  color: inherit;
 }
 
 .app-select__option--selected:hover {
-  background: #bfdbfe;
+  background: #262626;
 }
 </style>

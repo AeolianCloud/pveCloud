@@ -20,7 +20,7 @@ const toneClass = {
       >
         <div class="flex items-start justify-between gap-3">
           <span>{{ item.message }}</span>
-          <button type="button" class="text-lg leading-none opacity-60 hover:opacity-100" aria-label="关闭提示" @click="toast.remove(item.id)">×</button>
+          <button type="button" class="action-pill h-6 w-6 shrink-0 border border-current/20 text-lg leading-none opacity-60 hover:opacity-100" aria-label="关闭提示" @click="toast.remove(item.id)">×</button>
         </div>
       </div>
     </TransitionGroup>

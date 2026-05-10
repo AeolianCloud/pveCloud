@@ -45,7 +45,7 @@ const filteredPlans = computed(() => {
   )
 })
 
-const featuredPlans = computed(() => filteredPlans.value.slice(0, 4))
+const displayedPlans = computed(() => filteredPlans.value)
 
 const formatPrice = (plan: ServerCatalogPlan) => {
   const monthly = plan.prices.find((item) => item.billing_cycle === 'monthly') || plan.prices[0]
@@ -222,15 +222,27 @@ onMounted(async () => {
         </button>
       </div>
 
-      <div v-if="catalogLoading" class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6 text-sm font-bold text-neutral-600">
-        产品目录加载中...
+      <div v-if="catalogLoading" class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div v-for="item in 4" :key="item" class="rounded-[1.5rem] border border-neutral-200 bg-white p-6">
+          <div class="skeleton-line h-3 w-24"></div>
+          <div class="skeleton-line mt-5 h-6 w-32"></div>
+          <div class="skeleton-line mt-8 h-10 w-24"></div>
+          <div class="mt-7 space-y-3">
+            <div class="skeleton-line h-3 w-full"></div>
+            <div class="skeleton-line h-3 w-11/12"></div>
+            <div class="skeleton-line h-3 w-10/12"></div>
+          </div>
+          <div class="skeleton-line mt-8 h-9 w-full"></div>
+        </div>
       </div>
-      <div v-else-if="catalogError" class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6 text-sm font-bold text-neutral-600">
-        {{ catalogError }}
+      <div v-else-if="catalogError" class="state-panel p-8 text-center">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Catalog Error</p>
+        <h2 class="mt-3 text-2xl font-black text-neutral-950">产品目录暂时不可用</h2>
+        <p class="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-500">{{ catalogError }}</p>
       </div>
 
-      <div v-if="featuredPlans.length" class="stagger-reveal grid gap-5 lg:grid-cols-4">
-        <article v-for="plan in featuredPlans" :key="plan.plan_no" :class="['interactive-card rounded-[1.5rem] border bg-white p-6', plan.is_featured ? 'border-neutral-950 shadow-[8px_8px_0_#111]' : 'border-neutral-200']">
+      <div v-else-if="displayedPlans.length" class="stagger-reveal grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <article v-for="plan in displayedPlans" :key="plan.plan_no" :class="['interactive-card rounded-[1.5rem] border bg-white p-6', plan.is_featured ? 'border-neutral-950 shadow-[6px_6px_0_#111]' : 'border-neutral-200']">
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-xs font-black uppercase tracking-[0.16em] text-neutral-500">{{ plan.productName }}</p>
@@ -247,12 +259,15 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">{{ plan.system_disk_gb + plan.data_disk_gb }}GB</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">{{ plan.bandwidth_mbps }}M</dd></div>
           </dl>
-          <button type="button" class="mt-6 block w-full rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-50" :disabled="plan.status === 'sold_out' || orderingPlanNo === plan.plan_no" @click="openOrderDialog(plan)">{{ plan.status === 'sold_out' ? '暂时售罄' : authStore.isAuthenticated ? (orderingPlanNo === plan.plan_no ? '创建中...' : '配置并创建订单') : '登录后创建订单' }}</button>
+          <button type="button" class="action-pill mt-6 w-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white disabled:opacity-50" :disabled="plan.status === 'sold_out' || orderingPlanNo === plan.plan_no" @click="openOrderDialog(plan)">{{ plan.status === 'sold_out' ? '暂时售罄' : authStore.isAuthenticated ? (orderingPlanNo === plan.plan_no ? '创建中...' : '配置并创建订单') : '登录后创建订单' }}</button>
         </article>
       </div>
 
-      <div v-else-if="catalogPlans.length" class="rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6 text-sm font-bold text-neutral-600">
-        当前地域暂无可展示套餐
+      <div v-else-if="catalogPlans.length" class="state-panel p-8 text-center">
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">No Region Plans</p>
+        <h2 class="mt-3 text-2xl font-black text-neutral-950">当前地域暂无套餐</h2>
+        <p class="mt-3 text-sm text-neutral-500">切换到全部地域，查看其它可选配置。</p>
+        <button type="button" class="action-pill mt-5 border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white" @click="selectedRegion = 'all'">查看全部地域</button>
       </div>
 
       <div v-else-if="!catalogLoading && !catalogError" class="stagger-reveal grid gap-5 lg:grid-cols-4">
@@ -271,7 +286,7 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">40GB SSD</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">10M</dd></div>
           </dl>
-          <RouterLink to="/login" class="mt-6 block rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
+          <RouterLink to="/login" class="action-pill mt-6 w-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
         </article>
 
         <article class="interactive-card rounded-[1.5rem] border border-neutral-950 bg-white p-6 shadow-[8px_8px_0_#111]">
@@ -289,7 +304,7 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">80GB SSD</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">30M</dd></div>
           </dl>
-          <RouterLink to="/login" class="mt-6 block rounded-full bg-neutral-950 px-4 py-2 text-center text-sm font-black text-white hover:bg-neutral-800">登录后查看购买入口</RouterLink>
+          <RouterLink to="/login" class="action-pill mt-6 w-full bg-neutral-950 px-4 py-2 text-center text-sm font-black text-white hover:bg-neutral-800">登录后查看购买入口</RouterLink>
         </article>
 
         <article class="interactive-card rounded-[1.5rem] border border-neutral-200 bg-white p-6">
@@ -307,7 +322,7 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">100GB SSD</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">100M</dd></div>
           </dl>
-          <RouterLink to="/login" class="mt-6 block rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
+          <RouterLink to="/login" class="action-pill mt-6 w-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
         </article>
 
         <article class="interactive-card rounded-[1.5rem] border border-neutral-200 bg-neutral-50 p-6">
@@ -325,7 +340,7 @@ onMounted(async () => {
             <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">定制</dd></div>
             <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">定制</dd></div>
           </dl>
-          <RouterLink to="/login" class="mt-6 block rounded-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
+          <RouterLink to="/login" class="action-pill mt-6 w-full border border-neutral-950 px-4 py-2 text-center text-sm font-black hover:bg-neutral-950 hover:text-white">登录后查看购买入口</RouterLink>
         </article>
       </div>
     </section>
@@ -348,30 +363,31 @@ onMounted(async () => {
     </section>
 
     <div v-if="orderDialogVisible && orderPlan" class="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/45 px-4 py-6 sm:items-center" @click.self="orderDialogVisible = false">
-      <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[1.75rem] border border-neutral-950 bg-white p-5 shadow-[10px_10px_0_#111] sm:p-7">
-        <div class="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
+      <div class="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[1.5rem] border border-neutral-950 bg-white shadow-[8px_8px_0_#111]">
+        <div class="flex items-start justify-between gap-4 border-b border-neutral-200 p-5 pb-4 sm:p-6 sm:pb-4">
           <div>
             <p class="text-xs font-black uppercase tracking-[0.18em] text-neutral-500">Create Order</p>
             <h2 class="mt-2 text-2xl font-black text-neutral-950">确认购买配置</h2>
             <p class="mt-2 text-sm text-neutral-500">固定套餐规格不可修改，请选择地域、系统模板和网络类型。</p>
           </div>
-          <button type="button" class="rounded-full border border-neutral-300 px-3 py-1 text-sm font-black" @click="orderDialogVisible = false">关闭</button>
+          <button type="button" class="action-pill border border-neutral-300 px-3 py-1 text-sm font-black hover:border-neutral-950" @click="orderDialogVisible = false">关闭</button>
         </div>
 
-        <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-          <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
-            <p class="text-sm font-black text-neutral-500">{{ orderPlan.productName }}</p>
-            <h3 class="mt-2 text-2xl font-black text-neutral-950">{{ orderPlan.name }}</h3>
-            <dl class="mt-5 space-y-3 text-sm">
-              <div class="flex justify-between"><dt class="text-neutral-500">CPU</dt><dd class="font-bold">{{ orderPlan.cpu_cores }} 核</dd></div>
-              <div class="flex justify-between"><dt class="text-neutral-500">内存</dt><dd class="font-bold">{{ formatMemory(orderPlan.memory_mb) }}</dd></div>
-              <div class="flex justify-between"><dt class="text-neutral-500">硬盘</dt><dd class="font-bold">{{ orderPlan.system_disk_gb + orderPlan.data_disk_gb }}GB</dd></div>
-              <div class="flex justify-between"><dt class="text-neutral-500">带宽</dt><dd class="font-bold">{{ orderPlan.bandwidth_mbps }}M</dd></div>
-              <div class="flex justify-between"><dt class="text-neutral-500">公网 IP</dt><dd class="font-bold">{{ orderPlan.public_ip_count }} 个</dd></div>
+        <div class="max-h-[calc(92vh-12rem)] overflow-y-auto p-5 sm:p-6">
+        <div class="grid gap-5 lg:grid-cols-[16rem_1fr]">
+          <div class="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+            <p class="text-xs font-black uppercase tracking-[0.14em] text-neutral-500">{{ orderPlan.productName }}</p>
+            <h3 class="mt-2 text-lg font-black text-neutral-950">{{ orderPlan.name }}</h3>
+            <dl class="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div class="rounded-xl bg-white p-3"><dt class="text-neutral-500">CPU</dt><dd class="mt-1 font-black">{{ orderPlan.cpu_cores }} 核</dd></div>
+              <div class="rounded-xl bg-white p-3"><dt class="text-neutral-500">内存</dt><dd class="mt-1 font-black">{{ formatMemory(orderPlan.memory_mb) }}</dd></div>
+              <div class="rounded-xl bg-white p-3"><dt class="text-neutral-500">硬盘</dt><dd class="mt-1 font-black">{{ orderPlan.system_disk_gb + orderPlan.data_disk_gb }}GB</dd></div>
+              <div class="rounded-xl bg-white p-3"><dt class="text-neutral-500">带宽</dt><dd class="mt-1 font-black">{{ orderPlan.bandwidth_mbps }}M</dd></div>
+              <div class="col-span-2 rounded-xl bg-white p-3"><dt class="text-neutral-500">公网 IP</dt><dd class="mt-1 font-black">{{ orderPlan.public_ip_count }} 个</dd></div>
             </dl>
           </div>
 
-          <div class="space-y-5">
+          <div class="space-y-4">
             <div>
               <label class="mb-2 block text-sm font-black text-neutral-800">计费周期</label>
               <AppSelect v-model="selectedBillingCycle" :options="billingCycleOptions" placeholder="请选择计费周期" />
@@ -394,17 +410,19 @@ onMounted(async () => {
 
             <div>
               <label class="mb-2 block text-sm font-black text-neutral-800">备注</label>
-              <textarea v-model="userNote" rows="3" class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="可填写开服用途或其它人工处理说明" />
+              <textarea v-model="userNote" rows="2" class="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950" placeholder="可填写开服用途或其它人工处理说明" />
             </div>
           </div>
         </div>
 
-        <div class="mt-6 flex flex-col gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+        </div>
+
+        <div class="sticky bottom-0 flex flex-col gap-3 border-t border-neutral-200 bg-white/95 p-5 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
             <p class="text-sm text-neutral-500">订单金额</p>
             <p class="text-3xl font-black text-neutral-950">{{ selectedPrice ? formatMoney(selectedPrice.price_cents) : '价格待定' }}</p>
           </div>
-          <button type="button" :disabled="orderingPlanNo === orderPlan.plan_no" class="btn-dark rounded-full border px-8 py-3 text-sm font-black disabled:opacity-50" @click="createPlanOrder">
+          <button type="button" :disabled="orderingPlanNo === orderPlan.plan_no" class="btn-dark action-pill border px-8 py-3 text-sm font-black disabled:opacity-50" @click="createPlanOrder">
             {{ orderingPlanNo === orderPlan.plan_no ? '创建中...' : '确认创建订单' }}
           </button>
         </div>

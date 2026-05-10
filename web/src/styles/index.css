@@ -14,6 +14,18 @@ a {
 
 a,
 button,
+summary,
+[role='button'] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+a,
+button,
 input,
 select,
 textarea {
@@ -36,6 +48,47 @@ textarea {
   color: #ffffff !important;
   background-color: #262626;
   transform: translateY(-1px);
+}
+
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  transform: translateY(0);
+}
+
+.action-pill:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.action-pill:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.nav-link-active {
+  color: #111111 !important;
+}
+
+.nav-link-active::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.state-panel {
+  border: 1px solid rgb(229 229 229);
+  border-radius: 1.5rem;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 88%), rgb(245 245 245 / 88%)),
+    radial-gradient(circle at top right, rgb(17 17 17 / 8%), transparent 34%);
+}
+
+.skeleton-line {
+  overflow: hidden;
+  background: linear-gradient(90deg, #eeeeee 25%, #f8f8f8 37%, #eeeeee 63%);
+  background-size: 400% 100%;
+  border-radius: 999px;
+  animation: skeleton-shimmer 1.25s ease-in-out infinite;
 }
 
 button,
@@ -428,6 +481,16 @@ textarea {
   }
 }
 
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hero-orb,
   .hero-stack > *,
@@ -437,7 +500,8 @@ textarea {
   .meter-bar,
   .page-reveal,
   .surface-pop,
-  .stagger-reveal > * {
+  .stagger-reveal > *,
+  .skeleton-line {
     animation: none !important;
   }
 }

@@ -129,7 +129,7 @@ const handleSubmit = async () => {
           <div v-if="captchaEnabled">
             <div class="mb-2 flex items-center justify-between gap-3 text-sm font-black text-neutral-800">
               <label>验证码</label>
-              <button type="button" class="text-neutral-500 hover:text-neutral-950" :disabled="captchaLoading" @click="refreshCaptcha">
+              <button type="button" class="action-pill border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:border-neutral-950 hover:text-neutral-950 disabled:opacity-50" :disabled="captchaLoading" @click="refreshCaptcha">
                 {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
               </button>
             </div>
@@ -141,7 +141,7 @@ const handleSubmit = async () => {
               </div>
             </div>
           </div>
-          <button type="submit" :disabled="loading" class="btn-dark w-full rounded-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '重置中...' : '重置密码' }}</button>
+          <button type="submit" :disabled="loading" class="btn-dark action-pill w-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '重置中...' : '重置密码' }}</button>
         </form>
         </div>
       </div>

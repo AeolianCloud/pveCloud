@@ -28,13 +28,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <h2 class="mt-3 text-2xl font-black text-neutral-950">{{ confirm.state.title }}</h2>
           <p class="mt-4 text-sm leading-6 text-neutral-600">{{ confirm.state.message }}</p>
           <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" class="rounded-full border border-neutral-300 px-5 py-2 text-sm font-black text-neutral-700 hover:border-neutral-950" @click="confirm.close(false)">
+            <button type="button" class="action-pill border border-neutral-300 px-5 py-2 text-sm font-black text-neutral-700 hover:border-neutral-950" @click="confirm.close(false)">
               {{ confirm.state.cancelText }}
             </button>
             <button
               type="button"
               :class="[
-                'rounded-full border px-5 py-2 text-sm font-black text-white',
+                'action-pill border px-5 py-2 text-sm font-black text-white',
                 confirm.state.tone === 'danger' ? 'border-red-600 bg-red-600 hover:bg-red-700' : 'border-neutral-950 bg-neutral-950 hover:bg-neutral-800',
               ]"
               @click="confirm.close(true)"

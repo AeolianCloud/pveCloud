@@ -86,7 +86,7 @@ const handleSubmit = async () => {
         <div v-if="success" class="rounded-xl border border-neutral-300 bg-neutral-50 p-4">
           <h3 class="text-sm font-black text-neutral-950">重置邮件已发送</h3>
           <p class="mt-2 text-sm leading-6 text-neutral-600">请检查您的邮箱，点击重置链接修改密码。</p>
-          <RouterLink to="/login" class="mt-4 inline-flex rounded-full border border-neutral-950 px-4 py-2 text-sm font-black text-neutral-950 hover:bg-neutral-950 hover:text-white">返回登录</RouterLink>
+          <RouterLink to="/login" class="action-pill mt-4 border border-neutral-950 px-4 py-2 text-sm font-black text-neutral-950 hover:bg-neutral-950 hover:text-white">返回登录</RouterLink>
         </div>
 
         <form v-else class="space-y-5" @submit.prevent="handleSubmit">
@@ -98,7 +98,7 @@ const handleSubmit = async () => {
           <div v-if="captchaEnabled">
             <div class="mb-2 flex items-center justify-between gap-3 text-sm font-black text-neutral-800">
               <label>验证码</label>
-              <button type="button" class="text-neutral-500 hover:text-neutral-950" :disabled="captchaLoading" @click="refreshCaptcha">
+              <button type="button" class="action-pill border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:border-neutral-950 hover:text-neutral-950 disabled:opacity-50" :disabled="captchaLoading" @click="refreshCaptcha">
                 {{ captchaLoading ? '刷新中...' : '刷新验证码' }}
               </button>
             </div>
@@ -110,7 +110,7 @@ const handleSubmit = async () => {
               </div>
             </div>
           </div>
-          <button type="submit" :disabled="loading" class="btn-dark w-full rounded-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '发送中...' : '发送重置链接' }}</button>
+          <button type="submit" :disabled="loading" class="btn-dark action-pill w-full border py-3 text-sm font-black disabled:opacity-50">{{ loading ? '发送中...' : '发送重置链接' }}</button>
           <div class="text-center text-sm">
             <RouterLink to="/login" class="link-underline font-black text-neutral-950">返回登录</RouterLink>
           </div>
