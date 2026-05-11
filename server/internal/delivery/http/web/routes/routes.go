@@ -15,6 +15,7 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *api.App) {
 	group.Use(middleware.RequestContext())
 
 	group.GET("/site-config", routes.SiteConfig.Show)
+	group.GET("/site-logo/:id", routes.SiteConfig.Logo)
 	group.POST("/real-name/provider-callbacks/:provider", routes.RealName.ProviderCallback)
 	group.GET("/server-catalog", routes.ProductCatalog.Show)
 	group.GET("/auth/login-captcha", routes.Auth.LoginCaptcha)

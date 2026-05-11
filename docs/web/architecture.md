@@ -167,6 +167,7 @@ web/src/
 - 请求基础路径为 `/api/*`。
 - 当前可调用的接口：
   - 站点配置：`GET /api/site-config`
+  - 站点 Logo：`GET /api/site-logo/{id}`，仅用于公开展示当前站点 Logo
   - 认证相关：登录、注册、密码找回、密码重置、登录态恢复、刷新、退出
   - 用户资料：`GET /api/auth/me`、`PATCH /api/user/profile`、`POST /api/user/password`
   - 实名认证：`GET /api/user/real-name`、`POST /api/user/real-name`、`POST /api/user/real-name/sync`

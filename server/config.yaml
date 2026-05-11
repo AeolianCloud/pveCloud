@@ -8,6 +8,8 @@ app:
   addr: "0.0.0.0:8080"
   # API 收到退出信号后的优雅关闭等待时间，单位为秒。
   shutdown_timeout_seconds: 10
+  # 应用运行时区，使用 IANA 时区名；服务启动后会把 Go 进程默认时区设置为该值，避免依赖宿主机系统时区。
+  timezone: Asia/Shanghai
 
 # MariaDB 连接和连接池配置。
 database:
@@ -25,7 +27,7 @@ database:
   charset: utf8mb4
   # 是否把 MariaDB 时间字段解析为 Go time.Time。
   parse_time: true
-  # 数据库时间解析使用的时区；Local 表示使用进程本地时区。
+  # 数据库时间解析使用的时区；Local 表示使用 app.timezone 设置后的进程默认时区。
   loc: Local
   # 数据库连接池最大打开连接数。
   max_open_conns: 25
@@ -33,6 +35,7 @@ database:
   max_idle_conns: 10
   # 单个数据库连接可复用的最长时间，单位为分钟。
   conn_max_lifetime_minutes: 60
+
 
 # Redis 连接配置，用于缓存、限流、短 TTL 状态、验证码、一次性 token 和幂等短锁；API 和 Worker 启动时必须可连接。
 redis:

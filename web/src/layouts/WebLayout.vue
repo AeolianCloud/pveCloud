@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useSiteConfigStore } from '../stores/site-config'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const siteConfigStore = useSiteConfigStore()
 const isCompactAuthPage = computed(() =>
   ['login', 'register', 'forgot-password', 'reset-password'].includes(String(route.name)),
 )
 const isActivePath = (path: string) => path === '/' ? route.path === '/' : route.path.startsWith(path)
+
+onMounted(() => {
+  void siteConfigStore.loadSiteConfig()
+})
 </script>
 
 <template>
@@ -17,12 +23,13 @@ const isActivePath = (path: string) => path === '/' ? route.path === '/' : route
       <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <RouterLink to="/" class="flex items-center gap-3">
-            <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-950 bg-white">
-              <svg class="h-5 w-5 text-neutral-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-            </svg>
+            <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-neutral-950 bg-white">
+              <img v-if="siteConfigStore.logoUrl" :src="siteConfigStore.logoUrl" :alt="siteConfigStore.siteName" class="h-full w-full object-contain p-1" />
+              <svg v-else class="h-5 w-5 text-neutral-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
             </span>
-            <span class="text-lg font-black tracking-tight">PVECloud</span>
+            <span class="text-lg font-black tracking-tight">{{ siteConfigStore.siteName }}</span>
           </RouterLink>
           <nav class="hidden items-center gap-8 md:flex">
             <RouterLink to="/" :class="['link-underline text-sm font-semibold text-neutral-600 hover:text-neutral-950', isActivePath('/') ? 'nav-link-active' : '']">
@@ -66,8 +73,11 @@ const isActivePath = (path: string) => path === '/' ? route.path === '/' : route
         <div class="grid gap-8 md:grid-cols-4">
           <div>
             <div class="mb-4 flex items-center gap-2 text-neutral-950">
-              <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-950 text-xs font-black">P</span>
-              <span class="font-black">PVECloud</span>
+              <span class="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-neutral-950 text-xs font-black">
+                <img v-if="siteConfigStore.logoUrl" :src="siteConfigStore.logoUrl" :alt="siteConfigStore.siteName" class="h-full w-full object-contain p-1" />
+                <span v-else>{{ siteConfigStore.siteName.slice(0, 1).toUpperCase() }}</span>
+              </span>
+              <span class="font-black">{{ siteConfigStore.siteName }}</span>
             </div>
             <p class="max-w-xs text-sm leading-6 text-neutral-500">面向游戏开服、轻量应用和独立开发者的云服务器展示站。</p>
           </div>
@@ -96,7 +106,7 @@ const isActivePath = (path: string) => path === '/' ? route.path === '/' : route
           </div>
         </div>
         <div class="mt-8 border-t border-neutral-200 pt-8 text-center text-sm text-neutral-500">
-          © 2024 PVECloud. All rights reserved.
+          © 2024 {{ siteConfigStore.siteName }}. All rights reserved.
         </div>
       </div>
     </footer>

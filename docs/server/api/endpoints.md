@@ -203,7 +203,7 @@
 - 数据来源：`system_configs` 中的公开配置白名单
 - 返回字段：
   - `site_name`：站点显示名称，来自 `site.name`，为空时服务端返回默认值 `pveCloud`
-  - `logo_url`：站点 Logo 图片 URL，来自 `site.logo_url`，为空时返回空字符串
+  - `logo_url`：站点 Logo 图片公开展示 URL，来自 `site.logo_url`；当后台保存值为 `/admin-api/files/{id}` 或 `/admin-api/files/{id}/download` 时，服务端必须转换为公开读取地址 `/api/site-logo/{id}`；为空时返回空字符串
   - `login_captcha_enabled`：登录页验证码开关，来自 `web.auth.login_captcha_enabled`
   - `register_captcha_enabled`：注册页验证码开关，来自 `web.auth.register_captcha_enabled`
   - `password_reset_request_captcha_enabled`：忘记密码申请页验证码开关，来自 `web.auth.password_reset_request_captcha_enabled`
@@ -211,9 +211,22 @@
   - `real_name`：实名公开配置对象，来自实名公开配置白名单，包含 `enabled`、`required_for_order`、`allowed_providers`、`default_provider`、`resubmit_enabled`、`max_submit_attempts`、`review_notice`
 - 约束：
   - 不得返回 `is_secret=1` 的配置项，不得返回供应商密钥、网关、回调地址、返回地址、规则 ID 或任意配置键列表
+  - 不得向用户端返回 `/admin-api/*` 管理端受保护地址
   - `real_name.allowed_providers` 对外返回时必须过滤未启用、必要后台配置不完整或缺少证件摘要密钥的外部供应商；无可用外部供应商且人工审核兜底已启用时返回 `manual`
   - `real_name.default_provider` 对外返回时必须是过滤后的可用实名方式；无可用外部供应商时返回 `manual`
   - `real_name.enabled` 对外返回时必须满足后台 `real_name.enabled=true` 且至少存在一个可用实名方式；缺少外部供应商、证件摘要密钥或回调地址时不得关闭已启用的人工审核实名入口
+
+### `GET /api/site-logo/{id}`
+
+- 鉴权：公开接口，无需登录
+- 作用：读取公开站点 Logo 图片，仅用于 `GET /api/site-config` 返回的 Logo 展示地址
+- 路径参数：
+  - `id`：文件附件 ID
+- 约束：
+  - 只允许访问当前 `site.logo_url` 指向的附件 ID
+  - 只允许图片类 MIME 类型
+  - 不得开放任意文件下载能力，不得复用为通用公开附件下载接口
+  - 响应不得暴露本地物理路径或管理端鉴权地址
 
 ## 用户端认证域
 

@@ -40,6 +40,8 @@
 - `is_secret=1` 的配置值不得展示明文。
 - `site.name` 和 `site.logo_url` 用于 Web 左上角品牌区域，分别控制显示文字和 Logo 图片 URL。
 - `site.logo_url` 可为空；为空时 Web 使用前端默认标识。
+- `site.logo_url` 在管理端系统配置页不使用自由文本输入；应通过图片上传控件上传 Logo，并将上传接口返回的 URL 写入该配置项。
+- 上传 Logo 复用 `POST /admin-api/files/upload`，仅允许图片类文件；上传权限按 `file:upload` 或 `file:*` 判断，配置保存权限仍按 `system-config:update` 或 `system-config:*` 判断。
 - 站点品牌配置在后台系统配置中按中文分组“站点设置”展示。
 - Web 用户认证验证码开关在后台系统配置中按中文分组“用户认证”展示。
 - 用户实名业务开关、可选供应商、供应商启用状态、支付宝/微信侧接入参数、密钥、回调地址和证件摘要密钥在后台系统配置中按中文分组“实名设置”展示。
@@ -95,11 +97,13 @@
 - 页面入口：`page.system-settings.config`
 - 页面可见资源：`system-config:view` 或 `system-config:*`
 - 更新：`system-config:update` 或 `system-config:*`
+- Logo 上传：`file:upload` 或 `file:*`
 
 关联接口：
 
 - `GET /admin-api/system-configs`
 - `PATCH /admin-api/system-configs/{id}`
+- `POST /admin-api/files/upload`（仅用于 `site.logo_url` 上传图片并回填 URL）
 
 具体字段、响应和错误码以 `docs/server/api/` 为准。
 
@@ -199,6 +203,7 @@
 - 页面入口、标签页和按钮显隐都通过统一权限能力判断。
 - 页面模板中不散写 `permissionCodes.includes(...)`。
 - 敏感配置不展示明文。
+- `site.logo_url` 不展示自由文本输入，应通过图片上传后回填 URL。
 - 管理员、管理组和管理员会话能力都不恢复独立侧栏菜单。
 - 管理员会话 tab 需要对当前会话提供明确标识，并阻止自吊销误操作。
 - 日志管理作为系统设置子页面开放，不恢复独立一级菜单。

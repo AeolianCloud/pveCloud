@@ -2,11 +2,21 @@ package siteconfig
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	domainfile "github.com/AeolianCloud/pveCloud/server/internal/domain/file"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
+	mysqlfile "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/file"
 	mysqlsystemconfig "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/systemconfig"
+	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
+	"gorm.io/gorm"
 )
 
 const (
@@ -20,8 +30,12 @@ const (
 	realNameConfigPrefix           = "real_name."
 )
 
+var adminFileURLPattern = regexp.MustCompile(`^/admin-api/files/(\d+)(?:/download)?$`)
+
 type SiteConfigService struct {
 	configs *mysqlsystemconfig.Repository
+	files   *mysqlfile.Repository
+	storage config.StorageConfig
 }
 
 type SiteConfig struct {
@@ -44,8 +58,8 @@ type RealNameConfig struct {
 	ReviewNotice      string
 }
 
-func NewSiteConfigService(configs *mysqlsystemconfig.Repository) *SiteConfigService {
-	return &SiteConfigService{configs: configs}
+func NewSiteConfigService(configs *mysqlsystemconfig.Repository, files *mysqlfile.Repository, storage config.StorageConfig) *SiteConfigService {
+	return &SiteConfigService{configs: configs, files: files, storage: storage}
 }
 
 func (s *SiteConfigService) Show(ctx context.Context) (SiteConfig, error) {
@@ -82,7 +96,7 @@ func buildSiteConfig(configs []mysqlsystemconfig.SystemConfig) SiteConfig {
 				result.SiteName = value
 			}
 		case siteLogoURLKey:
-			result.LogoURL = value
+			result.LogoURL = publicLogoURL(value)
 		case loginCaptchaEnabledKey:
 			result.LoginCaptchaEnabled = parseBoolConfigValue(config.ConfigValue)
 		case registerCaptchaEnabledKey:
@@ -95,6 +109,87 @@ func buildSiteConfig(configs []mysqlsystemconfig.SystemConfig) SiteConfig {
 	}
 	result.RealName = publicRealNameConfig(values, secrets)
 	return result
+}
+
+func (s *SiteConfigService) PublicLogoPath(ctx context.Context, id uint64) (string, string, string, error) {
+	configuredID, err := s.currentLogoFileID(ctx)
+	if err != nil {
+		return "", "", "", err
+	}
+	if configuredID == 0 || configuredID != id {
+		return "", "", "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+	}
+
+	attachment, err := s.files.FindAttachmentByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", "", "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+	}
+	if err != nil {
+		return "", "", "", err
+	}
+	if attachment.Status != "active" || !strings.HasPrefix(attachment.MimeType, "image/") {
+		return "", "", "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+	}
+
+	absolutePath, err := s.safeStoragePath(attachment.StoragePath)
+	if err != nil {
+		return "", "", "", err
+	}
+	if _, err := os.Stat(absolutePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", "", "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+		}
+		return "", "", "", err
+	}
+	return absolutePath, attachment.MimeType, attachment.OriginalName, nil
+}
+
+func (s *SiteConfigService) currentLogoFileID(ctx context.Context) (uint64, error) {
+	value, ok, err := s.configs.ValueByKey(ctx, siteLogoURLKey)
+	if err != nil || !ok || value == nil {
+		return 0, err
+	}
+	return fileIDFromAdminURL(strings.TrimSpace(*value))
+}
+
+func fileIDFromAdminURL(value string) (uint64, error) {
+	match := adminFileURLPattern.FindStringSubmatch(value)
+	if len(match) != 2 {
+		return 0, nil
+	}
+	id, err := strconv.ParseUint(match[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("解析站点 Logo 文件 ID 失败: %w", err)
+	}
+	return id, nil
+}
+
+func publicLogoURL(value string) string {
+	id, err := fileIDFromAdminURL(strings.TrimSpace(value))
+	if err != nil || id == 0 {
+		return value
+	}
+	return fmt.Sprintf("/api/site-logo/%d", id)
+}
+
+func (s *SiteConfigService) safeStoragePath(storagePath string) (string, error) {
+	cleanPath := filepath.Clean(strings.TrimSpace(storagePath))
+	if !domainfile.IsSafeRelativeStoragePath(cleanPath) {
+		return "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+	}
+	root, err := filepath.Abs(s.storage.LocalPath)
+	if err != nil {
+		return "", err
+	}
+	target, err := filepath.Abs(filepath.Join(root, cleanPath))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", apperrors.ErrNotFound.WithMessage("站点 Logo 不存在")
+	}
+	return target, nil
 }
 
 func defaultRealNameConfig() RealNameConfig {

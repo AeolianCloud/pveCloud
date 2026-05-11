@@ -25,6 +25,7 @@ import (
 	siteconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/siteconfig"
 	userprofilehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/userprofile"
 	mysqlcatalog "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/catalog"
+	mysqlfile "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/file"
 	mysqlsystemconfig "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/systemconfig"
 	adminroleusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/adminrole"
 	adminsessionusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/adminsession"
@@ -84,6 +85,7 @@ func NewRouteSets(app *App) RouteSets {
 	webAuthService := webauthusecase.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)
 
 	siteConfigRepository := mysqlsystemconfig.NewRepository(app.DB)
+	fileRepository := mysqlfile.NewRepository(app.DB)
 	productCatalogRepository := mysqlcatalog.NewRepository(app.DB)
 	webRealNameService := webrealnameusecase.NewRealNameService(app.DB, app.Redis)
 
@@ -105,7 +107,7 @@ func NewRouteSets(app *App) RouteSets {
 			AuthMiddleware: adminmiddleware.AdminAuth(adminAuthService),
 		},
 		Web: WebRouteSet{
-			SiteConfig:     siteconfighttp.NewHandler(siteconfigusecase.NewSiteConfigService(siteConfigRepository)),
+			SiteConfig:     siteconfighttp.NewHandler(siteconfigusecase.NewSiteConfigService(siteConfigRepository, fileRepository, app.Config.Storage)),
 			Auth:           webauthhttp.NewUserAuthHandler(webAuthService),
 			UserProfile:    userprofilehttp.NewUserProfileHandler(userprofileusecase.NewUserProfileService(app.DB)),
 			ProductCatalog: cataloghttp.NewHandler(catalogusecase.NewServerCatalogService(productCatalogRepository)),
