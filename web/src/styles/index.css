@@ -6,10 +6,37 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: #111111;
   background-color: #ffffff;
+  scrollbar-color: #111111 transparent;
 }
 
 a {
   text-decoration: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #111111 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #111111;
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #262626;
 }
 
 a,
@@ -300,46 +327,68 @@ textarea {
   animation-delay: 260ms;
 }
 
-.home-animated section:nth-of-type(n + 2) > div,
-.home-animated section:nth-of-type(n + 2) .surface-pop,
-.home-animated section:nth-of-type(n + 2) .soft-lift,
-.home-animated section:nth-of-type(n + 2) .interactive-card {
-  animation: soft-fade-rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+.home-scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 900ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
 }
 
-.home-animated section:nth-of-type(2) > div:first-child {
+.home-scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-scroll-reveal > div,
+.home-scroll-reveal .surface-pop,
+.home-scroll-reveal .soft-lift,
+.home-scroll-reveal .interactive-card {
+  animation-play-state: paused;
+}
+
+.home-scroll-reveal.is-visible > div,
+.home-scroll-reveal.is-visible .surface-pop,
+.home-scroll-reveal.is-visible .soft-lift,
+.home-scroll-reveal.is-visible .interactive-card {
+  animation: soft-fade-rise 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-play-state: running;
+}
+
+.home-scroll-reveal:nth-of-type(2) > div:first-child {
   animation-delay: 120ms;
 }
 
-.home-animated section:nth-of-type(2) .interactive-card:nth-child(1) {
+.home-scroll-reveal:nth-of-type(2) .interactive-card:nth-child(1) {
   animation-delay: 220ms;
 }
 
-.home-animated section:nth-of-type(2) .interactive-card:nth-child(2) {
+.home-scroll-reveal:nth-of-type(2) .interactive-card:nth-child(2) {
   animation-delay: 300ms;
 }
 
-.home-animated section:nth-of-type(2) .interactive-card:nth-child(3) {
+.home-scroll-reveal:nth-of-type(2) .interactive-card:nth-child(3) {
   animation-delay: 380ms;
 }
 
-.home-animated section:nth-of-type(3) .soft-lift:nth-child(1) {
+.home-scroll-reveal:nth-of-type(3) .soft-lift:nth-child(1) {
   animation-delay: 140ms;
 }
 
-.home-animated section:nth-of-type(3) .soft-lift:nth-child(2) {
+.home-scroll-reveal:nth-of-type(3) .soft-lift:nth-child(2) {
   animation-delay: 220ms;
 }
 
-.home-animated section:nth-of-type(3) .soft-lift:nth-child(3) {
+.home-scroll-reveal:nth-of-type(3) .soft-lift:nth-child(3) {
   animation-delay: 300ms;
 }
 
-.home-animated section:nth-of-type(3) .soft-lift:nth-child(4) {
+.home-scroll-reveal:nth-of-type(3) .soft-lift:nth-child(4) {
   animation-delay: 380ms;
 }
 
-.home-animated section:nth-of-type(4) .surface-pop {
+.home-scroll-reveal:nth-of-type(4) .surface-pop {
   animation-delay: 180ms;
 }
 
@@ -500,8 +549,19 @@ textarea {
   .meter-bar,
   .page-reveal,
   .surface-pop,
+  .home-scroll-reveal,
+  .home-scroll-reveal > div,
+  .home-scroll-reveal .surface-pop,
+  .home-scroll-reveal .soft-lift,
+  .home-scroll-reveal .interactive-card,
   .stagger-reveal > *,
   .skeleton-line {
     animation: none !important;
+    transition: none !important;
+  }
+
+  .home-scroll-reveal {
+    opacity: 1;
+    transform: none;
   }
 }
