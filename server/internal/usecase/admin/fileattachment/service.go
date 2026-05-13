@@ -168,7 +168,7 @@ func (s *FileAttachmentService) Upload(ctx context.Context, operatorID uint64, f
 		StoragePath:   storagePath,
 		StorageDriver: "local",
 		Checksum:      checksumHex,
-		UploaderID:    operatorID,
+		UploaderID:    &operatorID,
 		Status:        "active",
 	}
 
@@ -247,7 +247,9 @@ func (s *FileAttachmentService) List(ctx context.Context, query admindto.FileLis
 	// 批量查询上传者信息
 	uploaderIDs := make([]uint64, 0, len(attachments))
 	for _, a := range attachments {
-		uploaderIDs = append(uploaderIDs, a.UploaderID)
+		if a.UploaderID != nil {
+			uploaderIDs = append(uploaderIDs, *a.UploaderID)
+		}
 	}
 	uploaderMap, err := s.uploaderSummaryByIDs(ctx, uploaderIDs)
 	if err != nil {
@@ -263,7 +265,7 @@ func (s *FileAttachmentService) List(ctx context.Context, query admindto.FileLis
 			Extension:    a.Extension,
 			Size:         a.Size,
 			URL:          fmt.Sprintf("/admin-api/files/%d", a.ID),
-			Uploader:     uploaderMap[a.UploaderID],
+			Uploader:     uploaderSummary(uploaderMap, a.UploaderID),
 			CreatedAt:    a.CreatedAt,
 		}
 		items = append(items, item)
@@ -292,7 +294,11 @@ func (s *FileAttachmentService) detailResponse(ctx context.Context, id uint64) (
 		return admindto.FileDetailResponse{}, apperrors.ErrNotFound.WithMessage("文件不存在")
 	}
 
-	uploaderMap, err := s.uploaderSummaryByIDs(ctx, []uint64{attachment.UploaderID})
+	var uploaderIDs []uint64
+	if attachment.UploaderID != nil {
+		uploaderIDs = append(uploaderIDs, *attachment.UploaderID)
+	}
+	uploaderMap, err := s.uploaderSummaryByIDs(ctx, uploaderIDs)
 	if err != nil {
 		return admindto.FileDetailResponse{}, err
 	}
@@ -310,7 +316,7 @@ func (s *FileAttachmentService) detailResponse(ctx context.Context, id uint64) (
 			Extension:    attachment.Extension,
 			Size:         attachment.Size,
 			URL:          fmt.Sprintf("/admin-api/files/%d", attachment.ID),
-			Uploader:     uploaderMap[attachment.UploaderID],
+			Uploader:     uploaderSummary(uploaderMap, attachment.UploaderID),
 			CreatedAt:    attachment.CreatedAt,
 		},
 		StorageDriver:  attachment.StorageDriver,
@@ -320,6 +326,13 @@ func (s *FileAttachmentService) detailResponse(ctx context.Context, id uint64) (
 		DownloadURL:    fmt.Sprintf("/admin-api/files/%d/download", attachment.ID),
 		CanDelete:      canDelete,
 	}, nil
+}
+
+func uploaderSummary(items map[uint64]*admindto.FileUploaderSummary, id *uint64) *admindto.FileUploaderSummary {
+	if id == nil {
+		return nil
+	}
+	return items[*id]
 }
 
 func (s *FileAttachmentService) DownloadPath(ctx context.Context, id uint64) (string, string, string, error) {

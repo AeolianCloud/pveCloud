@@ -15,7 +15,7 @@ type FileAttachment struct {
 	StoragePath    string    `gorm:"column:storage_path"`
 	StorageDriver  string    `gorm:"column:storage_driver"`
 	Checksum       string    `gorm:"column:checksum"`
-	UploaderID     uint64    `gorm:"column:uploader_id"`
+	UploaderID     *uint64   `gorm:"column:uploader_id"`
 	UploaderUserID *uint64   `gorm:"column:uploader_user_id"`
 	Status         string    `gorm:"column:status"`
 	CreatedAt      time.Time `gorm:"column:created_at"`

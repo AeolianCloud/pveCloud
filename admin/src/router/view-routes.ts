@@ -119,4 +119,15 @@ export const viewRoutes: RouteRecordRaw[] = [
       permission: ['page.orders'],
     },
   },
+  {
+    path: ADMIN_ROUTE_PATH.tickets,
+    name: ADMIN_ROUTE_NAME.tickets,
+    component: () => import('../views/tickets/index.vue'),
+    meta: {
+      title: '工单管理',
+      icon: 'Chatbubbles',
+      requiresAuth: true,
+      permission: ['page.tickets'],
+    },
+  },
 ]

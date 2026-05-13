@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AnalyticsOutline,
+  ChatbubblesOutline,
   CompassOutline,
   CubeOutline,
   DocumentTextOutline,
@@ -35,6 +36,7 @@ const iconMap: Record<string, any> = {
   UserFilled: PersonOutline,
   Users: PeopleOutline,
   Checked: ShieldCheckmarkOutline,
+  Chatbubbles: ChatbubblesOutline,
   Tickets: ReceiptOutline,
   Document: DocumentTextOutline,
 }

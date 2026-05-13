@@ -49,7 +49,7 @@ user_sessions
 user_password_reset_tokens
 ```
 
-`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名和订单 MVP，不开放钱包、支付、实例、工单或其它业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单 MVP 和工单 MVP，不开放钱包、支付、实例或其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
 
@@ -70,12 +70,12 @@ user_password_reset_tokens
 file_attachments
 ```
 
-`file_attachments` 用于存储管理端上传的图片和附件元信息。
+`file_attachments` 用于存储管理端和用户端上传的图片和附件元信息。
 文件物理存储在本地磁盘，数据库只记录元信息和关联关系。
 状态使用字符串，不使用数据库 enum。
 数据库中的 `storage_path` 只保存相对路径，格式为 `{YYYY}/{MM}/{DD}/{uuid}.{ext}`，不得保存本地存储根目录。
 存储文件名强制使用随机 UUID，禁止用户控制存储路径；原始文件名只用于展示，入库前必须去除路径片段和空字节。
-上传文件记录与上传审计日志必须在同一事务中写入；事务失败时应清理已落盘的物理文件。
+管理端上传文件记录与上传审计日志必须在同一事务中写入；事务失败时应清理已落盘的物理文件。用户端工单附件上传不写入后台审计，但必须写入上传者用户 ID，并与工单消息附件引用同事务建立业务引用。
 删除文件采用软删除，状态变更与删除审计日志必须在同一事务中写入。
 
 ### 文件引用关系
@@ -85,7 +85,7 @@ file_attachment_references
 ```
 
 `file_attachment_references` 用于记录文件被哪些业务对象引用。
-当前阶段先为公告、工单和页面配置预留引用能力，具体业务表接入时再补充映射字段或关联写入逻辑。
+工单附件必须写入 `ref_type=ticket_message` 的引用记录，用于阻止仍被工单引用的附件被删除。
 删除文件前必须先检查引用关系；存在引用时不允许删除。
 
 ### 用户实名
@@ -184,6 +184,32 @@ orders
 
 订单状态变更必须检查当前状态并在事务中写入。管理端取消、关闭和后台备注变更必须与普通后台审计写入保持同事务。
 
+### 工单 MVP
+
+```text
+tickets
+ticket_messages
+ticket_message_attachments
+```
+
+`tickets` 用于保存用户端提交的工单主记录。工单只表示用户与后台之间的沟通事项，不代表支付、实例交付、PVE 操作、SLA 或自动处理承诺。
+
+工单状态使用字符串字段，不使用数据库 enum。第一阶段只允许以下状态：
+
+- `waiting_admin`：等待后台处理。创建工单或用户回复后进入该状态。
+- `waiting_user`：等待用户反馈。管理员回复后进入该状态。
+- `closed`：工单已关闭。用户或管理员均可关闭未关闭工单。
+
+工单分类固定为 `account`、`order`、`product`、`technical`、`billing`、`other`。工单优先级固定为 `low`、`normal`、`high`、`urgent`，默认 `normal`。
+
+工单对外展示使用 `ticket_no`，不直接暴露自增 ID。工单可选关联 `orders.id`，并保存 `order_no` 快照；用户端关联订单时必须校验订单属于当前登录用户。
+
+`ticket_messages` 保存工单消息。消息发送方使用 `sender_type=user|admin` 和对应发送者 ID 表示。关闭后的工单不得继续写入新消息。
+
+`ticket_message_attachments` 保存工单消息与 `file_attachments` 的关联。单条消息最多 5 个附件。工单附件同时必须写入 `file_attachment_references`，`ref_type=ticket_message`，引用 ID 使用消息 ID。
+
+工单创建、回复、附件关联和工单主表最近消息时间更新必须在本地数据库事务中完成。管理端回复和关闭工单必须与普通后台审计写入保持同事务。
+
 ## 管理端关键规则
 
 - 管理端专用表使用 `admin_` 前缀
@@ -224,7 +250,7 @@ orders
 
 ## 当前阶段说明
 
-当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名和服务器产品目录阶段。
+当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单和工单阶段。
 数据库契约保留以下管理域：
 
 - 认证
@@ -236,13 +262,13 @@ orders
 - 用户实名
 - 服务器产品目录
 - 订单 MVP
+- 工单 MVP
 
 以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
 - 支付与钱包
 - 实例
 - 异步任务
-- 工单
 
 ## 关键唯一约束示例
 
@@ -267,6 +293,8 @@ orders
 - `server_os_templates.code`
 - `orders.order_no`
 - `orders(user_id, client_token)`，只约束有效幂等键
+- `tickets.ticket_no`
+- `ticket_message_attachments(message_id, file_id)`
 
 ## 管理端权限新增口径
 
@@ -308,9 +336,16 @@ Web 用户管理需要新增以下管理端权限目录：
 - `order:update`
 - `order:cancel`
 
+工单管理需要新增以下管理端权限目录：
+
+- `page.tickets`
+- `ticket:*`
+- `ticket:reply`
+- `ticket:close`
+
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前阶段不以 PVE、支付、实例、工单或异步任务为现行数据库契约
+- 当前阶段不以 PVE、支付、实例或异步任务为现行数据库契约
 - 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

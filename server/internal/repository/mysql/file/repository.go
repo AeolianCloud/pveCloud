@@ -46,6 +46,10 @@ func (r *Repository) CreateAttachment(ctx context.Context, db *gorm.DB, attachme
 	return r.queryDB(db).WithContext(ctx).Create(attachment).Error
 }
 
+func (r *Repository) CreateReference(ctx context.Context, db *gorm.DB, reference *FileAttachmentReference) error {
+	return r.queryDB(db).WithContext(ctx).Create(reference).Error
+}
+
 func (r *Repository) FindAttachmentByID(ctx context.Context, id uint64) (FileAttachment, error) {
 	var attachment FileAttachment
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&attachment).Error

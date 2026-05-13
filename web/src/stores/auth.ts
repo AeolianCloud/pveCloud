@@ -38,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<SessionSummary | null>(readJson<SessionSummary>(SESSION_KEY))
   const tokenExpiresAt = ref<number>(Number(localStorage.getItem(TOKEN_EXPIRES_AT_KEY) || 0))
   const restoring = ref(false)
+  let restorePromise: Promise<boolean> | null = null
 
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
 
@@ -120,13 +121,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const restoreAuth = async () => {
+  const runRestoreAuth = async () => {
     if (!token.value) {
       clearAuth()
       return false
-    }
-    if (restoring.value) {
-      return isAuthenticated.value
     }
     restoring.value = true
     try {
@@ -145,6 +143,16 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       restoring.value = false
     }
+  }
+
+  const restoreAuth = async () => {
+    if (restorePromise) {
+      return restorePromise
+    }
+    restorePromise = runRestoreAuth().finally(() => {
+      restorePromise = null
+    })
+    return restorePromise
   }
 
   const logout = async () => {

@@ -41,6 +41,7 @@ const statusText = computed(() => authStore.user?.status === 'active' ? '正常'
             <RouterLink to="/user/profile" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">账号资料</RouterLink>
             <RouterLink to="/user/real-name" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">实名认证</RouterLink>
             <RouterLink to="/user/orders" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">订单管理</RouterLink>
+            <RouterLink to="/user/tickets" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">工单支持</RouterLink>
             <div class="block rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-black text-neutral-400">实例管理（即将开放）</div>
           </div>
         </section>
@@ -51,6 +52,7 @@ const statusText = computed(() => authStore.user?.status === 'active' ? '正常'
             <div><dt class="text-neutral-500">最近登录</dt><dd class="mt-1 font-black text-neutral-950">2024-01-01 12:00:00</dd></div>
             <div><dt class="text-neutral-500">注册时间</dt><dd class="mt-1 font-black text-neutral-950">2024-01-01</dd></div>
             <div><dt class="text-neutral-500">订单入口</dt><dd class="mt-1"><RouterLink to="/user/orders" class="font-black text-neutral-950 underline">查看我的订单</RouterLink></dd></div>
+            <div><dt class="text-neutral-500">支持入口</dt><dd class="mt-1"><RouterLink to="/user/tickets" class="font-black text-neutral-950 underline">查看我的工单</RouterLink></dd></div>
           </dl>
         </section>
       </div>

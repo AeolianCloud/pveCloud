@@ -16,6 +16,7 @@ import (
 	adminrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/realname"
 	"github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/system"
 	systemconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/systemconfig"
+	admintickethttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/ticket"
 	webuserhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/webuser"
 	webauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/auth"
 	cataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/catalog"
@@ -23,6 +24,7 @@ import (
 	weborderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/order"
 	webrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/realname"
 	siteconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/siteconfig"
+	webtickethttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/ticket"
 	userprofilehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/userprofile"
 	mysqlcatalog "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/catalog"
 	mysqlfile "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/file"
@@ -38,12 +40,14 @@ import (
 	productcatalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/productcatalog"
 	adminrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/realname"
 	systemconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/systemconfig"
+	adminticketusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/ticket"
 	webuserusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/webuser"
 	webauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/auth"
 	catalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/catalog"
 	weborderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/order"
 	webrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/realname"
 	siteconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/siteconfig"
+	webticketusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/ticket"
 	userprofileusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/userprofile"
 )
 
@@ -60,6 +64,7 @@ type AdminRouteSet struct {
 	ProductCatalog *productcataloghttp.ProductCatalogHandler
 	RealName       *adminrealnamehttp.RealNameHandler
 	Order          *adminorderhttp.Handler
+	Ticket         *admintickethttp.Handler
 	Audit          *audithttp.AdminAuditHandler
 	AuthMiddleware gin.HandlerFunc
 }
@@ -71,6 +76,7 @@ type WebRouteSet struct {
 	ProductCatalog *cataloghttp.Handler
 	RealName       *webrealnamehttp.RealNameHandler
 	Order          *weborderhttp.Handler
+	Ticket         *webtickethttp.Handler
 	AuthMiddleware gin.HandlerFunc
 }
 
@@ -103,6 +109,7 @@ func NewRouteSets(app *App) RouteSets {
 			ProductCatalog: productcataloghttp.NewProductCatalogHandler(productcatalogusecase.NewProductCatalogService(app.DB, auditService)),
 			RealName:       adminrealnamehttp.NewRealNameHandler(adminrealnameusecase.NewRealNameService(app.DB, app.Redis, auditService)),
 			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService)),
+			Ticket:         admintickethttp.NewHandler(adminticketusecase.NewService(app.DB, auditService, app.Config.Storage)),
 			Audit:          audithttp.NewAdminAuditHandler(auditService, adminmiddleware.CurrentAdminPermissionCodes),
 			AuthMiddleware: adminmiddleware.AdminAuth(adminAuthService),
 		},
@@ -113,6 +120,7 @@ func NewRouteSets(app *App) RouteSets {
 			ProductCatalog: cataloghttp.NewHandler(catalogusecase.NewServerCatalogService(productCatalogRepository)),
 			RealName:       webrealnamehttp.NewRealNameHandler(webRealNameService),
 			Order:          weborderhttp.NewHandler(weborderusecase.NewService(app.DB, webRealNameService)),
+			Ticket:         webtickethttp.NewHandler(webticketusecase.NewService(app.DB, app.Config.Storage)),
 			AuthMiddleware: webmiddleware.UserAuth(webAuthService),
 		},
 	}

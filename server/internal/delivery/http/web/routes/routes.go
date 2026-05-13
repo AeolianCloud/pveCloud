@@ -41,4 +41,10 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *api.App) {
 	protected.GET("/orders", routes.Order.List)
 	protected.GET("/orders/:order_no", routes.Order.Detail)
 	protected.POST("/orders/:order_no/cancel", routes.Order.Cancel)
+	protected.GET("/tickets", routes.Ticket.List)
+	protected.POST("/tickets", routes.Ticket.Create)
+	protected.GET("/tickets/:ticket_no", routes.Ticket.Detail)
+	protected.POST("/tickets/:ticket_no/messages", routes.Ticket.Reply)
+	protected.POST("/tickets/:ticket_no/close", routes.Ticket.Close)
+	protected.GET("/tickets/:ticket_no/attachments/:file_id/download", routes.Ticket.Download)
 }

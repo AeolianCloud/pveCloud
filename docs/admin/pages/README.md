@@ -14,6 +14,7 @@
 - `Real Name Management`：`docs/admin/pages/real-name-management.md`
 - `Product Management`：`docs/admin/pages/product-management.md`
 - `Order Management`：`docs/admin/pages/order-management.md`
+- `Ticket Management`：`docs/admin/pages/ticket-management.md`
 - `403`：`docs/admin/pages/403.md`
 
 ## 当前未开放页面
@@ -22,8 +23,7 @@
 
 - 支付
 - 实例
-- 工单
-- 用户端业务流
+- 其它用户端业务流
 
 重新开放上述页面前，必须先更新：
 

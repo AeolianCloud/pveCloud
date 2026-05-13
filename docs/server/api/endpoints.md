@@ -947,6 +947,135 @@
 - 作用：取消当前用户自己的 `pending` 订单
 - 请求字段：`reason` 可选，最多 500 字
 
+## 工单 MVP
+
+工单 MVP 只提供用户与后台之间的文字和附件沟通能力，不承诺支付、实例交付、PVE 操作、SLA、实时推送、邮件或站内信通知。
+
+### 用户端工单接口
+
+#### `GET /api/tickets`
+
+- 鉴权：用户端 Bearer Token
+- 作用：分页查询当前用户自己的工单列表
+- 查询参数支持：`page`、`per_page`、`status`、`category`、`priority`、`order_no`
+- 列表项包含工单编号、标题、分类、优先级、状态、关联订单号、最近消息时间和创建时间
+- 约束：只能返回当前登录用户自己的工单
+
+#### `POST /api/tickets`
+
+- 鉴权：用户端 Bearer Token
+- 请求格式：`multipart/form-data`
+- 作用：创建工单
+- 请求字段：`title`、`category`、`priority`、`content`、`order_no`、`attachments`
+- `category` 允许：`account`、`order`、`product`、`technical`、`billing`、`other`
+- `priority` 允许：`low`、`normal`、`high`、`urgent`；为空时使用 `normal`
+- `order_no` 可选；填写时必须属于当前登录用户
+- `attachments` 可选，单条消息最多 5 个附件
+- 成功数据包含工单详情
+- 约束：
+  - 创建后工单状态为 `waiting_admin`
+  - 创建工单必须同时创建第一条用户消息
+  - 附件必须通过文件大小、扩展名、声明 MIME、Magic Bytes 和危险扩展名校验
+  - 工单、首条消息、附件记录和文件引用必须同事务写入
+  - 不得信任前端传入的用户 ID、订单归属、附件归属或状态
+
+#### `GET /api/tickets/{ticket_no}`
+
+- 鉴权：用户端 Bearer Token
+- 作用：查看当前用户自己的工单详情
+- 成功数据包含工单基础信息、用户可见状态、消息时间线和附件摘要
+- 约束：只能查看当前登录用户自己的工单；他人工单不得通过错误文案泄露存在性
+
+#### `POST /api/tickets/{ticket_no}/messages`
+
+- 鉴权：用户端 Bearer Token
+- 请求格式：`multipart/form-data`
+- 作用：回复当前用户自己的未关闭工单
+- 请求字段：`content`、`attachments`
+- `attachments` 可选，单条消息最多 5 个附件
+- 成功数据包含最新工单详情
+- 约束：
+  - 只能回复当前登录用户自己的工单
+  - `closed` 工单不可回复
+  - 用户回复后工单状态变为 `waiting_admin`
+  - 消息、附件记录、文件引用和工单最近消息时间必须同事务写入
+
+#### `POST /api/tickets/{ticket_no}/close`
+
+- 鉴权：用户端 Bearer Token
+- 作用：关闭当前用户自己的未关闭工单
+- 请求字段：`reason` 可选，最多 500 字
+- 成功数据包含最新工单详情
+- 约束：只能关闭当前登录用户自己的未关闭工单，关闭后不可继续回复
+
+#### `GET /api/tickets/{ticket_no}/attachments/{file_id}/download`
+
+- 鉴权：用户端 Bearer Token
+- 作用：下载或预览当前用户自己工单消息中的附件
+- 约束：
+  - 必须校验工单属于当前登录用户
+  - 必须校验附件属于该工单消息
+  - 下载响应不得暴露物理存储路径
+  - 图片和 PDF 可直接预览，其它允许类型走下载
+  - 文件名进入响应头前必须安全编码
+  - 受保护下载响应不得被共享缓存长期保存
+
+### 管理端工单接口
+
+#### `GET /admin-api/tickets`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.tickets`
+- 作用：分页查询工单列表
+- 查询参数支持：`page`、`per_page`、`status`、`category`、`priority`、`ticket_no`、`order_no`、`user_keyword`、`date_from`、`date_to`
+- 列表项包含工单编号、用户摘要、标题、分类、优先级、状态、关联订单号、最近消息时间和创建时间
+
+#### `GET /admin-api/tickets/{ticket_no}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.tickets`
+- 作用：查看工单详情
+- 成功数据包含工单基础信息、用户摘要、可选订单号、消息时间线和附件摘要
+
+#### `POST /admin-api/tickets/{ticket_no}/messages`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`ticket:reply` 或 `ticket:*`
+- 请求格式：`multipart/form-data`
+- 作用：管理员回复未关闭工单
+- 请求字段：`content`、`attachments`
+- `attachments` 可选，单条消息最多 5 个附件
+- 成功数据包含最新工单详情
+- 约束：
+  - `closed` 工单不可回复
+  - 管理员回复后工单状态变为 `waiting_user`
+  - 消息、附件记录、文件引用、工单最近消息时间和后台审计必须同事务写入
+  - 审计动作使用 `ticket.reply`
+
+#### `POST /admin-api/tickets/{ticket_no}/close`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`ticket:close` 或 `ticket:*`
+- 作用：管理员关闭未关闭工单
+- 请求字段：`reason` 可选，最多 500 字
+- 成功数据包含最新工单详情
+- 约束：
+  - `closed` 工单不可重复关闭
+  - 关闭工单和后台审计必须同事务写入
+  - 审计动作使用 `ticket.close`
+
+#### `GET /admin-api/tickets/{ticket_no}/attachments/{file_id}/download`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.tickets`
+- 作用：下载或预览工单消息附件
+- 约束：
+  - 必须校验附件属于该工单消息
+  - 下载响应不得暴露物理存储路径
+  - 图片和 PDF 可直接预览，其它允许类型走下载
+  - 文件名进入响应头前必须安全编码
+  - 受保护下载响应不得被共享缓存长期保存
+
 ## 暂未开放的管理域
 
 密码、token、secret、验证码和敏感配置明文不得出现在任何接口响应中。
@@ -955,8 +1084,7 @@
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户账号自助、用户实名、服务器产品目录和订单 MVP 接口除外）
+- 用户端业务 API（公开站点配置、用户账号自助、用户实名、服务器产品目录、订单 MVP 和工单 MVP 接口除外）
 - 支付
 - 实例
-- 工单
 - 异步任务

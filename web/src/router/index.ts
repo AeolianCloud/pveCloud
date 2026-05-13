@@ -13,7 +13,7 @@ router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth) {
-    const restored = authStore.isAuthenticated || await authStore.restoreAuth()
+    const restored = await authStore.restoreAuth()
     if (!restored) {
       return {
         path: '/login',

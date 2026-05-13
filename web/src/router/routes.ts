@@ -95,6 +95,33 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/user/tickets',
+    name: 'tickets',
+    component: () => import('../views/tickets/index.vue'),
+    meta: {
+      title: '我的工单',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/tickets/new',
+    name: 'ticket-create',
+    component: () => import('../views/tickets/create.vue'),
+    meta: {
+      title: '提交工单',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/tickets/:ticketNo',
+    name: 'ticket-detail',
+    component: () => import('../views/tickets/detail.vue'),
+    meta: {
+      title: '工单详情',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('../views/not-found/index.vue'),
