@@ -80,6 +80,172 @@ func (h *Handler) Close(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *Handler) AssigneeCandidates(c *gin.Context) {
+	var query admindto.AssigneeCandidateQuery
+	if !bindQuery(c, &query) {
+		return
+	}
+	result, err := h.service.AssigneeCandidates(c.Request.Context(), query)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) Assign(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketAssignRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.Assign(c.Request.Context(), operatorID, c.Param("ticket_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) AddCollaborator(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketCollaboratorRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.AddCollaborator(c.Request.Context(), operatorID, c.Param("ticket_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) RemoveCollaborator(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	adminID, ok := pathUint64(c, "admin_id")
+	if !ok {
+		return
+	}
+	result, err := h.service.RemoveCollaborator(c.Request.Context(), operatorID, c.Param("ticket_no"), adminID)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) AddInternalNote(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketInternalNoteRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.AddInternalNote(c.Request.Context(), operatorID, c.Param("ticket_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) UpgradePriority(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketPriorityRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.UpgradePriority(c.Request.Context(), operatorID, c.Param("ticket_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) ReplaceTags(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketTagsRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.ReplaceTags(c.Request.Context(), operatorID, c.Param("ticket_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) Tags(c *gin.Context) {
+	var query admindto.TicketTagListQuery
+	if !bindQuery(c, &query) {
+		return
+	}
+	result, err := h.service.Tags(c.Request.Context(), query)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) CreateTag(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.TicketTagCreateRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.CreateTag(c.Request.Context(), operatorID, req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *Handler) UpdateTag(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	id, ok := pathUint64(c, "id")
+	if !ok {
+		return
+	}
+	var req admindto.TicketTagUpdateRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.UpdateTag(c.Request.Context(), operatorID, id, req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *Handler) Download(c *gin.Context) {
 	fileID, ok := pathUint64(c, "file_id")
 	if !ok {

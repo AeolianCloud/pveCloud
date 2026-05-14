@@ -90,7 +90,8 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.TicketCr
 	defer cleanupUploadsOnError(&err, uploads)
 
 	now := time.Now()
-	ticket := mysqlticket.Ticket{TicketNo: fmt.Sprintf("TIC-%d", now.UnixNano()), UserID: userID, OrderID: orderID, OrderNo: orderNo, Category: category, Priority: priority, Title: title, Status: domainticket.StatusWaitingAdmin, LastMessageAt: now, LastUserMessageAt: &now}
+	firstDue, resolutionDue := slaDeadlines(now, priority)
+	ticket := mysqlticket.Ticket{TicketNo: fmt.Sprintf("TIC-%d", now.UnixNano()), UserID: userID, OrderID: orderID, OrderNo: orderNo, Category: category, Priority: priority, Title: title, Status: domainticket.StatusWaitingAdmin, LastMessageAt: now, LastUserMessageAt: &now, FirstResponseDueAt: &firstDue, ResolutionDueAt: &resolutionDue}
 	err = mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
 		if err := s.tickets.CreateTicket(ctx, tx, &ticket); err != nil {
 			return err
@@ -116,9 +117,13 @@ func (s *Service) List(ctx context.Context, userID uint64, query webdto.TicketLi
 	if err != nil {
 		return webdto.PageResponse[webdto.TicketItem]{}, err
 	}
+	tagsByTicket, err := s.tagsByRows(ctx, rows)
+	if err != nil {
+		return webdto.PageResponse[webdto.TicketItem]{}, err
+	}
 	items := make([]webdto.TicketItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, webTicketItem(row.Ticket))
+		items = append(items, webTicketItem(row.Ticket, tagsByTicket[row.ID]))
 	}
 	return pageResponse(items, total, page, perPage), nil
 }
@@ -191,7 +196,7 @@ func (s *Service) Close(ctx context.Context, userID uint64, ticketNo string, req
 		}
 		now := time.Now()
 		sender := domainticket.SenderUser
-		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, map[string]any{"status": domainticket.StatusClosed, "closed_by_type": sender, "closed_by_user_id": userID, "closed_at": now, "close_reason": textutil.NormalizeOptionalString(req.Reason)}); err != nil {
+		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, map[string]any{"status": domainticket.StatusClosed, "closed_by_type": sender, "closed_by_user_id": userID, "closed_at": now, "resolved_at": now, "close_reason": textutil.NormalizeOptionalString(req.Reason)}); err != nil {
 			return err
 		}
 		savedTicketNo = current.TicketNo
@@ -242,7 +247,11 @@ func (s *Service) detailFromRow(ctx context.Context, row mysqlticket.TicketRow) 
 	for _, item := range attachments {
 		byMessage[item.MessageID] = append(byMessage[item.MessageID], webdto.TicketAttachment{FileID: item.FileID, OriginalName: item.OriginalName, MimeType: item.MimeType, Extension: item.Extension, Size: item.Size, DownloadURL: fmt.Sprintf("/api/tickets/%s/attachments/%d/download", row.TicketNo, item.FileID)})
 	}
-	result := webdto.TicketDetail{TicketItem: webTicketItem(row.Ticket), CloseReason: row.CloseReason}
+	tagsByTicket, err := s.tickets.TagsByTicketIDs(ctx, []uint64{row.ID}, true)
+	if err != nil {
+		return webdto.TicketDetail{}, err
+	}
+	result := webdto.TicketDetail{TicketItem: webTicketItem(row.Ticket, tagsByTicket[row.ID]), CloseReason: row.CloseReason}
 	for _, message := range messages {
 		result.Messages = append(result.Messages, webdto.TicketMessage{ID: message.ID, SenderType: message.SenderType, SenderName: senderName(message), Content: message.Content, Attachments: byMessage[message.ID], CreatedAt: message.CreatedAt})
 	}
@@ -495,8 +504,37 @@ func generateUUID() (string, error) {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
-func webTicketItem(ticket mysqlticket.Ticket) webdto.TicketItem {
-	return webdto.TicketItem{TicketNo: ticket.TicketNo, Title: ticket.Title, Category: ticket.Category, Priority: ticket.Priority, Status: ticket.Status, OrderNo: ticket.OrderNo, LastMessageAt: ticket.LastMessageAt, CreatedAt: ticket.CreatedAt, ClosedAt: ticket.ClosedAt}
+func webTicketItem(ticket mysqlticket.Ticket, tags []mysqlticket.TicketTag) webdto.TicketItem {
+	return webdto.TicketItem{TicketNo: ticket.TicketNo, Title: ticket.Title, Category: ticket.Category, Priority: ticket.Priority, Status: ticket.Status, Tags: webTagItems(tags), OrderNo: ticket.OrderNo, LastMessageAt: ticket.LastMessageAt, CreatedAt: ticket.CreatedAt, ClosedAt: ticket.ClosedAt}
+}
+
+func webTagItems(tags []mysqlticket.TicketTag) []webdto.TicketTagItem {
+	items := make([]webdto.TicketTagItem, 0, len(tags))
+	for _, tag := range tags {
+		items = append(items, webdto.TicketTagItem{ID: tag.ID, Name: tag.Name, Color: tag.Color, Visibility: tag.Visibility})
+	}
+	return items
+}
+
+func (s *Service) tagsByRows(ctx context.Context, rows []mysqlticket.TicketRow) (map[uint64][]mysqlticket.TicketTag, error) {
+	ids := make([]uint64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return s.tickets.TagsByTicketIDs(ctx, ids, true)
+}
+
+func slaDeadlines(createdAt time.Time, priority string) (time.Time, time.Time) {
+	switch priority {
+	case domainticket.PriorityLow:
+		return createdAt.Add(48 * time.Hour), createdAt.Add(7 * 24 * time.Hour)
+	case domainticket.PriorityHigh:
+		return createdAt.Add(8 * time.Hour), createdAt.Add(3 * 24 * time.Hour)
+	case domainticket.PriorityUrgent:
+		return createdAt.Add(2 * time.Hour), createdAt.Add(24 * time.Hour)
+	default:
+		return createdAt.Add(24 * time.Hour), createdAt.Add(5 * 24 * time.Hour)
+	}
 }
 
 func senderName(message mysqlticket.MessageRow) string {

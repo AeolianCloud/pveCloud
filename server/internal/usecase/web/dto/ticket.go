@@ -28,15 +28,23 @@ type TicketCloseRequest struct {
 }
 
 type TicketItem struct {
-	TicketNo      string     `json:"ticket_no"`
-	Title         string     `json:"title"`
-	Category      string     `json:"category"`
-	Priority      string     `json:"priority"`
-	Status        string     `json:"status"`
-	OrderNo       *string    `json:"order_no"`
-	LastMessageAt time.Time  `json:"last_message_at"`
-	CreatedAt     time.Time  `json:"created_at"`
-	ClosedAt      *time.Time `json:"closed_at"`
+	TicketNo      string          `json:"ticket_no"`
+	Title         string          `json:"title"`
+	Category      string          `json:"category"`
+	Priority      string          `json:"priority"`
+	Status        string          `json:"status"`
+	Tags          []TicketTagItem `json:"tags"`
+	OrderNo       *string         `json:"order_no"`
+	LastMessageAt time.Time       `json:"last_message_at"`
+	CreatedAt     time.Time       `json:"created_at"`
+	ClosedAt      *time.Time      `json:"closed_at"`
+}
+
+type TicketTagItem struct {
+	ID         uint64  `json:"id"`
+	Name       string  `json:"name"`
+	Color      *string `json:"color"`
+	Visibility string  `json:"visibility"`
 }
 
 type TicketDetail struct {

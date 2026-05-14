@@ -190,9 +190,14 @@ orders
 tickets
 ticket_messages
 ticket_message_attachments
+ticket_tags
+ticket_tag_bindings
+ticket_internal_notes
+ticket_collaborators
+ticket_events
 ```
 
-`tickets` 用于保存用户端提交的工单主记录。工单只表示用户与后台之间的沟通事项，不代表支付、实例交付、PVE 操作、SLA 或自动处理承诺。
+`tickets` 用于保存用户端提交的工单主记录。工单只表示用户与后台之间的沟通事项和后台内部处理协作，不代表支付、实例交付、PVE 操作或自动处理承诺。内部 SLA 仅用于后台处理时限，不作为用户端服务承诺。
 
 工单状态使用字符串字段，不使用数据库 enum。第一阶段只允许以下状态：
 
@@ -202,13 +207,29 @@ ticket_message_attachments
 
 工单分类固定为 `account`、`order`、`product`、`technical`、`billing`、`other`。工单优先级固定为 `low`、`normal`、`high`、`urgent`，默认 `normal`。
 
+内部 SLA 按工单优先级在创建时写入首次响应和解决截止时间。默认规则为：`low` 首响 48 小时、解决 7 天；`normal` 首响 24 小时、解决 5 天；`high` 首响 8 小时、解决 3 天；`urgent` 首响 2 小时、解决 24 小时。管理员首次回复时写入首次响应时间。关闭工单时视为解决并写入解决时间。逾期状态由当前时间和截止/完成时间计算，不依赖后台定时任务。
+
 工单对外展示使用 `ticket_no`，不直接暴露自增 ID。工单可选关联 `orders.id`，并保存 `order_no` 快照；用户端关联订单时必须校验订单属于当前登录用户。
+
+工单当前处理人使用 `assignee_admin_id` 关联 `admin_users.id`。可指派对象只允许 `active` 且具备 `page.tickets`、`ticket:reply` 或 `ticket:*` 的管理员。关闭后的工单不得指派、转派、维护协作者或升级优先级。
 
 `ticket_messages` 保存工单消息。消息发送方使用 `sender_type=user|admin` 和对应发送者 ID 表示。关闭后的工单不得继续写入新消息。
 
 `ticket_message_attachments` 保存工单消息与 `file_attachments` 的关联。单条消息最多 5 个附件。工单附件同时必须写入 `file_attachment_references`，`ref_type=ticket_message`，引用 ID 使用消息 ID。
 
-工单创建、回复、附件关联和工单主表最近消息时间更新必须在本地数据库事务中完成。管理端回复和关闭工单必须与普通后台审计写入保持同事务。
+`ticket_tags` 保存管理端标签字典。标签分 `public` 和 `internal`；公开标签可返回用户端，内部标签只返回管理端。停用标签不可新绑定，但历史绑定仍可展示。
+
+`ticket_tag_bindings` 保存工单与标签的多对多关系。标签绑定变更必须整体替换当前绑定集合，并记录事件和后台审计。
+
+`ticket_internal_notes` 保存管理端内部备注。内部备注只追加，不编辑、不删除，不返回用户端。关闭后的工单仍允许追加内部备注。
+
+`ticket_collaborators` 保存工单协作者。协作者只返回管理端。关闭后的工单不得增删协作者。
+
+`ticket_events` 保存工单内部操作历史，记录指派、转派、协作者变更、内部备注、优先级升级、标签绑定、回复和关闭等后台处理事件。
+
+优先级升级只能从低紧急度升到更高紧急度，必须填写原因，不支持降级。升级后未完成的 SLA 截止时间只允许提前，不允许延后。
+
+工单创建、回复、附件关联和工单主表最近消息时间更新必须在本地数据库事务中完成。管理端回复、关闭、指派、转派、协作者维护、内部备注、优先级升级、标签绑定和标签字典变更必须与普通后台审计写入保持同事务。
 
 ## 管理端关键规则
 

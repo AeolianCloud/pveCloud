@@ -42,6 +42,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 - 页面模板中不散写 `permissionCodes.includes(...)`。
 - 新页面若需要独立控制，必须先补数据库权限码。
 - 新按钮、标签页或页面内功能块若需要独立显隐，必须先补对应权限码，再挂接 `meta.permission` 或 `v-permission`。
+- 工单管理页面内操作权限包括 `ticket:reply`、`ticket:close`、`ticket:assign`、`ticket:collaborate`、`ticket:note`、`ticket:priority`、`ticket:tag`、`ticket:tag-manage`，均由 `ticket:*` 覆盖。
 
 ## 新增页面流程
 

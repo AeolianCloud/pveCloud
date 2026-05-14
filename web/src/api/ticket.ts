@@ -6,6 +6,13 @@ export type TicketCategory = 'account' | 'order' | 'product' | 'technical' | 'bi
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type TicketSenderType = 'user' | 'admin'
 
+export interface TicketTagItem {
+  id: number
+  name: string
+  color: string | null
+  visibility: 'public'
+}
+
 export interface TicketAttachment {
   file_id: number
   original_name: string
@@ -30,6 +37,7 @@ export interface TicketItem {
   category: TicketCategory
   priority: TicketPriority
   status: TicketStatus
+  tags: TicketTagItem[]
   order_no: string | null
   last_message_at: string
   created_at: string

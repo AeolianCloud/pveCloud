@@ -77,6 +77,10 @@ function formatDateTime(value: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+function tagStyle(color: string | null) {
+  return color ? { color, borderColor: color } : undefined
+}
+
 async function openDetail(ticketNo: string) {
   detailVisible.value = true
   detailLoading.value = true
@@ -274,6 +278,7 @@ onBeforeUnmount(() => {
               <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <span class="truncate text-[11px] font-black uppercase tracking-[0.14em] text-neutral-500">{{ ticket.ticket_no }}</span>
                 <span :class="['shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-black', priorityClass[ticket.priority] || 'border-neutral-200 bg-neutral-50 text-neutral-600']">{{ priorityText[ticket.priority] }}</span>
+                <span v-for="tag in ticket.tags" :key="tag.id" class="shrink-0 rounded-full border border-neutral-300 px-2 py-0.5 text-[11px] font-black text-neutral-700" :style="tagStyle(tag.color)">{{ tag.name }}</span>
               </div>
               <h2 class="mt-2 line-clamp-2 text-base font-black leading-6 text-neutral-950 sm:text-lg">{{ ticket.title }}</h2>
               <div class="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-neutral-500 sm:text-sm">
@@ -315,6 +320,7 @@ onBeforeUnmount(() => {
             <div v-else-if="detail" class="grid gap-5">
               <div class="flex flex-wrap items-center gap-2">
                 <span :class="['inline-flex rounded-full border px-3 py-1 text-xs font-black', statusClass[detail.status] || 'border-neutral-300 text-neutral-700']">{{ statusText[detail.status] }}</span>
+                <span v-for="tag in detail.tags" :key="tag.id" class="inline-flex rounded-full border border-neutral-300 px-3 py-1 text-xs font-black text-neutral-700" :style="tagStyle(tag.color)">{{ tag.name }}</span>
                 <span class="text-xs font-bold text-neutral-500">创建：{{ formatDateTime(detail.created_at) }}</span>
                 <span class="text-xs font-bold text-neutral-500">最近消息：{{ formatDateTime(detail.last_message_at) }}</span>
               </div>

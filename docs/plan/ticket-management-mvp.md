@@ -1,5 +1,7 @@
 # 工单系统 MVP 计划
 
+> 历史说明：本文记录工单 MVP 的初始开放范围。当前工单已进入增强阶段，管理端内部指派、转派、协作者、内部备注、内部 SLA、标签和优先级升级的现行契约以 `docs/admin/pages/ticket-management.md`、`docs/server/api/endpoints.md`、`docs/server/database/design.md` 和 `server/migrations/033_ticket_enhancement.sql` 为准。
+
 ## 目标
 
 开放工单系统 MVP，让用户端可以围绕账号、产品、订单和通用售后问题提交工单，与后台客服或运营人员进行文字和附件沟通。
@@ -108,7 +110,7 @@
 - 关闭权限：`ticket:close`
 - 全权限：`ticket:*`
 
-本阶段不新增 `ticket:assign`。
+历史 MVP 阶段未新增 `ticket:assign`；当前增强阶段已在 owner docs 和 `033_ticket_enhancement.sql` 中开放指派、协作、内部备注、标签和优先级升级权限。
 
 ## 页面契约
 

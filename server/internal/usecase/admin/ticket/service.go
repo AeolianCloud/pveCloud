@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -31,11 +32,18 @@ import (
 )
 
 const (
-	ticketObjectType       = "ticket"
-	ticketReplyAction      = "ticket.reply"
-	ticketCloseAction      = "ticket.close"
-	maxAttachmentsPerReply = 5
-	multipartOverheadBytes = int64(1 << 20)
+	ticketObjectType        = "ticket"
+	ticketReplyAction       = "ticket.reply"
+	ticketCloseAction       = "ticket.close"
+	ticketAssignAction      = "ticket.assign"
+	ticketCollaborateAction = "ticket.collaborate"
+	ticketNoteAction        = "ticket.note"
+	ticketPriorityAction    = "ticket.priority_upgrade"
+	ticketTagAction         = "ticket.tags_replace"
+	ticketTagCreateAction   = "ticket.tag.create"
+	ticketTagUpdateAction   = "ticket.tag.update"
+	maxAttachmentsPerReply  = 5
+	multipartOverheadBytes  = int64(1 << 20)
 )
 
 type AdminAuditService = adminaudit.AdminAuditService
@@ -61,13 +69,17 @@ func (s *Service) List(ctx context.Context, query admindto.TicketListQuery) (adm
 		return admindto.PageResponse[admindto.AdminTicketItem]{}, apperrors.ErrValidation.WithMessage("工单筛选条件不支持")
 	}
 	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
-	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{Status: query.Status, Category: query.Category, Priority: query.Priority, TicketNo: query.TicketNo, OrderNo: query.OrderNo, UserKeyword: query.UserKeyword, DateFrom: query.DateFrom, DateTo: query.DateTo}, perPage, (page-1)*perPage)
+	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{Status: query.Status, Category: query.Category, Priority: query.Priority, TicketNo: query.TicketNo, OrderNo: query.OrderNo, UserKeyword: query.UserKeyword, DateFrom: query.DateFrom, DateTo: query.DateTo, AssigneeAdminID: query.AssigneeAdminID, TagID: query.TagID, SLAStatus: query.SLAStatus}, perPage, (page-1)*perPage)
+	if err != nil {
+		return admindto.PageResponse[admindto.AdminTicketItem]{}, err
+	}
+	tagsByTicket, err := s.tagsByRows(ctx, rows, false)
 	if err != nil {
 		return admindto.PageResponse[admindto.AdminTicketItem]{}, err
 	}
 	items := make([]admindto.AdminTicketItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, adminTicketItem(row))
+		items = append(items, adminTicketItem(row, tagsByTicket[row.ID]))
 	}
 	return adminsupport.PageResponse(items, total, page, perPage), nil
 }
@@ -114,7 +126,13 @@ func (s *Service) Reply(ctx context.Context, operatorID uint64, ticketNo string,
 			return err
 		}
 		updates := map[string]any{"status": domainticket.StatusWaitingUser, "last_message_at": now, "last_admin_message_at": now}
+		if current.FirstRespondedAt == nil {
+			updates["first_responded_at"] = now
+		}
 		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, updates); err != nil {
+			return err
+		}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeAdminReply, &operatorID, nil, map[string]any{"message_id": message.ID, "attachment_count": len(uploads)}, "回复工单"); err != nil {
 			return err
 		}
 		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketReplyAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, BeforeData: auditSnapshot(current), AfterData: map[string]any{"message_id": message.ID, "status": domainticket.StatusWaitingUser, "attachment_count": len(uploads)}, Remark: "回复工单"}); err != nil {
@@ -144,8 +162,11 @@ func (s *Service) Close(ctx context.Context, operatorID uint64, ticketNo string,
 		}
 		now := time.Now()
 		sender := domainticket.SenderAdmin
-		updates := map[string]any{"status": domainticket.StatusClosed, "closed_by_type": sender, "closed_by_admin_id": operatorID, "closed_at": now, "close_reason": textutil.NormalizeOptionalString(req.Reason)}
+		updates := map[string]any{"status": domainticket.StatusClosed, "closed_by_type": sender, "closed_by_admin_id": operatorID, "closed_at": now, "resolved_at": now, "close_reason": textutil.NormalizeOptionalString(req.Reason)}
 		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, updates); err != nil {
+			return err
+		}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeAdminClose, &operatorID, auditSnapshot(current), updates, optionalStringValue(req.Reason)); err != nil {
 			return err
 		}
 		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketCloseAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, BeforeData: auditSnapshot(current), AfterData: updates, Remark: "关闭工单"}); err != nil {
@@ -158,6 +179,308 @@ func (s *Service) Close(ctx context.Context, operatorID uint64, ticketNo string,
 		return admindto.AdminTicketDetail{}, err
 	}
 	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) AssigneeCandidates(ctx context.Context, query admindto.AssigneeCandidateQuery) (admindto.PageResponse[admindto.TicketAdminSummary], error) {
+	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
+	rows, total, err := s.tickets.AssigneeCandidates(ctx, mysqlticket.AssigneeCandidateFilters{Keyword: query.Keyword}, perPage, (page-1)*perPage)
+	if err != nil {
+		return admindto.PageResponse[admindto.TicketAdminSummary]{}, err
+	}
+	items := make([]admindto.TicketAdminSummary, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, adminSummary(row))
+	}
+	return adminsupport.PageResponse(items, total, page, perPage), nil
+}
+
+func (s *Service) Assign(ctx context.Context, operatorID uint64, ticketNo string, req admindto.TicketAssignRequest) (admindto.AdminTicketDetail, error) {
+	if ok, err := s.tickets.IsAssignableAdmin(ctx, req.AssigneeAdminID); err != nil {
+		return admindto.AdminTicketDetail{}, err
+	} else if !ok {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("目标管理员不可指派")
+	}
+	var savedTicketNo string
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.lockOpenTicket(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		eventType := domainticket.EventTypeAssign
+		if current.AssigneeAdminID != nil {
+			eventType = domainticket.EventTypeTransfer
+		}
+		updates := map[string]any{"assignee_admin_id": req.AssigneeAdminID, "assigned_by_admin_id": operatorID, "assigned_at": now}
+		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, updates); err != nil {
+			return err
+		}
+		if err := s.recordEvent(ctx, tx, current.ID, eventType, &operatorID, auditSnapshot(current), updates, optionalStringValue(req.Reason)); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketAssignAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, BeforeData: auditSnapshot(current), AfterData: updates, Remark: "指派工单"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) AddCollaborator(ctx context.Context, operatorID uint64, ticketNo string, req admindto.TicketCollaboratorRequest) (admindto.AdminTicketDetail, error) {
+	if ok, err := s.tickets.IsAssignableAdmin(ctx, req.AdminID); err != nil {
+		return admindto.AdminTicketDetail{}, err
+	} else if !ok {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("目标管理员不可协作")
+	}
+	var savedTicketNo string
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.lockOpenTicket(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		row := mysqlticket.TicketCollaborator{TicketID: current.ID, AdminID: req.AdminID, CreatedByAdminID: &operatorID}
+		if err := s.tickets.CreateCollaborator(ctx, tx, &row); err != nil {
+			return err
+		}
+		after := map[string]any{"admin_id": req.AdminID}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeCollaboratorAdd, &operatorID, nil, after, "添加协作者"); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketCollaborateAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, AfterData: after, Remark: "添加工单协作者"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) RemoveCollaborator(ctx context.Context, operatorID uint64, ticketNo string, adminID uint64) (admindto.AdminTicketDetail, error) {
+	var savedTicketNo string
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.lockOpenTicket(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		if err := s.tickets.DeleteCollaborator(ctx, tx, current.ID, adminID); err != nil {
+			return err
+		}
+		before := map[string]any{"admin_id": adminID}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeCollaboratorRemove, &operatorID, before, nil, "移除协作者"); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketCollaborateAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, BeforeData: before, Remark: "移除工单协作者"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) AddInternalNote(ctx context.Context, operatorID uint64, ticketNo string, req admindto.TicketInternalNoteRequest) (admindto.AdminTicketDetail, error) {
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("内部备注不能为空")
+	}
+	var savedTicketNo string
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.ticketForUpdate(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		note := mysqlticket.TicketInternalNote{TicketID: current.ID, AdminID: operatorID, Content: content}
+		if err := s.tickets.CreateInternalNote(ctx, tx, &note); err != nil {
+			return err
+		}
+		after := map[string]any{"note_id": note.ID}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeInternalNote, &operatorID, nil, after, "追加内部备注"); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketNoteAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, AfterData: after, Remark: "追加工单内部备注"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) UpgradePriority(ctx context.Context, operatorID uint64, ticketNo string, req admindto.TicketPriorityRequest) (admindto.AdminTicketDetail, error) {
+	priority := strings.TrimSpace(req.Priority)
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("升级原因不能为空")
+	}
+	var savedTicketNo string
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.lockOpenTicket(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		if !domainticket.CanUpgradePriority(current.Priority, priority) {
+			return apperrors.ErrConflict.WithMessage("只能升级到更高优先级")
+		}
+		firstDue, resolutionDue := slaDeadlines(current.CreatedAt, priority)
+		updates := map[string]any{"priority": priority}
+		if current.FirstRespondedAt == nil && deadlineEarlier(current.FirstResponseDueAt, firstDue) {
+			updates["first_response_due_at"] = firstDue
+		}
+		if current.ResolvedAt == nil && deadlineEarlier(current.ResolutionDueAt, resolutionDue) {
+			updates["resolution_due_at"] = resolutionDue
+		}
+		if err := s.tickets.UpdateTicket(ctx, tx, current.ID, updates); err != nil {
+			return err
+		}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypePriorityUpgrade, &operatorID, auditSnapshot(current), updates, reason); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketPriorityAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, BeforeData: auditSnapshot(current), AfterData: updates, Remark: "升级工单优先级"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) ReplaceTags(ctx context.Context, operatorID uint64, ticketNo string, req admindto.TicketTagsRequest) (admindto.AdminTicketDetail, error) {
+	tagIDs := uniqueUint64s(req.TagIDs)
+	if len(tagIDs) > 20 {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("工单标签最多 20 个")
+	}
+	tags, err := s.tickets.ActiveTagsByIDs(ctx, tagIDs)
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	if len(tags) != len(tagIDs) {
+		return admindto.AdminTicketDetail{}, apperrors.ErrValidation.WithMessage("存在不可用标签")
+	}
+	var savedTicketNo string
+	err = mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.ticketForUpdate(ctx, tx, ticketNo)
+		if err != nil {
+			return err
+		}
+		if err := s.tickets.ReplaceTagBindings(ctx, tx, current.ID, tagIDs, operatorID); err != nil {
+			return err
+		}
+		after := map[string]any{"tag_ids": tagIDs}
+		if err := s.recordEvent(ctx, tx, current.ID, domainticket.EventTypeTagsReplace, &operatorID, nil, after, "更新工单标签"); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketTagAction, ObjectType: ticketObjectType, ObjectID: current.TicketNo, AfterData: after, Remark: "更新工单标签"}); err != nil {
+			return err
+		}
+		savedTicketNo = current.TicketNo
+		return nil
+	})
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	return s.Detail(ctx, savedTicketNo)
+}
+
+func (s *Service) Tags(ctx context.Context, query admindto.TicketTagListQuery) (admindto.PageResponse[admindto.TicketTagItem], error) {
+	if !domainticket.IsKnownTagVisibilityOrEmpty(query.Visibility) || !domainticket.IsKnownTagStatusOrEmpty(query.Status) {
+		return admindto.PageResponse[admindto.TicketTagItem]{}, apperrors.ErrValidation.WithMessage("标签筛选条件不支持")
+	}
+	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
+	rows, total, err := s.tickets.Tags(ctx, mysqlticket.TagListFilters{Keyword: query.Keyword, Visibility: query.Visibility, Status: query.Status}, perPage, (page-1)*perPage)
+	if err != nil {
+		return admindto.PageResponse[admindto.TicketTagItem]{}, err
+	}
+	items := make([]admindto.TicketTagItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, tagItem(row))
+	}
+	return adminsupport.PageResponse(items, total, page, perPage), nil
+}
+
+func (s *Service) CreateTag(ctx context.Context, operatorID uint64, req admindto.TicketTagCreateRequest) (admindto.TicketTagItem, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return admindto.TicketTagItem{}, apperrors.ErrValidation.WithMessage("标签名称不能为空")
+	}
+	var created mysqlticket.TicketTag
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		if err := s.ensureTagNameUnique(ctx, tx, 0, name); err != nil {
+			return err
+		}
+		created = mysqlticket.TicketTag{Name: name, Color: textutil.NormalizeOptionalString(req.Color), Visibility: req.Visibility, Status: req.Status, SortOrder: req.SortOrder, CreatedByAdminID: &operatorID, UpdatedByAdminID: &operatorID}
+		if err := s.tickets.CreateTag(ctx, tx, &created); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketTagCreateAction, ObjectType: "ticket_tag", ObjectID: textutil.Uint64String(created.ID), AfterData: tagAuditSnapshot(created), Remark: "创建工单标签"})
+	})
+	if err != nil {
+		return admindto.TicketTagItem{}, err
+	}
+	return tagItem(created), nil
+}
+
+func (s *Service) UpdateTag(ctx context.Context, operatorID uint64, id uint64, req admindto.TicketTagUpdateRequest) (admindto.TicketTagItem, error) {
+	var updated mysqlticket.TicketTag
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.tickets.FindTagByID(ctx, tx, id)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.ErrNotFound.WithMessage("标签不存在")
+		}
+		if err != nil {
+			return err
+		}
+		updates := map[string]any{"updated_by_admin_id": operatorID}
+		if req.Name != nil {
+			name := strings.TrimSpace(*req.Name)
+			if name == "" {
+				return apperrors.ErrValidation.WithMessage("标签名称不能为空")
+			}
+			if err := s.ensureTagNameUnique(ctx, tx, id, name); err != nil {
+				return err
+			}
+			updates["name"] = name
+		}
+		if req.Color != nil {
+			updates["color"] = textutil.NormalizeOptionalString(req.Color)
+		}
+		if req.Visibility != nil {
+			updates["visibility"] = strings.TrimSpace(*req.Visibility)
+		}
+		if req.Status != nil {
+			updates["status"] = strings.TrimSpace(*req.Status)
+		}
+		if req.SortOrder != nil {
+			updates["sort_order"] = *req.SortOrder
+		}
+		if err := s.tickets.UpdateTag(ctx, tx, id, updates); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: ticketTagUpdateAction, ObjectType: "ticket_tag", ObjectID: textutil.Uint64String(id), BeforeData: tagAuditSnapshot(current), AfterData: updates, Remark: "更新工单标签"}); err != nil {
+			return err
+		}
+		updated, err = s.tickets.FindTagByID(ctx, tx, id)
+		return err
+	})
+	if err != nil {
+		return admindto.TicketTagItem{}, err
+	}
+	return tagItem(updated), nil
 }
 
 func (s *Service) DownloadPath(ctx context.Context, ticketNo string, fileID uint64) (string, string, string, error) {
@@ -198,11 +521,72 @@ func (s *Service) detailFromRow(ctx context.Context, row mysqlticket.TicketRow) 
 	for _, item := range attachments {
 		byMessage[item.MessageID] = append(byMessage[item.MessageID], admindto.AdminTicketAttachment{FileID: item.FileID, OriginalName: item.OriginalName, MimeType: item.MimeType, Extension: item.Extension, Size: item.Size, DownloadURL: fmt.Sprintf("/admin-api/tickets/%s/attachments/%d/download", row.TicketNo, item.FileID)})
 	}
-	result := admindto.AdminTicketDetail{AdminTicketItem: adminTicketItem(row), CloseReason: row.CloseReason}
+	tagsByTicket, err := s.tickets.TagsByTicketIDs(ctx, []uint64{row.ID}, false)
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	collaborators, err := s.tickets.Collaborators(ctx, row.ID)
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	notes, err := s.tickets.InternalNotes(ctx, row.ID)
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	events, err := s.tickets.Events(ctx, row.ID)
+	if err != nil {
+		return admindto.AdminTicketDetail{}, err
+	}
+	result := admindto.AdminTicketDetail{AdminTicketItem: adminTicketItem(row, tagsByTicket[row.ID]), CloseReason: row.CloseReason, Collaborators: collaboratorItems(collaborators), InternalNotes: noteItems(notes), Events: eventItems(events)}
 	for _, message := range messages {
 		result.Messages = append(result.Messages, admindto.AdminTicketMessage{ID: message.ID, SenderType: message.SenderType, SenderName: senderName(message), Content: message.Content, Attachments: byMessage[message.ID], CreatedAt: message.CreatedAt})
 	}
 	return result, nil
+}
+
+func (s *Service) ticketForUpdate(ctx context.Context, tx *gorm.DB, ticketNo string) (mysqlticket.Ticket, error) {
+	current, err := s.tickets.TicketForUpdate(ctx, tx, strings.TrimSpace(ticketNo))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return mysqlticket.Ticket{}, apperrors.ErrNotFound.WithMessage("工单不存在")
+	}
+	return current, err
+}
+
+func (s *Service) lockOpenTicket(ctx context.Context, tx *gorm.DB, ticketNo string) (mysqlticket.Ticket, error) {
+	current, err := s.ticketForUpdate(ctx, tx, ticketNo)
+	if err != nil {
+		return mysqlticket.Ticket{}, err
+	}
+	if current.Status == domainticket.StatusClosed {
+		return mysqlticket.Ticket{}, apperrors.ErrConflict.WithMessage("当前工单已关闭")
+	}
+	return current, nil
+}
+
+func (s *Service) recordEvent(ctx context.Context, tx *gorm.DB, ticketID uint64, eventType string, actorAdminID *uint64, before any, after any, remark string) error {
+	beforeJSON := jsonString(before)
+	afterJSON := jsonString(after)
+	event := mysqlticket.TicketEvent{TicketID: ticketID, EventType: eventType, ActorAdminID: actorAdminID, BeforeData: beforeJSON, AfterData: afterJSON, Remark: textutil.NormalizeOptionalString(&remark)}
+	return s.tickets.CreateEvent(ctx, tx, &event)
+}
+
+func (s *Service) ensureTagNameUnique(ctx context.Context, tx *gorm.DB, excludeID uint64, name string) error {
+	count, err := s.tickets.CountTagsByName(ctx, tx, excludeID, name)
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return apperrors.ErrConflict.WithMessage("标签名称已存在")
+	}
+	return nil
+}
+
+func (s *Service) tagsByRows(ctx context.Context, rows []mysqlticket.TicketRow, publicOnly bool) (map[uint64][]mysqlticket.TicketTag, error) {
+	ids := make([]uint64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return s.tickets.TagsByTicketIDs(ctx, ids, publicOnly)
 }
 
 func (s *Service) persistUploads(ctx context.Context, tx *gorm.DB, ticket mysqlticket.Ticket, message mysqlticket.TicketMessage, uploads []storedUpload) error {
@@ -417,8 +801,145 @@ func generateUUID() (string, error) {
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
-func adminTicketItem(row mysqlticket.TicketRow) admindto.AdminTicketItem {
-	return admindto.AdminTicketItem{TicketNo: row.TicketNo, User: admindto.TicketUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Title: row.Title, Category: row.Category, Priority: row.Priority, Status: row.Status, OrderNo: row.OrderNo, LastMessageAt: row.LastMessageAt, CreatedAt: row.CreatedAt, ClosedAt: row.ClosedAt}
+func adminTicketItem(row mysqlticket.TicketRow, tags []mysqlticket.TicketTag) admindto.AdminTicketItem {
+	return admindto.AdminTicketItem{TicketNo: row.TicketNo, User: admindto.TicketUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Title: row.Title, Category: row.Category, Priority: row.Priority, Status: row.Status, Assignee: assigneeSummary(row), Tags: tagItems(tags), SLA: slaInfo(row.Ticket), OrderNo: row.OrderNo, LastMessageAt: row.LastMessageAt, CreatedAt: row.CreatedAt, ClosedAt: row.ClosedAt}
+}
+
+func assigneeSummary(row mysqlticket.TicketRow) *admindto.TicketAdminSummary {
+	if row.AssigneeAdminID == nil {
+		return nil
+	}
+	return &admindto.TicketAdminSummary{ID: *row.AssigneeAdminID, Username: stringValue(row.AssigneeUsername), Email: row.AssigneeEmail, DisplayName: stringValue(row.AssigneeDisplayName)}
+}
+
+func adminSummary(row mysqlticket.AdminSummary) admindto.TicketAdminSummary {
+	return admindto.TicketAdminSummary{ID: row.ID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName, Status: row.Status}
+}
+
+func tagItem(tag mysqlticket.TicketTag) admindto.TicketTagItem {
+	return admindto.TicketTagItem{ID: tag.ID, Name: tag.Name, Color: tag.Color, Visibility: tag.Visibility, Status: tag.Status, SortOrder: tag.SortOrder, CreatedAt: tag.CreatedAt, UpdatedAt: tag.UpdatedAt}
+}
+
+func tagItems(tags []mysqlticket.TicketTag) []admindto.TicketTagItem {
+	items := make([]admindto.TicketTagItem, 0, len(tags))
+	for _, tag := range tags {
+		items = append(items, tagItem(tag))
+	}
+	return items
+}
+
+func collaboratorItems(rows []mysqlticket.TicketCollaboratorRow) []admindto.TicketAdminSummary {
+	items := make([]admindto.TicketAdminSummary, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, admindto.TicketAdminSummary{ID: row.AdminID, Username: row.AdminUsername, Email: row.AdminEmail, DisplayName: row.AdminDisplayName, Status: row.AdminStatus})
+	}
+	return items
+}
+
+func noteItems(rows []mysqlticket.TicketNoteRow) []admindto.TicketInternalNote {
+	items := make([]admindto.TicketInternalNote, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, admindto.TicketInternalNote{ID: row.ID, Admin: admindto.TicketAdminSummary{ID: row.AdminID, Username: row.AdminUsername, Email: row.AdminEmail, DisplayName: row.AdminDisplayName}, Content: row.Content, CreatedAt: row.CreatedAt})
+	}
+	return items
+}
+
+func eventItems(rows []mysqlticket.TicketEventRow) []admindto.TicketEvent {
+	items := make([]admindto.TicketEvent, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, admindto.TicketEvent{ID: row.ID, EventType: row.EventType, Actor: actorSummary(row), BeforeData: row.BeforeData, AfterData: row.AfterData, Remark: row.Remark, CreatedAt: row.CreatedAt})
+	}
+	return items
+}
+
+func actorSummary(row mysqlticket.TicketEventRow) *admindto.TicketActorSummary {
+	if row.ActorAdminID != nil {
+		display := row.ActorAdminDisplayName
+		return &admindto.TicketActorSummary{Type: "admin", ID: *row.ActorAdminID, Username: stringValue(row.ActorAdminUsername), DisplayName: display}
+	}
+	if row.ActorUserID != nil {
+		display := row.ActorUserDisplayName
+		return &admindto.TicketActorSummary{Type: "user", ID: *row.ActorUserID, Username: stringValue(row.ActorUserUsername), DisplayName: display}
+	}
+	return nil
+}
+
+func slaInfo(ticket mysqlticket.Ticket) admindto.TicketSLAInfo {
+	return admindto.TicketSLAInfo{FirstResponseDueAt: ticket.FirstResponseDueAt, FirstRespondedAt: ticket.FirstRespondedAt, ResolutionDueAt: ticket.ResolutionDueAt, ResolvedAt: ticket.ResolvedAt, Status: slaStatus(ticket)}
+}
+
+func slaStatus(ticket mysqlticket.Ticket) string {
+	now := time.Now()
+	if ticket.ResolvedAt == nil && ticket.ResolutionDueAt != nil && ticket.ResolutionDueAt.Before(now) {
+		return domainticket.SLAStatusResolutionOverdue
+	}
+	if ticket.FirstRespondedAt == nil && ticket.FirstResponseDueAt != nil && ticket.FirstResponseDueAt.Before(now) {
+		return domainticket.SLAStatusFirstResponseOverdue
+	}
+	return domainticket.SLAStatusNormal
+}
+
+func slaDeadlines(createdAt time.Time, priority string) (time.Time, time.Time) {
+	switch priority {
+	case domainticket.PriorityLow:
+		return createdAt.Add(48 * time.Hour), createdAt.Add(7 * 24 * time.Hour)
+	case domainticket.PriorityHigh:
+		return createdAt.Add(8 * time.Hour), createdAt.Add(3 * 24 * time.Hour)
+	case domainticket.PriorityUrgent:
+		return createdAt.Add(2 * time.Hour), createdAt.Add(24 * time.Hour)
+	default:
+		return createdAt.Add(24 * time.Hour), createdAt.Add(5 * 24 * time.Hour)
+	}
+}
+
+func deadlineEarlier(current *time.Time, next time.Time) bool {
+	return current == nil || next.Before(*current)
+}
+
+func tagAuditSnapshot(tag mysqlticket.TicketTag) map[string]any {
+	return map[string]any{"id": tag.ID, "name": tag.Name, "color": tag.Color, "visibility": tag.Visibility, "status": tag.Status, "sort_order": tag.SortOrder}
+}
+
+func jsonString(value any) *string {
+	if value == nil {
+		return nil
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+	result := string(data)
+	return &result
+}
+
+func optionalStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func uniqueUint64s(values []uint64) []uint64 {
+	seen := make(map[uint64]struct{}, len(values))
+	result := make([]uint64, 0, len(values))
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func senderName(message mysqlticket.MessageRow) string {
@@ -441,5 +962,5 @@ func senderName(message mysqlticket.MessageRow) string {
 }
 
 func auditSnapshot(ticket mysqlticket.Ticket) map[string]any {
-	return map[string]any{"ticket_no": ticket.TicketNo, "status": ticket.Status, "priority": ticket.Priority, "category": ticket.Category, "close_reason": ticket.CloseReason}
+	return map[string]any{"ticket_no": ticket.TicketNo, "status": ticket.Status, "priority": ticket.Priority, "category": ticket.Category, "assignee_admin_id": ticket.AssigneeAdminID, "close_reason": ticket.CloseReason}
 }
