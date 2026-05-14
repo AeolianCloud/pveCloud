@@ -10,8 +10,13 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
+const isDev = import.meta.env.DEV
+const DEV_CREDENTIALS_KEY = 'pvecloud:web:dev-login-credentials'
+
 const account = ref('')
 const password = ref('')
+const rememberCredentials = ref(false)
+const rememberCredentialsLabel = ref('')
 const loading = ref(false)
 const error = ref('')
 const captchaEnabled = ref(false)
@@ -48,7 +53,47 @@ const normalizeRedirect = (value: unknown) => {
   return value
 }
 
+const clearDevCredentials = () => {
+  if (!isDev) return
+  localStorage.removeItem(DEV_CREDENTIALS_KEY)
+}
+
+const loadDevCredentials = () => {
+  if (!isDev) return
+  const raw = localStorage.getItem(DEV_CREDENTIALS_KEY)
+  if (!raw) return
+
+  try {
+    const credentials = JSON.parse(raw) as { account?: unknown; password?: unknown }
+    if (typeof credentials.account !== 'string' || typeof credentials.password !== 'string') {
+      clearDevCredentials()
+      return
+    }
+    account.value = credentials.account
+    password.value = credentials.password
+    rememberCredentials.value = true
+  } catch {
+    clearDevCredentials()
+  }
+}
+
+const saveDevCredentials = () => {
+  if (!isDev || !rememberCredentials.value) return
+  localStorage.setItem(
+    DEV_CREDENTIALS_KEY,
+    JSON.stringify({
+      account: account.value,
+      password: password.value,
+    }),
+  )
+}
+
 onMounted(async () => {
+  if (isDev) {
+    rememberCredentialsLabel.value = '记住账号密码'
+  }
+  loadDevCredentials()
+
   try {
     const config = await getSiteConfig()
     captchaEnabled.value = config.login_captcha_enabled
@@ -77,12 +122,26 @@ const handleLogin = async () => {
       password: password.value,
       ...(captchaEnabled.value ? { captcha_id: captchaId.value, captcha_code: captchaCode.value } : {}),
     })
+    saveDevCredentials()
     await router.push(normalizeRedirect(route.query.redirect))
   } catch (err) {
     error.value = getApiErrorMessage(err, '登录失败')
     await refreshCaptcha()
   } finally {
     loading.value = false
+  }
+}
+
+const handleRememberChange = () => {
+  if (!rememberCredentials.value) {
+    clearDevCredentials()
+  }
+}
+
+const handleCredentialInput = () => {
+  if (isDev && rememberCredentials.value && (!account.value || !password.value)) {
+    rememberCredentials.value = false
+    clearDevCredentials()
   }
 }
 </script>
@@ -106,6 +165,7 @@ const handleLogin = async () => {
               type="text"
               class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入用户名或邮箱"
+              @input="handleCredentialInput"
             />
           </div>
 
@@ -116,6 +176,7 @@ const handleLogin = async () => {
               type="password"
               class="field-focus w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-neutral-950"
               placeholder="请输入密码"
+              @input="handleCredentialInput"
             />
           </div>
 
@@ -141,10 +202,16 @@ const handleLogin = async () => {
           </div>
 
           <div class="flex items-center justify-between text-sm">
-            <label class="flex items-center gap-2 text-neutral-600">
-              <input type="checkbox" class="rounded border-neutral-300 text-neutral-950" />
-              记住我
+            <label v-if="isDev" class="flex items-center gap-2 text-neutral-600">
+              <input
+                v-model="rememberCredentials"
+                type="checkbox"
+                class="rounded border-neutral-300 text-neutral-950"
+                @change="handleRememberChange"
+              />
+              {{ rememberCredentialsLabel }}
             </label>
+            <span v-else aria-hidden="true"></span>
             <RouterLink to="/forgot-password" class="link-underline font-bold text-neutral-950">
               忘记密码？
             </RouterLink>

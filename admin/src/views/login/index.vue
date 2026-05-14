@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { KeyOutline, LockClosedOutline, PersonOutline } from '@vicons/ionicons5'
-import { NButton, NForm, NFormItem, NIcon, NInput, useNotification } from 'naive-ui'
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { NButton, NCheckbox, NForm, NFormItem, NIcon, NInput, useNotification } from 'naive-ui'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { getAdminLoginCaptcha } from '../../api/auth'
@@ -13,6 +13,9 @@ const route = useRoute()
 const router = useRouter()
 const notification = useNotification()
 
+const isDev = import.meta.env.DEV
+const DEV_CREDENTIALS_KEY = 'pvecloud:admin:dev-login-credentials'
+
 const form = reactive({
   username: '',
   password: '',
@@ -20,6 +23,8 @@ const form = reactive({
 })
 
 const loading = ref(false)
+const rememberCredentials = ref(false)
+const rememberCredentialsLabel = ref('')
 const captchaLoading = ref(false)
 const captcha = reactive({
   id: '',
@@ -56,6 +61,41 @@ const captchaError = computed(() => {
   return ''
 })
 
+function clearDevCredentials() {
+  if (!isDev) return
+  localStorage.removeItem(DEV_CREDENTIALS_KEY)
+}
+
+function loadDevCredentials() {
+  if (!isDev) return
+  const raw = localStorage.getItem(DEV_CREDENTIALS_KEY)
+  if (!raw) return
+
+  try {
+    const credentials = JSON.parse(raw) as { username?: unknown; password?: unknown }
+    if (typeof credentials.username !== 'string' || typeof credentials.password !== 'string') {
+      clearDevCredentials()
+      return
+    }
+    form.username = credentials.username
+    form.password = credentials.password
+    rememberCredentials.value = true
+  } catch {
+    clearDevCredentials()
+  }
+}
+
+function saveDevCredentials() {
+  if (!isDev || !rememberCredentials.value) return
+  localStorage.setItem(
+    DEV_CREDENTIALS_KEY,
+    JSON.stringify({
+      username: form.username.trim(),
+      password: form.password,
+    }),
+  )
+}
+
 async function loadCaptcha() {
   captchaLoading.value = true
   try {
@@ -91,6 +131,7 @@ async function submit() {
       captcha_id: captcha.id,
       captcha_code: form.captchaCode.trim(),
     })
+    saveDevCredentials()
     const redirect = normalizeAdminRedirect(route.query.redirect, ADMIN_ROUTE_PATH.dashboard)
     await router.replace(redirect)
   } catch (error) {
@@ -107,12 +148,30 @@ async function submit() {
 
 onMounted(() => {
   document.body.classList.add('login-active')
+  if (isDev) {
+    rememberCredentialsLabel.value = '记住账号密码'
+  }
+  loadDevCredentials()
   void loadCaptcha()
 })
 
 onUnmounted(() => {
   document.body.classList.remove('login-active')
 })
+
+watch(rememberCredentials, (value) => {
+  if (!value) clearDevCredentials()
+})
+
+watch(
+  () => [form.username, form.password],
+  ([username, password]) => {
+    if (isDev && rememberCredentials.value && (!username || !password)) {
+      rememberCredentials.value = false
+      clearDevCredentials()
+    }
+  },
+)
 </script>
 
 <template>
@@ -227,6 +286,12 @@ onUnmounted(() => {
                 </button>
               </div>
             </NFormItem>
+
+            <div v-if="isDev" class="login-page__dev-options">
+              <NCheckbox v-model:checked="rememberCredentials">
+                {{ rememberCredentialsLabel }}
+              </NCheckbox>
+            </div>
 
             <NButton
               class="login-page__submit"
@@ -499,6 +564,15 @@ body.login-active {
 .login-page__captcha-placeholder {
   font-size: 12px;
   color: rgba(148, 163, 184, 0.6);
+}
+
+.login-page__dev-options {
+  margin: -4px 0 16px;
+  color: rgba(203, 213, 225, 0.86);
+}
+
+.login-page__dev-options :deep(.n-checkbox__label) {
+  color: rgba(203, 213, 225, 0.86);
 }
 
 .login-page__submit {
