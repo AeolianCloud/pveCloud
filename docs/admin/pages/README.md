@@ -9,6 +9,7 @@
 - `Login`：`docs/admin/pages/login.md`
 - `Dashboard`：`docs/admin/pages/dashboard.md`
 - `System Settings`：`docs/admin/pages/system-settings.md`
+- `Log Management Center`：`docs/admin/pages/log-management-center.md`
 - `File Management`：`docs/admin/pages/file-management.md`
 - `Web User Management`：`docs/admin/pages/web-user-management.md`
 - `Real Name Management`：`docs/admin/pages/real-name-management.md`

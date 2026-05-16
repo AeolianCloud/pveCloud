@@ -27,6 +27,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 )
 
 const (
@@ -63,6 +64,7 @@ type RealNameService struct {
 	configs        *mysqlsystemconfig.Repository
 	applications   *mysqlrealname.Repository
 	users          *mysqluser.Repository
+	logs           *weblogging.Recorder
 }
 
 type SyncApplicationHook func(tx *gorm.DB, before mysqlrealname.UserRealNameApplication, after mysqlrealname.UserRealNameApplication) error
@@ -75,6 +77,7 @@ func NewRealNameService(db *gorm.DB, redis *cache.Redis) *RealNameService {
 		configs:        mysqlsystemconfig.NewRepository(db),
 		applications:   mysqlrealname.NewRepository(db),
 		users:          mysqluser.NewRepository(db),
+		logs:           weblogging.NewRecorder(db),
 	}
 }
 
@@ -203,7 +206,10 @@ func (s *RealNameService) Submit(ctx context.Context, userID uint64, req webdto.
 			Status:                 statusPending,
 			SubmitAttempt:          attempt,
 		}
-		return s.applications.CreateApplication(ctx, tx, &created)
+		if err := s.applications.CreateApplication(ctx, tx, &created); err != nil {
+			return err
+		}
+		return s.logs.Business(ctx, tx, weblogging.Snapshot(user.ID, "", ""), "real_name", "real_name.submit", "real_name_application", created.ApplicationNo, "实名提交")
 	}); err != nil {
 		return webdto.RealNameSubmitResponse{}, err
 	}
@@ -262,6 +268,7 @@ func (s *RealNameService) Sync(ctx context.Context, userID uint64, req webdto.Re
 		return webdto.RealNameStatusResponse{}, err
 	}
 	summary := applicationSummary(app)
+	_ = s.logs.BusinessNoTx(ctx, weblogging.Snapshot(userID, "", ""), "real_name", "real_name.sync", "real_name_application", app.ApplicationNo, "实名同步")
 	return webdto.RealNameStatusResponse{Status: app.Status, Application: &summary, Config: config.Public()}, nil
 }
 

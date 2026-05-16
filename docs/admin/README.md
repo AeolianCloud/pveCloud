@@ -40,6 +40,12 @@
 - 读 `docs/admin/pages/system-settings.md`
 - 读系统配置、管理员、角色、权限、管理员会话相关 API 契约
 
+修改日志管理中心：
+
+- 读 `docs/admin/pages/log-management-center.md`
+- 读 `docs/server/logging.md`
+- 读日志管理相关 API 契约
+
 修改 Web 用户管理：
 
 - 读 `docs/admin/pages/web-user-management.md`

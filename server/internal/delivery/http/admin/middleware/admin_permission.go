@@ -30,3 +30,26 @@ func AdminPermission(requiredCodes ...string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+/**
+ * AdminAnyPermission 校验当前管理员是否拥有任一指定权限码。
+ *
+ * @param requiredCodes 任一满足的权限码
+ * @return gin.HandlerFunc Gin 中间件
+ */
+func AdminAnyPermission(requiredCodes ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if len(requiredCodes) == 0 {
+			c.Next()
+			return
+		}
+
+		if !rbac.HasAnyPermissionCode(CurrentAdminPermissionCodes(c), requiredCodes...) {
+			response.Error(c, apperrors.ErrForbidden)
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

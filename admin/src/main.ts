@@ -5,6 +5,7 @@ import { setupPermissionDirective } from './directives/permission'
 import { setupNaive } from './plugins/naive'
 import { router } from './router'
 import { pinia } from './store'
+import { installClientErrorReporter } from './utils/client-log'
 import './permission'
 import './styles/index.css'
 
@@ -14,4 +15,5 @@ app.use(pinia)
 app.use(router)
 setupNaive(app)
 setupPermissionDirective(app)
+installClientErrorReporter()
 app.mount('#app')

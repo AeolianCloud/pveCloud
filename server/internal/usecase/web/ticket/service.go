@@ -28,6 +28,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 )
 
 const (
@@ -44,6 +45,7 @@ type Service struct {
 	files   *mysqlfile.Repository
 	orders  *mysqlorder.Repository
 	config  config.StorageConfig
+	logs    *weblogging.Recorder
 }
 
 func NewService(db *gorm.DB, storage config.StorageConfig) *Service {
@@ -53,6 +55,7 @@ func NewService(db *gorm.DB, storage config.StorageConfig) *Service {
 		files:   mysqlfile.NewRepository(db),
 		orders:  mysqlorder.NewRepository(db),
 		config:  storage,
+		logs:    weblogging.NewRecorder(db),
 	}
 }
 
@@ -103,7 +106,7 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.TicketCr
 		if err := s.persistUploads(ctx, tx, ticket, message, uploads); err != nil {
 			return err
 		}
-		return nil
+		return s.logs.Business(ctx, tx, weblogging.Snapshot(userID, "", ""), "ticket", "ticket.create", "ticket", ticket.TicketNo, "工单创建")
 	})
 	if err != nil {
 		return webdto.TicketDetail{}, err
@@ -173,7 +176,7 @@ func (s *Service) Reply(ctx context.Context, userID uint64, ticketNo string, req
 			return err
 		}
 		savedTicketNo = current.TicketNo
-		return nil
+		return s.logs.Business(ctx, tx, weblogging.Snapshot(userID, "", ""), "ticket", "ticket.reply", "ticket", current.TicketNo, "工单回复")
 	})
 	if err != nil {
 		return webdto.TicketDetail{}, err
@@ -200,7 +203,7 @@ func (s *Service) Close(ctx context.Context, userID uint64, ticketNo string, req
 			return err
 		}
 		savedTicketNo = current.TicketNo
-		return nil
+		return s.logs.Business(ctx, tx, weblogging.Snapshot(userID, "", ""), "ticket", "ticket.close", "ticket", current.TicketNo, "工单关闭")
 	})
 	if err != nil {
 		return webdto.TicketDetail{}, err

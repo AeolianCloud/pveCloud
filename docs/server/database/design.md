@@ -41,6 +41,16 @@ system_configs
 admin_audit_logs
 ```
 
+### 日志管理中心
+
+```text
+user_security_logs
+user_business_logs
+frontend_error_logs
+backend_runtime_logs
+log_export_records
+```
+
 ### 用户端认证
 
 ```text
@@ -255,6 +265,8 @@ ticket_events
 - `real_name.identity_digest_secret`、`real_name.alipay.app_private_key`、`real_name.alipay.alipay_public_key`、`real_name.wechat.secret_id` 和 `real_name.wechat.secret_key` 等敏感实名配置必须 `is_secret=1`；后台 API 不得回显明文，公开站点配置接口不得返回这些配置
 - 普通操作日志用于查看后台操作历史，应保存操作者快照和请求上下文，避免只依赖当前管理员资料反查
 - 普通操作日志的请求上下文由管理端中间件统一采集，业务模块不得重复从每个模块内拼装 IP、会话、请求路径等通用信息
+- 日志管理中心使用独立一级菜单 `page.logs`；Phase 1 子页面为 `page.logs.admin-operations` 和 `page.logs.admin-security`
+- 后续日志管理中心子页面包括 `page.logs.user-security`、`page.logs.user-business`、`page.logs.frontend-errors` 和 `page.logs.backend-runtime`
 
 ## 普通操作日志上下文
 
@@ -268,6 +280,28 @@ ticket_events
 - `request_path`：后台请求路径
 
 这些字段只增强普通操作日志的可读性和排查能力。
+
+## 日志管理中心表
+
+### 用户安全日志
+
+`user_security_logs` 用于保存用户端登录、退出、刷新、密码重置和限流等安全事件。表中允许未知账号失败场景的 `user_id` 为空，重点记录事件结果、请求链路和客户端摘要。
+
+### 用户业务日志
+
+`user_business_logs` 用于保存用户实名、订单和工单等关键业务事件。表中保存模块、动作、对象类型和对象 ID，供用户安全/业务日志管理页面查询。
+
+### 前端错误日志
+
+`frontend_error_logs` 用于保存 admin/web 前端上报的错误摘要。只允许脱敏后的页面路径、错误消息、堆栈摘要和关联 API 信息入库。
+
+### 后端运行日志
+
+`backend_runtime_logs` 用于保存结构化运行日志快照，覆盖访问日志、panic 和关键运行错误的可查询摘要。它不替代 stdout 结构化日志输出。
+
+### 日志导出记录
+
+`log_export_records` 用于记录日志导出行为和导出条件，为后续导出审计与留存策略提供锚点。
 
 ## 当前阶段说明
 
@@ -316,6 +350,11 @@ ticket_events
 - `orders(user_id, client_token)`，只约束有效幂等键
 - `tickets.ticket_no`
 - `ticket_message_attachments(message_id, file_id)`
+- `user_security_logs(user_id, created_at)`
+- `user_business_logs(user_id, created_at)`
+- `frontend_error_logs(source_app, created_at)`
+- `backend_runtime_logs(category, created_at)`
+- `log_export_records(admin_id, created_at)`
 
 ## 管理端权限新增口径
 

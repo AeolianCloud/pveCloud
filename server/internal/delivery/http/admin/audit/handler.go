@@ -50,8 +50,13 @@ func (h *AdminAuditHandler) Logs(c *gin.Context) {
 		return
 	}
 
+	permissionCodes := h.permissionCodes(c)
+	if !normalizeAndAuthorizeLogType(&query, permissionCodes) {
+		response.Error(c, apperrors.ErrForbidden)
+		return
+	}
 	includeSensitive := rbac.HasPermissionCode(
-		h.permissionCodes(c),
+		permissionCodes,
 		"audit-log:sensitive-view",
 	)
 	result, err := h.adminAuditService.AuditLogs(c.Request.Context(), query, includeSensitive)
@@ -60,4 +65,28 @@ func (h *AdminAuditHandler) Logs(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+func normalizeAndAuthorizeLogType(query *admindto.AuditLogListQuery, permissionCodes []string) bool {
+	canOperation := rbac.HasAnyPermissionCode(permissionCodes, "page.logs.admin-operations", "page.system-settings.audit-logs")
+	canSecurity := rbac.HasAnyPermissionCode(permissionCodes, "page.logs.admin-security", "admin-security-log:view")
+
+	switch query.LogType {
+	case "admin_operation":
+		return canOperation
+	case "admin_security":
+		return canSecurity
+	case "":
+		if canOperation {
+			query.LogType = "admin_operation"
+			return true
+		}
+		if canSecurity {
+			query.LogType = "admin_security"
+			return true
+		}
+		return false
+	default:
+		return false
+	}
 }

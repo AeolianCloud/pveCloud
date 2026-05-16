@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { NLayout, NLayoutContent, NLayoutHeader, NLayoutSider } from 'naive-ui'
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, type CSSProperties } from 'vue'
 
 import { useAppStore } from '../store/modules/app'
 import AppHeader from './components/AppHeader.vue'
@@ -10,6 +10,11 @@ import AppSidebar from './components/AppSidebar.vue'
 const appStore = useAppStore()
 const isMobile = computed(() => appStore.device === 'mobile')
 const collapsed = computed(() => !appStore.sidebarOpened)
+const mainContentStyle = computed<CSSProperties>(() => ({
+  minHeight: '100%',
+  padding: isMobile.value ? '16px' : '20px',
+  boxSizing: 'border-box',
+}))
 
 function handleResize() {
   appStore.syncDevice(window.innerWidth)
@@ -51,11 +56,11 @@ onBeforeUnmount(() => {
         <AppSidebar />
       </NLayoutSider>
 
-      <NLayout>
+      <NLayout class="layout-body">
         <NLayoutHeader bordered class="layout-header">
           <AppHeader />
         </NLayoutHeader>
-        <NLayoutContent class="layout-main" :native-scrollbar="false">
+        <NLayoutContent class="layout-main" :native-scrollbar="false" :content-style="mainContentStyle">
           <AppMain />
         </NLayoutContent>
       </NLayout>
@@ -66,11 +71,22 @@ onBeforeUnmount(() => {
 <style scoped>
 .layout-root,
 .layout-shell {
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .layout-root {
   position: relative;
+  overflow: hidden;
+}
+
+.layout-shell,
+.layout-body {
+  overflow: hidden;
+}
+
+.layout-aside {
+  height: 100vh;
+  flex-shrink: 0;
 }
 
 .layout-mask {
@@ -95,17 +111,13 @@ onBeforeUnmount(() => {
 .layout-header {
   height: 60px;
   padding: 0 20px;
+  flex-shrink: 0;
 }
 
 .layout-main {
-  padding: 20px;
+  height: calc(100vh - 60px);
+  min-height: 0;
+  overflow: hidden;
   background: #f5f7fb;
-  min-height: calc(100vh - 60px);
-}
-
-@media (max-width: 991px) {
-  .layout-main {
-    padding: 16px;
-  }
 }
 </style>

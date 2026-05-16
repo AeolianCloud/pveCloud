@@ -26,6 +26,7 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *api.App) {
 	group.POST("/auth/register", routes.Auth.Register)
 	group.POST("/auth/password-reset/request", routes.Auth.RequestPasswordReset)
 	group.POST("/auth/password-reset/confirm", routes.Auth.ConfirmPasswordReset)
+	group.POST("/client-logs/errors", routes.ClientLogs.Create)
 
 	protected := group.Group("")
 	protected.Use(routes.AuthMiddleware)

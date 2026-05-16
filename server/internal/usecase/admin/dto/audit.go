@@ -18,6 +18,7 @@ type AuditAdminSummary struct {
 type AuditLogListQuery struct {
 	Page       int    `form:"page" validate:"omitempty,min=1"`
 	PerPage    int    `form:"per_page" validate:"omitempty,min=1,max=100"`
+	LogType    string `form:"log_type" validate:"omitempty,oneof=admin_operation admin_security"`
 	AdminID    uint64 `form:"admin_id" validate:"omitempty,min=1"`
 	Action     string `form:"action" validate:"omitempty,max=96"`
 	ObjectType string `form:"object_type" validate:"omitempty,max=64"`

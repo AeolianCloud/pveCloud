@@ -15,7 +15,13 @@
 | Dashboard | `/dashboard` | `page.dashboard` |
 | 系统配置 | `/system/settings` | `page.system-settings.config` |
 | 管理员设置 | `/system/admin-users` | `page.system-settings.admin-users` 或 `page.system-settings.admin-roles` 或 `page.system-settings.admin-sessions` |
-| 日志管理 | `/system/audit-logs` | `page.system-settings.audit-logs` |
+| 日志管理中心 | `/logs` | `page.logs` |
+| 操作审计 | `/logs/admin-operations` | `page.logs.admin-operations` |
+| 登录安全 | `/logs/admin-security` | `page.logs.admin-security` |
+| 用户安全日志 | `/logs/user-security` | `page.logs.user-security` |
+| 用户业务日志 | `/logs/user-business` | `page.logs.user-business` |
+| 前端错误日志 | `/logs/frontend-errors` | `page.logs.frontend-errors` |
+| 后端运行日志 | `/logs/backend-runtime` | `page.logs.backend-runtime` |
 | 文件管理 | `/files` | `page.file-management` |
 | Web 用户管理 | `/web/users` | `page.web-users` 或 `page.web-user-sessions` |
 | 实名管理 | `/web/real-names` | `page.real-name-management` |
@@ -26,6 +32,8 @@
 管理员设置页面使用 `permissionMode: any` 时，只要具备管理员账号、管理组权限或管理员会话入口之一即可进入页面；页面内部能力继续按按钮或功能块权限控制。
 
 Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户账号或用户状态入口之一即可进入页面；用户状态作为第二个 tab 展示，不作为独立侧栏菜单。
+
+日志管理中心是独立一级菜单。当前开放操作审计、登录安全、用户安全日志、用户业务日志、前端错误日志和后端运行日志；旧 `/system/audit-logs` 仅作为前端兼容重定向到 `/logs/admin-operations`，不再作为侧栏菜单事实来源。
 
 ## 权限码命名
 

@@ -96,7 +96,9 @@ page.<menu>.<feature>
 - `page.system-settings.admin-users`
 - `page.system-settings.admin-roles`
 - `page.system-settings.admin-sessions`
-- `page.system-settings.audit-logs`
+- `page.logs`
+- `page.logs.admin-operations`
+- `page.logs.admin-security`
 - `page.file-management`
 - `page.web-users`
 - `page.web-user-sessions`
@@ -137,6 +139,8 @@ resource:action
 - `admin-session:revoke`
 - `audit-log:view`
 - `audit-log:sensitive-view`
+- `admin-security-log:*`
+- `admin-security-log:view`
 - `file:upload`
 - `file:delete`
 - `file:*`

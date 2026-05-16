@@ -14,37 +14,30 @@ import {
   NPopover,
   NSelect,
   NSpace,
-  NTabPane,
-  NTabs,
   type DataTableColumns,
 } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
 import { getAuditLogs, type AuditLogItem, type AuditLogListQuery } from '../../api/audit-log'
+import { ADMIN_ROUTE_NAME } from '../../router/constants'
 import { usePermissionStore } from '../../store/modules/permission'
 import { formatDateTime } from '../../utils/datetime'
 
 const permissionStore = usePermissionStore()
+const route = useRoute()
 const loading = ref(false)
 const refreshing = ref(false)
 const errorMessage = ref('')
 const logs = ref<AuditLogItem[]>([])
-const loginLogs = ref<AuditLogItem[]>([])
-const activeTab = ref<'operation' | 'login'>('operation')
 const pagination = reactive({ page: 1, per_page: 15, total: 0 })
-const loginPagination = reactive({ page: 1, per_page: 15, total: 0 })
 const queryForm = reactive({
   admin_id: '',
   action: '',
   object_type: '',
   object_id: '',
-  date_range: null as [number, number] | null,
-})
-const loginQueryForm = reactive({
-  admin_id: '',
-  action: '',
   date_range: null as [number, number] | null,
 })
 
@@ -57,12 +50,18 @@ const loginActionOptions = [
   { label: '会话刷新', value: 'admin.refresh' },
 ]
 
-const canViewLogs = computed(() => permissionStore.hasPermission('page.system-settings.audit-logs'))
+const isLoginPage = computed(() => route.name === ADMIN_ROUTE_NAME.adminSecurityLogs)
+const canViewLogs = computed(() =>
+  isLoginPage.value
+    ? permissionStore.hasPermission(['page.logs.admin-security'])
+    : permissionStore.hasPermission(['page.logs.admin-operations', 'page.system-settings.audit-logs']),
+)
 const canViewSensitive = computed(() => permissionStore.hasPermission('audit-log:sensitive-view'))
-const currentLogs = computed(() => (activeTab.value === 'login' ? loginLogs.value : logs.value))
-const currentPagination = computed(() => (activeTab.value === 'login' ? loginPagination : pagination))
-const hasLogs = computed(() => currentLogs.value.length > 0)
-const isLoginTab = computed(() => activeTab.value === 'login')
+const hasLogs = computed(() => logs.value.length > 0)
+const pageTitle = computed(() => (isLoginPage.value ? '登录安全' : '操作审计'))
+const pageDescription = computed(() =>
+  isLoginPage.value ? '查看管理端登录、退出、刷新和限流等安全记录。' : '查看后台资源变更和关键操作审计记录。',
+)
 
 function tsToDate(ts: number | null | undefined) {
   if (!ts) return undefined
@@ -70,28 +69,16 @@ function tsToDate(ts: number | null | undefined) {
   return `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, '0')}-${`${d.getDate()}`.padStart(2, '0')}`
 }
 
-function buildOperationQuery(): AuditLogListQuery {
+function buildQuery(): AuditLogListQuery {
   const r = queryForm.date_range
   return {
     page: pagination.page,
     per_page: pagination.per_page,
+    log_type: isLoginPage.value ? 'admin_security' : 'admin_operation',
     admin_id: queryForm.admin_id ? Number(queryForm.admin_id) : undefined,
     action: queryForm.action.trim() || undefined,
-    object_type: queryForm.object_type.trim() || undefined,
+    object_type: isLoginPage.value ? undefined : queryForm.object_type.trim() || undefined,
     object_id: queryForm.object_id.trim() || undefined,
-    date_from: tsToDate(r?.[0]),
-    date_to: tsToDate(r?.[1]),
-  }
-}
-
-function buildLoginQuery(): AuditLogListQuery {
-  const r = loginQueryForm.date_range
-  return {
-    page: loginPagination.page,
-    per_page: loginPagination.per_page,
-    admin_id: loginQueryForm.admin_id ? Number(loginQueryForm.admin_id) : undefined,
-    action: loginQueryForm.action || undefined,
-    object_type: 'admin_auth',
     date_from: tsToDate(r?.[0]),
     date_to: tsToDate(r?.[1]),
   }
@@ -100,7 +87,6 @@ function buildLoginQuery(): AuditLogListQuery {
 async function loadLogs(options: { refresh?: boolean } = {}) {
   if (!canViewLogs.value) {
     logs.value = []
-    loginLogs.value = []
     errorMessage.value = ''
     return
   }
@@ -108,14 +94,7 @@ async function loadLogs(options: { refresh?: boolean } = {}) {
   refreshing.value = Boolean(options.refresh)
   errorMessage.value = ''
   try {
-    const result = await getAuditLogs(activeTab.value === 'login' ? buildLoginQuery() : buildOperationQuery())
-    if (activeTab.value === 'login') {
-      loginLogs.value = result.list
-      loginPagination.total = result.total
-      loginPagination.page = result.page
-      loginPagination.per_page = result.per_page
-      return
-    }
+    const result = await getAuditLogs(buildQuery())
     logs.value = result.list
     pagination.total = result.total
     pagination.page = result.page
@@ -129,34 +108,28 @@ async function loadLogs(options: { refresh?: boolean } = {}) {
 }
 
 function handleSearch() {
-  currentPagination.value.page = 1
+  pagination.page = 1
   void loadLogs()
 }
 
 function handleReset() {
-  if (activeTab.value === 'login') {
-    loginQueryForm.admin_id = ''
-    loginQueryForm.action = ''
-    loginQueryForm.date_range = null
-  } else {
-    queryForm.admin_id = ''
-    queryForm.action = ''
-    queryForm.object_type = ''
-    queryForm.object_id = ''
-    queryForm.date_range = null
-  }
-  currentPagination.value.page = 1
+  queryForm.admin_id = ''
+  queryForm.action = ''
+  queryForm.object_type = ''
+  queryForm.object_id = ''
+  queryForm.date_range = null
+  pagination.page = 1
   void loadLogs()
 }
 
 function handlePageChange(page: number) {
-  currentPagination.value.page = page
+  pagination.page = page
   void loadLogs()
 }
 
 function handlePageSizeChange(perPage: number) {
-  currentPagination.value.per_page = perPage
-  currentPagination.value.page = 1
+  pagination.per_page = perPage
+  pagination.page = 1
   void loadLogs()
 }
 
@@ -192,10 +165,10 @@ const columns = computed<DataTableColumns<AuditLogItem>>(() => [
   },
   {
     key: 'action',
-    title: isLoginTab.value ? '认证动作' : '动作',
+    title: isLoginPage.value ? '认证动作' : '动作',
     minWidth: 190,
     ellipsis: { tooltip: true },
-    render: (row) => (isLoginTab.value ? formatAction(row.action) : row.action),
+    render: (row) => (isLoginPage.value ? formatAction(row.action) : row.action),
   },
   {
     key: 'object',
@@ -262,14 +235,8 @@ onMounted(() => {
   void loadLogs()
 })
 
-watch(activeTab, () => {
-  if (activeTab.value === 'login' && loginLogs.value.length === 0 && loginPagination.total === 0) {
-    void loadLogs()
-    return
-  }
-  if (activeTab.value === 'operation' && logs.value.length === 0 && pagination.total === 0) {
-    void loadLogs()
-  }
+watch(isLoginPage, () => {
+  handleReset()
 })
 </script>
 
@@ -277,8 +244,8 @@ watch(activeTab, () => {
   <div class="audit-logs-page">
     <div class="audit-logs-page__header">
       <div>
-        <h2>日志管理</h2>
-        <p>集中查看后台操作记录和管理端登录认证记录。</p>
+        <h2>{{ pageTitle }}</h2>
+        <p>{{ pageDescription }}</p>
       </div>
       <NButton :loading="refreshing" @click="loadLogs({ refresh: true })">
         <template #icon>
@@ -291,25 +258,20 @@ watch(activeTab, () => {
     <QueryState :loading="loading" :error-message="errorMessage" @retry="loadLogs">
       <template v-if="!canViewLogs">
         <NCard>
-          <EmptyState title="暂无权限" description="当前账号没有操作日志查看权限。" />
+          <EmptyState title="暂无权限" :description="`当前账号没有${pageTitle}查看权限。`" />
         </NCard>
       </template>
 
       <template v-else>
-        <NCard :bordered="false" class="audit-logs-page__tabs-card">
-          <NTabs v-model:value="activeTab" type="line">
-            <NTabPane name="operation" tab="操作日志" />
-            <NTabPane name="login" tab="登录日志" />
-          </NTabs>
-
+        <NCard :bordered="false">
           <NForm inline label-placement="left" class="audit-logs-page__filters" @submit.prevent>
-            <template v-if="isLoginTab">
+            <template v-if="isLoginPage">
               <NFormItem label="管理员 ID">
-                <NInput v-model:value="loginQueryForm.admin_id" clearable placeholder="例如 1" @keyup.enter="handleSearch" />
+                <NInput v-model:value="queryForm.admin_id" clearable placeholder="例如 1" @keyup.enter="handleSearch" />
               </NFormItem>
               <NFormItem label="动作类型">
                 <NSelect
-                  v-model:value="loginQueryForm.action"
+                  v-model:value="queryForm.action"
                   :options="loginActionOptions"
                   clearable
                   placeholder="全部认证日志"
@@ -317,7 +279,7 @@ watch(activeTab, () => {
                 />
               </NFormItem>
               <NFormItem label="时间">
-                <NDatePicker v-model:value="loginQueryForm.date_range" type="daterange" clearable />
+                <NDatePicker v-model:value="queryForm.date_range" type="daterange" clearable />
               </NFormItem>
             </template>
 
@@ -357,16 +319,16 @@ watch(activeTab, () => {
           <template v-if="hasLogs">
             <NDataTable
               :columns="columns"
-              :data="currentLogs"
+              :data="logs"
               :row-key="(row: AuditLogItem) => row.id"
               striped
               :bordered="false"
             />
             <div class="audit-logs-page__pagination">
               <NPagination
-                :page="currentPagination.page"
-                :page-size="currentPagination.per_page"
-                :item-count="currentPagination.total"
+                :page="pagination.page"
+                :page-size="pagination.per_page"
+                :item-count="pagination.total"
                 :page-sizes="[15, 30, 50, 100]"
                 show-size-picker
                 @update:page="handlePageChange"
@@ -377,8 +339,8 @@ watch(activeTab, () => {
 
           <EmptyState
             v-else
-            :title="isLoginTab ? '暂无登录日志' : '暂无操作日志'"
-            :description="isLoginTab ? '当前筛选条件下没有可展示的登录认证记录。' : '当前筛选条件下没有可展示的后台操作记录。'"
+            :title="isLoginPage ? '暂无登录安全记录' : '暂无操作审计记录'"
+            :description="isLoginPage ? '当前筛选条件下没有可展示的登录安全记录。' : '当前筛选条件下没有可展示的后台操作审计记录。'"
           />
         </NCard>
       </template>

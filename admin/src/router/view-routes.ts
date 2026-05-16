@@ -54,11 +54,88 @@ export const viewRoutes: RouteRecordRaw[] = [
       {
         path: ADMIN_ROUTE_PATH.auditLogs.replace(ADMIN_ROUTE_PATH.systemSettings + '/', ''),
         name: ADMIN_ROUTE_NAME.auditLogs,
-        component: () => import('../views/audit-logs/index.vue'),
+        redirect: ADMIN_ROUTE_PATH.adminOperationLogs,
         meta: {
           title: '日志管理',
           requiresAuth: true,
-          permission: ['page.system-settings.audit-logs'],
+          hidden: true,
+          permission: ['page.logs.admin-operations', 'page.system-settings.audit-logs'],
+          permissionMode: 'any',
+        },
+      },
+    ],
+  },
+  {
+    path: ADMIN_ROUTE_PATH.logs,
+    name: ADMIN_ROUTE_NAME.logs,
+    redirect: ADMIN_ROUTE_PATH.adminOperationLogs,
+    meta: {
+      title: '日志管理中心',
+      icon: 'DocumentText',
+      requiresAuth: true,
+      alwaysShow: true,
+      permission: ['page.logs'],
+    },
+    children: [
+      {
+        path: ADMIN_ROUTE_PATH.adminOperationLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.adminOperationLogs,
+        component: () => import('../views/audit-logs/index.vue'),
+        meta: {
+          title: '操作审计',
+          requiresAuth: true,
+          permission: ['page.logs.admin-operations', 'page.system-settings.audit-logs'],
+          permissionMode: 'any',
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.adminSecurityLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.adminSecurityLogs,
+        component: () => import('../views/audit-logs/index.vue'),
+        meta: {
+          title: '登录安全',
+          requiresAuth: true,
+          permission: ['page.logs.admin-security'],
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.userSecurityLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.userSecurityLogs,
+        component: () => import('../views/logs/index.vue'),
+        meta: {
+          title: '用户安全日志',
+          requiresAuth: true,
+          permission: ['page.logs.user-security'],
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.userBusinessLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.userBusinessLogs,
+        component: () => import('../views/logs/index.vue'),
+        meta: {
+          title: '用户业务日志',
+          requiresAuth: true,
+          permission: ['page.logs.user-business'],
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.frontendErrorLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.frontendErrorLogs,
+        component: () => import('../views/logs/index.vue'),
+        meta: {
+          title: '前端错误日志',
+          requiresAuth: true,
+          permission: ['page.logs.frontend-errors'],
+        },
+      },
+      {
+        path: ADMIN_ROUTE_PATH.backendRuntimeLogs.replace(ADMIN_ROUTE_PATH.logs + '/', ''),
+        name: ADMIN_ROUTE_NAME.backendRuntimeLogs,
+        component: () => import('../views/logs/index.vue'),
+        meta: {
+          title: '后端运行日志',
+          requiresAuth: true,
+          permission: ['page.logs.backend-runtime'],
         },
       },
     ],

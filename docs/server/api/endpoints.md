@@ -590,10 +590,13 @@
 ### `GET /admin-api/audit-logs`
 
 - 鉴权：管理端 Bearer Token
-- 菜单权限：`page.system-settings.audit-logs`
+- 菜单权限：操作审计页面使用 `page.logs.admin-operations`；登录安全页面使用 `page.logs.admin-security`
 - 敏感详情权限：`audit-log:sensitive-view` 或 `audit-log:*`
-- 作用：分页查询普通后台审计日志，可用于日志管理页面的操作日志 tab 和登录日志 tab
-- 查询参数支持：`page`、`per_page`、`admin_id`、`action`、`object_type`、`object_id`、`date_from`、`date_to`
+- 作用：分页查询普通后台审计日志，可用于日志管理中心的操作审计页面和登录安全页面
+- 查询参数支持：`page`、`per_page`、`log_type`、`admin_id`、`action`、`object_type`、`object_id`、`date_from`、`date_to`
+- `log_type` 可选值：
+  - `admin_operation`：查询非认证类后台操作审计记录，排除 `object_type=admin_auth`
+  - `admin_security`：查询管理端登录安全记录，固定 `object_type=admin_auth`
 - 成功数据包含：
   - `list`
   - `total`
@@ -604,7 +607,51 @@
 列表项包含操作者摘要、会话 ID、请求 ID、请求方法、请求路径、操作动作、对象类型、对象 ID、IP、备注和创建时间。
 未具备敏感详情权限时，`before_data`、`after_data` 和 `user_agent` 不返回。
 
-登录日志 tab 不新增独立接口或表，使用本接口并固定 `object_type=admin_auth` 查询认证相关日志；如需按动作类型筛选，继续使用单个 `action` 查询参数。
+登录安全页面不新增独立接口或表，使用本接口并传 `log_type=admin_security` 查询认证相关日志；如需按动作类型筛选，继续使用单个 `action` 查询参数。Phase 1 中 `admin-security-log:view` 作为登录安全页面查询语义权限，后端路由仍复用本接口。
+
+## 日志管理中心
+
+### `GET /admin-api/logs/user-security`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.logs.user-security`
+- 操作权限：`user-security-log:view` 或 `user-security-log:*`
+- 作用：分页查询用户安全日志
+
+### `GET /admin-api/logs/user-business`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.logs.user-business`
+- 操作权限：`user-business-log:view` 或 `user-business-log:*`
+- 作用：分页查询用户业务日志
+
+### `GET /admin-api/logs/frontend-errors`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.logs.frontend-errors`
+- 操作权限：`frontend-error-log:view` 或 `frontend-error-log:*`
+- 作用：分页查询前端错误日志
+
+### `GET /admin-api/logs/backend-runtime`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.logs.backend-runtime`
+- 操作权限：`backend-runtime-log:view` 或 `backend-runtime-log:*`
+- 作用：分页查询后端运行日志
+- 约束：当前实现优先查询结构化运行日志表；stdout 纯文本采集边界由部署和外部日志平台负责
+
+### `POST /admin-api/client-logs/errors`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.logs.frontend-errors`
+- 作用：admin 前端错误上报
+- 约束：字段必须截断、脱敏和限流，不得上传 token、密码、验证码、请求体原文或供应商完整响应
+
+### `POST /api/client-logs/errors`
+
+- 鉴权：公开或用户端登录态均可
+- 作用：web 前端错误上报
+- 约束：字段必须截断、脱敏和限流，不得上传 token、密码、验证码、请求体原文或供应商完整响应
 
 ## 文件管理域
 

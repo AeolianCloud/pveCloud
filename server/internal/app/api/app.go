@@ -11,17 +11,21 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/database"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/logger"
+	logsusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/logs"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 )
 
 /**
  * App 表示 API 共享的运行时依赖容器。
  */
 type App struct {
-	Config *config.Config
-	DB     *gorm.DB
-	Redis  *cache.Redis
-	Logger *slog.Logger
-	Routes RouteSets
+	Config      *config.Config
+	DB          *gorm.DB
+	Redis       *cache.Redis
+	Logger      *slog.Logger
+	Logs        *logsusecase.Service
+	LogRecorder *weblogging.Recorder
+	Routes      RouteSets
 }
 
 /**
@@ -51,10 +55,12 @@ func NewApp(ctx context.Context, configPath string) (*App, error) {
 	}
 
 	app := &App{
-		Config: cfg,
-		DB:     db,
-		Redis:  redisClient,
-		Logger: log,
+		Config:      cfg,
+		DB:          db,
+		Redis:       redisClient,
+		Logger:      log,
+		Logs:        logsusecase.NewService(db),
+		LogRecorder: weblogging.NewRecorder(db),
 	}
 	app.Routes = NewRouteSets(app)
 	return app, nil

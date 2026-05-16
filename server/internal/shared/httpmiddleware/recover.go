@@ -15,10 +15,15 @@ import (
  * @param log 结构化日志记录器
  * @return gin.HandlerFunc Gin 中间件
  */
-func Recover(log *slog.Logger) gin.HandlerFunc {
+type PanicRecorder func(ctx *gin.Context, message string)
+
+func Recover(log *slog.Logger, recorder PanicRecorder) gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		requestID, _ := c.Get(RequestIDKey)
 		log.Error("已恢复 panic", "request_id", requestID, "panic", recovered)
+		if recorder != nil {
+			recorder(c, "panic recovered")
+		}
 		response.Error(c, apperrors.ErrInternal)
 	})
 }

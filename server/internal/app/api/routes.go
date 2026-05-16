@@ -10,6 +10,7 @@ import (
 	adminauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/auth"
 	dashboardhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/dashboard"
 	fileattachmenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/fileattachment"
+	adminlogshttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/logs"
 	adminmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/middleware"
 	adminorderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/order"
 	productcataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/productcatalog"
@@ -18,6 +19,7 @@ import (
 	systemconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/systemconfig"
 	admintickethttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/ticket"
 	webuserhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/webuser"
+	clientlogshttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/shared/clientlogs"
 	webauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/auth"
 	cataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/catalog"
 	webmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/middleware"
@@ -36,6 +38,7 @@ import (
 	adminauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/auth"
 	dashboardusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/dashboard"
 	fileattachmentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/fileattachment"
+	logsusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/logs"
 	adminorderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/order"
 	productcatalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/productcatalog"
 	adminrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/realname"
@@ -63,9 +66,11 @@ type AdminRouteSet struct {
 	FileAttachment *fileattachmenthttp.FileAttachmentHandler
 	ProductCatalog *productcataloghttp.ProductCatalogHandler
 	RealName       *adminrealnamehttp.RealNameHandler
+	Logs           *adminlogshttp.Handler
 	Order          *adminorderhttp.Handler
 	Ticket         *admintickethttp.Handler
 	Audit          *audithttp.AdminAuditHandler
+	ClientLogs     *clientlogshttp.Handler
 	AuthMiddleware gin.HandlerFunc
 }
 
@@ -77,6 +82,7 @@ type WebRouteSet struct {
 	RealName       *webrealnamehttp.RealNameHandler
 	Order          *weborderhttp.Handler
 	Ticket         *webtickethttp.Handler
+	ClientLogs     *clientlogshttp.Handler
 	AuthMiddleware gin.HandlerFunc
 }
 
@@ -87,6 +93,7 @@ type RouteSets struct {
 
 func NewRouteSets(app *App) RouteSets {
 	auditService := auditusecase.NewAdminAuditService(app.DB)
+	logsService := logsusecase.NewService(app.DB)
 	adminAuthService := adminauthusecase.NewAdminAuthService(app.DB, app.Redis, app.Config.JWT, auditService)
 	webAuthService := webauthusecase.NewUserAuthService(app.DB, app.Redis, app.Config.JWT, app.Config.Mail)
 
@@ -108,9 +115,11 @@ func NewRouteSets(app *App) RouteSets {
 			FileAttachment: fileattachmenthttp.NewFileAttachmentHandler(fileattachmentusecase.NewFileAttachmentService(app.DB, auditService, app.Config.Storage)),
 			ProductCatalog: productcataloghttp.NewProductCatalogHandler(productcatalogusecase.NewProductCatalogService(app.DB, auditService)),
 			RealName:       adminrealnamehttp.NewRealNameHandler(adminrealnameusecase.NewRealNameService(app.DB, app.Redis, auditService)),
+			Logs:           adminlogshttp.NewHandler(logsService),
 			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService)),
 			Ticket:         admintickethttp.NewHandler(adminticketusecase.NewService(app.DB, auditService, app.Config.Storage)),
 			Audit:          audithttp.NewAdminAuditHandler(auditService, adminmiddleware.CurrentAdminPermissionCodes),
+			ClientLogs:     clientlogshttp.NewHandler("admin", app.Redis, app.LogRecorder),
 			AuthMiddleware: adminmiddleware.AdminAuth(adminAuthService),
 		},
 		Web: WebRouteSet{
@@ -121,6 +130,7 @@ func NewRouteSets(app *App) RouteSets {
 			RealName:       webrealnamehttp.NewRealNameHandler(webRealNameService),
 			Order:          weborderhttp.NewHandler(weborderusecase.NewService(app.DB, webRealNameService)),
 			Ticket:         webtickethttp.NewHandler(webticketusecase.NewService(app.DB, app.Config.Storage)),
+			ClientLogs:     clientlogshttp.NewHandler("web", app.Redis, app.LogRecorder),
 			AuthMiddleware: webmiddleware.UserAuth(webAuthService),
 		},
 	}

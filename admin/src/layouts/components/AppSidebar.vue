@@ -39,6 +39,7 @@ const iconMap: Record<string, any> = {
   Chatbubbles: ChatbubblesOutline,
   Tickets: ReceiptOutline,
   Document: DocumentTextOutline,
+  DocumentText: DocumentTextOutline,
 }
 
 const activeMenu = computed(() => route.path)
@@ -158,6 +159,7 @@ function handleSelect() {
 .app-sidebar__menu {
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
 
 .app-sidebar__empty {

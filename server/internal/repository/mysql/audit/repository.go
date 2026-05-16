@@ -12,13 +12,14 @@ type Repository struct {
 }
 
 type LogFilters struct {
-	AdminID    uint64
-	Action     string
-	ObjectType string
-	ObjectID   string
-	DateFrom   *time.Time
-	DateTo     *time.Time
-	DateToOpen bool
+	AdminID           uint64
+	Action            string
+	ObjectType        string
+	ExcludeObjectType string
+	ObjectID          string
+	DateFrom          *time.Time
+	DateTo            *time.Time
+	DateToOpen        bool
 }
 
 func NewRepository(db *gorm.DB) *Repository {
@@ -63,6 +64,9 @@ func (r *Repository) applyFilters(db *gorm.DB, filters LogFilters) *gorm.DB {
 	}
 	if filters.ObjectType != "" {
 		db = db.Where("object_type = ?", filters.ObjectType)
+	}
+	if filters.ExcludeObjectType != "" {
+		db = db.Where("object_type <> ?", filters.ExcludeObjectType)
 	}
 	if filters.ObjectID != "" {
 		db = db.Where("object_id = ?", filters.ObjectID)

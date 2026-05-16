@@ -30,6 +30,7 @@ export interface AuditLogItem {
 export interface AuditLogListQuery {
   page?: number
   per_page?: number
+  log_type?: 'admin_operation' | 'admin_security'
   admin_id?: number
   action?: string
   object_type?: string

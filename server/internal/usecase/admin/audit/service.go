@@ -89,7 +89,7 @@ func (s *AdminAuditService) Record(ctx context.Context, db *gorm.DB, input Admin
  */
 func (s *AdminAuditService) AuditLogs(ctx context.Context, query admindto.AuditLogListQuery, includeSensitive bool) (admindto.PageResponse[admindto.AuditLogItem], error) {
 	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
-	filters, err := buildLogFilters(query.AdminID, query.Action, query.ObjectType, query.ObjectID, query.DateFrom, query.DateTo)
+	filters, err := buildLogFilters(query)
 	if err != nil {
 		return admindto.PageResponse[admindto.AuditLogItem]{}, err
 	}
@@ -258,22 +258,28 @@ func isSensitiveAuditKey(key string) bool {
 	return false
 }
 
-func buildLogFilters(adminID uint64, action string, objectType string, objectID string, dateFrom string, dateTo string) (mysqlaudit.LogFilters, error) {
+func buildLogFilters(query admindto.AuditLogListQuery) (mysqlaudit.LogFilters, error) {
 	filters := mysqlaudit.LogFilters{
-		AdminID:    adminID,
-		Action:     action,
-		ObjectType: objectType,
-		ObjectID:   objectID,
+		AdminID:    query.AdminID,
+		Action:     query.Action,
+		ObjectType: query.ObjectType,
+		ObjectID:   query.ObjectID,
 	}
-	if dateFrom != "" {
-		from, err := parseLogTime(dateFrom)
+	switch query.LogType {
+	case "admin_operation":
+		filters.ExcludeObjectType = "admin_auth"
+	case "admin_security":
+		filters.ObjectType = "admin_auth"
+	}
+	if query.DateFrom != "" {
+		from, err := parseLogTime(query.DateFrom)
 		if err != nil {
 			return mysqlaudit.LogFilters{}, apperrors.ErrValidation.WithMessage("开始时间格式错误")
 		}
 		filters.DateFrom = &from
 	}
-	if dateTo != "" {
-		to, wholeDay, err := parseLogTimeEnd(dateTo)
+	if query.DateTo != "" {
+		to, wholeDay, err := parseLogTimeEnd(query.DateTo)
 		if err != nil {
 			return mysqlaudit.LogFilters{}, apperrors.ErrValidation.WithMessage("结束时间格式错误")
 		}

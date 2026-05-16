@@ -7,27 +7,64 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/**
- * AccessLog 记录每个 HTTP 请求的基础访问日志。
- *
- * @param log 结构化日志记录器
- * @return gin.HandlerFunc Gin 中间件
- */
-func AccessLog(log *slog.Logger) gin.HandlerFunc {
+type BackendRuntimeRecorder func(ctx *gin.Context, log BackendRuntimeLogInput)
+
+type BackendRuntimeLogInput struct {
+	Level         string
+	Category      string
+	RequestID     string
+	RequestMethod string
+	RequestPath   string
+	Status        int
+	LatencyMS     int64
+	ClientIP      string
+	Message       string
+}
+
+func AccessLog(log *slog.Logger, recorder BackendRuntimeRecorder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
 
-		// 请求结束后再记录日志，才能拿到最终状态码和完整耗时。
 		requestID, _ := c.Get(RequestIDKey)
+		elapsed := time.Since(start)
 		log.Info(
 			"HTTP 请求",
 			"request_id", requestID,
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
 			"status", c.Writer.Status(),
-			"latency_ms", time.Since(start).Milliseconds(),
+			"latency_ms", elapsed.Milliseconds(),
 			"client_ip", c.ClientIP(),
 		)
+
+		if recorder != nil {
+			recorder(c, BackendRuntimeLogInput{
+				Level:         levelByStatus(c.Writer.Status()),
+				Category:      "access",
+				RequestID:     stringValue(requestID),
+				RequestMethod: c.Request.Method,
+				RequestPath:   c.Request.URL.Path,
+				Status:        c.Writer.Status(),
+				LatencyMS:     elapsed.Milliseconds(),
+				ClientIP:      c.ClientIP(),
+				Message:       "HTTP 请求",
+			})
+		}
 	}
+}
+
+func levelByStatus(status int) string {
+	if status >= 500 {
+		return "error"
+	}
+	if status >= 400 {
+		return "warn"
+	}
+	return "info"
+}
+
+func stringValue(value any) string {
+	text, _ := value.(string)
+	return text
 }

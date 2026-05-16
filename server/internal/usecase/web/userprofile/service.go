@@ -15,6 +15,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/password"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 	websupport "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/support"
 )
 
@@ -24,13 +25,14 @@ import (
 type UserProfileService struct {
 	db    *gorm.DB
 	users *mysqluser.Repository
+	logs  *weblogging.Recorder
 }
 
 /**
  * NewUserProfileService 创建用户资料服务。
  */
 func NewUserProfileService(db *gorm.DB) *UserProfileService {
-	return &UserProfileService{db: db, users: mysqluser.NewRepository(db)}
+	return &UserProfileService{db: db, users: mysqluser.NewRepository(db), logs: weblogging.NewRecorder(db)}
 }
 
 /**
@@ -70,6 +72,9 @@ func (s *UserProfileService) UpdateProfile(ctx context.Context, userID uint64, s
 		}
 		user, err = s.users.FindUserByID(ctx, tx, userID)
 		if err != nil {
+			return err
+		}
+		if err := s.logs.Business(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), "profile", "profile.update", "user_profile", "", "资料已更新"); err != nil {
 			return err
 		}
 		session, err := s.users.FindUserSessionBySessionID(ctx, sessionID, userID)
@@ -127,7 +132,10 @@ func (s *UserProfileService) ChangePassword(ctx context.Context, userID uint64, 
 		if err := s.users.UpdateUserPasswordHash(ctx, tx, userID, newHash); err != nil {
 			return err
 		}
-		return s.users.RevokeOtherActiveUserSessions(ctx, tx, userID, sessionID, now, "password_change", domainuser.SessionStatusActive, domainuser.SessionStatusRevoked)
+		if err := s.users.RevokeOtherActiveUserSessions(ctx, tx, userID, sessionID, now, "password_change", domainuser.SessionStatusActive, domainuser.SessionStatusRevoked); err != nil {
+			return err
+		}
+		return s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), sessionID, "user.password.change", "success", "修改密码")
 	})
 }
 

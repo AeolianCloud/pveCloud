@@ -16,6 +16,7 @@ import (
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 	webrealname "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/realname"
 )
 
@@ -29,10 +30,11 @@ type Service struct {
 	db       *gorm.DB
 	orders   *mysqlorder.Repository
 	realName *webrealname.RealNameService
+	logs     *weblogging.Recorder
 }
 
 func NewService(db *gorm.DB, realName *webrealname.RealNameService) *Service {
-	return &Service{db: db, orders: mysqlorder.NewRepository(db), realName: realName}
+	return &Service{db: db, orders: mysqlorder.NewRepository(db), realName: realName, logs: weblogging.NewRecorder(db)}
 }
 
 func (s *Service) Create(ctx context.Context, userID uint64, req webdto.OrderCreateRequest) (webdto.OrderDetail, error) {
@@ -67,6 +69,7 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.OrderCre
 		}
 		return webdto.OrderDetail{}, err
 	}
+	_ = s.logs.BusinessNoTx(ctx, weblogging.Snapshot(userID, "", ""), "order", "order.create", "order", order.OrderNo, "订单创建")
 	return webOrderDetail(order), nil
 }
 
@@ -121,6 +124,7 @@ func (s *Service) Cancel(ctx context.Context, userID uint64, orderNo string, req
 	if err != nil {
 		return webdto.OrderDetail{}, err
 	}
+	_ = s.logs.BusinessNoTx(ctx, weblogging.Snapshot(userID, "", ""), "order", "order.cancel", "order", orderNo, "订单取消")
 	return webOrderDetail(updated), nil
 }
 

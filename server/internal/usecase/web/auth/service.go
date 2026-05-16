@@ -27,6 +27,7 @@ import (
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/requestcontext"
 	"github.com/AeolianCloud/pveCloud/server/internal/shared/textutil"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	weblogging "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/logging"
 	websupport "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/support"
 )
 
@@ -94,6 +95,7 @@ type UserAuthService struct {
 	webURL  string
 	configs *mysqlsystemconfig.Repository
 	users   *mysqluser.Repository
+	logs    *weblogging.Recorder
 }
 
 /**
@@ -117,6 +119,7 @@ func NewUserAuthService(db *gorm.DB, redis *cache.Redis, cfg config.JWTConfig, m
 		webURL:  mailCfg.PasswordResetURLBase,
 		configs: mysqlsystemconfig.NewRepository(db),
 		users:   mysqluser.NewRepository(db),
+		logs:    weblogging.NewRecorder(db),
 	}
 }
 
@@ -205,6 +208,7 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 		return webdto.LoginResponse{}, err
 	}
 	if err := s.ensureLoginAllowed(ctx, request.IP, account); err != nil {
+		_ = s.logs.SecurityNoTx(ctx, weblogging.UserSnapshot{Username: &account}, "", "user.login.limited", "limited", "登录限流")
 		return webdto.LoginResponse{}, err
 	}
 
@@ -213,18 +217,21 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 		if recordErr := s.recordLoginFailure(ctx, request.IP, account); recordErr != nil {
 			return webdto.LoginResponse{}, recordErr
 		}
+		_ = s.logs.SecurityNoTx(ctx, weblogging.UserSnapshot{Username: &account}, "", "user.login.failed", "failed", "账号或密码错误")
 		return webdto.LoginResponse{}, apperrors.ErrUnauthorized.WithMessage("账号或密码错误")
 	}
 	if err != nil {
 		return webdto.LoginResponse{}, err
 	}
 	if !domainuser.IsActive(user.Status) {
+		_ = s.logs.SecurityNoTx(ctx, weblogging.Snapshot(user.ID, user.Username, user.Email), "", "user.login.failed", "failed", "用户账号已被禁用")
 		return webdto.LoginResponse{}, apperrors.ErrForbidden.WithMessage("用户账号已被禁用")
 	}
 	if !password.Verify(user.PasswordHash, req.Password) {
 		if recordErr := s.recordLoginFailure(ctx, request.IP, account); recordErr != nil {
 			return webdto.LoginResponse{}, recordErr
 		}
+		_ = s.logs.SecurityNoTx(ctx, weblogging.Snapshot(user.ID, user.Username, user.Email), "", "user.login.failed", "failed", "账号或密码错误")
 		return webdto.LoginResponse{}, apperrors.ErrUnauthorized.WithMessage("账号或密码错误")
 	}
 	if err := s.clearLoginFailures(ctx, request.IP, account); err != nil {
@@ -238,6 +245,9 @@ func (s *UserAuthService) Login(ctx context.Context, req webdto.LoginRequest) (w
 			return issueErr
 		}
 		result = issued
+		if err := s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), result.Session.SessionID, "user.login.success", "success", "登录成功"); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return webdto.LoginResponse{}, err
@@ -285,6 +295,9 @@ func (s *UserAuthService) Register(ctx context.Context, req webdto.RegisterReque
 			return issueErr
 		}
 		result = issued
+		if err := s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), result.Session.SessionID, "user.register", "success", "注册成功"); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return webdto.LoginResponse{}, err
@@ -308,12 +321,28 @@ func (s *UserAuthService) Logout(ctx context.Context, userID uint64, sessionID s
 	}
 	now := time.Now()
 	reason := revokeReasonLogout
-	rows, err := s.users.RevokeActiveUserSessionBySessionID(ctx, nil, sessionID, userID, now, reason, domainuser.SessionStatusActive, domainuser.SessionStatusRevoked)
+	var user mysqluser.User
+	var rows int64
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.users.FindUserByID(ctx, tx, userID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.ErrUnauthorized
+		}
+		if err != nil {
+			return err
+		}
+		user = current
+		rows, err = s.users.RevokeActiveUserSessionBySessionID(ctx, tx, sessionID, userID, now, reason, domainuser.SessionStatusActive, domainuser.SessionStatusRevoked)
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return apperrors.ErrUnauthorized.WithMessage("会话已失效")
+		}
+		return s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), sessionID, "user.logout", "success", "退出登录")
+	})
 	if err != nil {
 		return err
-	}
-	if rows == 0 {
-		return apperrors.ErrUnauthorized.WithMessage("会话已失效")
 	}
 	return nil
 }
@@ -362,6 +391,9 @@ func (s *UserAuthService) Refresh(ctx context.Context, userID uint64, sessionID 
 			return issueErr
 		}
 		result = issued
+		if err := s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), result.Session.SessionID, "user.refresh", "success", "会话刷新"); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return webdto.LoginResponse{}, err
@@ -431,7 +463,7 @@ func (s *UserAuthService) RequestPasswordReset(ctx context.Context, req webdto.P
 		}
 		sendEmail = lockedUser.Email
 		shouldSend = true
-		return nil
+		return s.logs.Security(ctx, tx, weblogging.Snapshot(lockedUser.ID, lockedUser.Username, lockedUser.Email), "", "user.password_reset.request", "success", "密码重置申请")
 	}); err != nil {
 		return err
 	}
@@ -485,7 +517,7 @@ func (s *UserAuthService) ConfirmPasswordReset(ctx context.Context, req webdto.P
 				return err
 			}
 			userDisabled = true
-			return nil
+			return s.logs.Security(ctx, tx, weblogging.Snapshot(user.ID, user.Username, user.Email), "", "user.password_reset.confirm", "failed", "用户账号已被禁用")
 		}
 
 		hash, err := password.Hash(req.Password)
@@ -499,7 +531,14 @@ func (s *UserAuthService) ConfirmPasswordReset(ctx context.Context, req webdto.P
 			return err
 		}
 		reason := revokeReasonPasswordReset
-		return s.users.RevokeActiveUserSessionsByUserID(ctx, tx, reset.UserID, now, reason, domainuser.SessionStatusActive, domainuser.SessionStatusRevoked)
+		if err := s.users.RevokeActiveUserSessionsByUserID(ctx, tx, reset.UserID, now, reason, domainuser.SessionStatusActive, domainuser.SessionStatusRevoked); err != nil {
+			return err
+		}
+		lockedUser, err := s.users.FindUserByID(ctx, tx, reset.UserID)
+		if err != nil {
+			return err
+		}
+		return s.logs.Security(ctx, tx, weblogging.Snapshot(lockedUser.ID, lockedUser.Username, lockedUser.Email), "", "user.password_reset.confirm", "success", "密码重置完成")
 	}); err != nil {
 		return err
 	}
