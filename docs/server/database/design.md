@@ -59,7 +59,7 @@ user_sessions
 user_password_reset_tokens
 ```
 
-`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单 MVP 和工单 MVP，不开放钱包、支付、实例或其它业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、实例和工单，不开放钱包、支付或其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
 
@@ -142,7 +142,7 @@ plan_regions
 plan_os_templates
 ```
 
-服务器产品目录用于维护 Web 可展示的固定服务器套餐，不包含订单、支付、实例、库存扣减或 PVE 节点绑定。
+服务器产品目录用于维护 Web 可展示的固定服务器套餐，不包含支付、库存扣减或 PVE 节点直接绑定。实例交付通过独立交付映射把产品目录选择映射到 MCP PVE client API 参数。
 
 `products` 表示产品主数据，当前只开放 `type=server` 的云服务器产品。
 
@@ -150,9 +150,9 @@ plan_os_templates
 
 `plan_prices` 保存套餐周期价格，金额字段使用分为单位，不使用浮点数。
 
-`sales_regions` 表示销售地域，只用于展示和可售约束，不等同于 PVE 节点、集群或资源池。
+`sales_regions` 表示销售地域，只用于展示和可售约束，不等同于 PVE 节点、集群或资源池；实例交付时由 `instance_provision_mappings` 选择上游节点。
 
-`server_os_templates` 表示服务器系统模板，避免与图片、Logo、附件等 image 概念混淆；当前不绑定 PVE 模板 ID。
+`server_os_templates` 表示服务器系统模板，避免与图片、Logo、附件等 image 概念混淆；当前不直接绑定 PVE 模板 ID，实例交付时由 `instance_provision_mappings` 选择上游磁盘来源。
 
 `plan_regions` 和 `plan_os_templates` 分别维护套餐可用销售地域和可用服务器系统模板。
 
@@ -160,21 +160,23 @@ plan_os_templates
 
 产品目录删除采用受限硬删除，不新增软删除字段。产品存在套餐时不可删除；销售地域或服务器系统模板仍被套餐关联时不可删除；套餐删除必须同事务删除 `plan_prices`、`plan_regions` 和 `plan_os_templates` 中的关联数据。历史订单保存产品目录快照，不通过外键引用当前产品目录，因此历史订单不阻止产品目录删除。
 
-### 订单 MVP
+### 订单
 
 ```text
 orders
 ```
 
-`orders` 用于保存用户端基于服务器产品目录创建的订单最终事实。订单只表示购买意向和后台人工处理入口，不代表支付成功、实例开通或资源交付。
+`orders` 用于保存用户端基于服务器产品目录创建的订单最终事实。订单表示购买意向和后台处理入口，不代表支付成功；管理员触发交付后可关联一条实例记录。
 
-订单状态使用字符串字段，不使用数据库 enum。第一阶段只允许以下状态：
+订单状态使用字符串字段，不使用数据库 enum。当前允许以下状态：
 
 - `pending`：订单已创建，等待运营处理或后续人工流程。
+- `provisioning`：管理员已触发实例交付，实例创建或同步处理中。
+- `fulfilled`：实例交付完成，至少存在一条已成功创建的实例记录。
 - `cancelled`：订单已取消，可由当前用户或管理员取消。
 - `closed`：订单已关闭，只能由管理员关闭。
 
-本阶段不保存或使用 `paid`、`provisioning`、`fulfilled` 等支付和交付状态。
+本阶段不保存或使用 `paid` 等支付状态。
 
 订单对外展示使用 `order_no`，不直接暴露自增 ID。金额字段使用分为单位，不使用浮点数。
 
@@ -192,7 +194,38 @@ orders
 
 订单创建幂等依赖客户端提交的 `client_token` 和当前用户组合唯一约束。重复提交同一个有效幂等键时，应返回同一订单或明确的 `409xx` 冲突，不得重复创建订单。
 
-订单状态变更必须检查当前状态并在事务中写入。管理端取消、关闭和后台备注变更必须与普通后台审计写入保持同事务。
+订单状态变更必须检查当前状态并在事务中写入。管理端取消、关闭、后台备注变更和交付触发必须与普通后台审计写入保持同事务。
+
+### 实例交付
+
+```text
+instance_provision_mappings
+instances
+instance_operations
+```
+
+实例交付通过 MCP PVE client API 调用上游 PVE 适配服务。pveCloud 不保存通用 PVE 节点、存储或资源池目录，只保存业务实例、交付映射和操作记录。
+
+`instance_provision_mappings` 保存交付映射，使用 `plan_no`、`region_no`、`template_no` 和 `network_type_no` 匹配订单快照；`network_type_no` 为空字符串表示不限定网络类型。映射保存 MCP 创建 VM 所需的 `node`、`storage`、`disk_source`、`disk_format`、`disk_interface`、`snippets_storage`、CloudInit 非敏感字段和 VMID 分配范围。`next_vmid` 必须在本地事务中分配并递增；服务端不得依赖前端传入 VMID。
+
+CloudInit `ci_password` 当前不落库、不作为映射配置保存，也不通过接口返回。后续如需初始密码或重置密码，必须先补充一次性凭据展示、加密或脱敏存储、审计和日志保护契约。
+
+`instances` 保存云主机实例最终事实。实例对外展示使用 `instance_no`，不直接暴露自增 ID。用户端只返回实例编号、订单号、状态和产品/套餐/地域/系统模板等业务快照；`external_node`、`external_vmid`、`external_resource_location` 只允许管理端和服务端内部使用。
+
+实例状态使用字符串字段，不使用数据库 enum。当前允许以下状态：
+
+- `creating`：已触发 MCP 创建 VM，等待上游 operation 完成。
+- `running`：实例处于运行状态。
+- `stopped`：实例处于停止状态。
+- `error`：最近一次创建、同步或操作失败，需要管理端处理。
+- `releasing`：已触发释放，等待上游删除 VM 完成。
+- `released`：实例已释放，本地记录保留。
+
+`instances.order_id` 当前使用唯一约束，表示一个订单最多交付一台实例；订单数量仍固定为 `1`。`instances(external_node, external_vmid)` 必须唯一，避免同一上游 VM 被重复绑定。
+
+`instance_operations` 保存实例异步操作记录，包括 `provision`、`start`、`stop`、`release` 和 `sync`。MCP 返回的 operation ID、Operation-Location、resourceLocation、失败码和失败说明保存为排障事实。操作状态只允许 `running`、`succeeded`、`failed`。
+
+产生外部副作用的操作必须明确事务边界：本地实例、操作记录、订单状态和后台审计写入使用本地事务；MCP 网络调用不得放进长事务。上游调用失败后必须把本地实例或操作记录置为可恢复、可排查状态，不得静默丢失。
 
 ### 工单 MVP
 
@@ -207,7 +240,7 @@ ticket_collaborators
 ticket_events
 ```
 
-`tickets` 用于保存用户端提交的工单主记录。工单只表示用户与后台之间的沟通事项和后台内部处理协作，不代表支付、实例交付、PVE 操作或自动处理承诺。内部 SLA 仅用于后台处理时限，不作为用户端服务承诺。
+`tickets` 用于保存用户端提交的工单主记录。工单只表示用户与后台之间的沟通事项和后台内部处理协作，不代表支付、PVE 操作或自动处理承诺。内部 SLA 仅用于后台处理时限，不作为用户端服务承诺。
 
 工单状态使用字符串字段，不使用数据库 enum。第一阶段只允许以下状态：
 
@@ -305,7 +338,7 @@ ticket_events
 
 ## 当前阶段说明
 
-当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单和工单阶段。
+当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单、实例和工单阶段。
 数据库契约保留以下管理域：
 
 - 认证
@@ -316,14 +349,14 @@ ticket_events
 - 用户端账号与会话
 - 用户实名
 - 服务器产品目录
-- 订单 MVP
-- 工单 MVP
+- 订单
+- 实例
+- 工单
 
 以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
 - 支付与钱包
-- 实例
-- 异步任务
+- 通用异步任务平台
 
 ## 关键唯一约束示例
 
@@ -348,6 +381,12 @@ ticket_events
 - `server_os_templates.code`
 - `orders.order_no`
 - `orders(user_id, client_token)`，只约束有效幂等键
+- `instance_provision_mappings.mapping_no`
+- `instance_provision_mappings(plan_no, region_no, template_no, network_type_no, status)`
+- `instances.instance_no`
+- `instances.order_id`
+- `instances(external_node, external_vmid)`
+- `instance_operations.operation_no`
 - `tickets.ticket_no`
 - `ticket_message_attachments(message_id, file_id)`
 - `user_security_logs(user_id, created_at)`
@@ -403,9 +442,19 @@ Web 用户管理需要新增以下管理端权限目录：
 - `ticket:reply`
 - `ticket:close`
 
+实例管理需要新增以下管理端权限目录：
+
+- `page.instances`
+- `instance:*`
+- `instance:view`
+- `instance:provision`
+- `instance:operate`
+- `instance:release`
+- `instance:sync`
+
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前阶段不以 PVE、支付、实例或异步任务为现行数据库契约
+- 当前阶段只以 MCP PVE client API 支撑的实例交付和基础操作为现行数据库契约，不以通用 PVE 运维管理、支付或通用异步任务平台为现行数据库契约
 - 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

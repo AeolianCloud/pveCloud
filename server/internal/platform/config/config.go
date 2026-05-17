@@ -24,6 +24,7 @@ type Config struct {
 	Mail     MailConfig     `yaml:"mail"`
 	Log      LogConfig      `yaml:"log"`
 	Storage  StorageConfig  `yaml:"storage"`
+	MCPPVE   MCPPVEConfig   `yaml:"mcp_pve"`
 }
 
 /**
@@ -129,6 +130,16 @@ type StorageConfig struct {
 }
 
 /**
+ * MCPPVEConfig 表示 MCP PVE client API 配置。
+ */
+type MCPPVEConfig struct {
+	Enabled        bool   `yaml:"enabled"`
+	BaseURL        string `yaml:"base_url"`
+	BearerToken    string `yaml:"bearer_token"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+}
+
+/**
  * LoadConfig 读取并校验 YAML 配置文件。
  *
  * @param path YAML 配置文件路径；为空时使用 config.yaml
@@ -219,6 +230,11 @@ func defaultConfig() *Config {
 				"application/pdf",
 			},
 		},
+		MCPPVE: MCPPVEConfig{
+			Enabled:        false,
+			BaseURL:        "http://127.0.0.1:8081",
+			TimeoutSeconds: 15,
+		},
 	}
 }
 
@@ -296,7 +312,22 @@ func (cfg *Config) Validate() error {
 	if len(cfg.Storage.AllowedTypes) == 0 {
 		return fmt.Errorf("storage.allowed_types 不能为空")
 	}
+	if cfg.MCPPVE.Enabled {
+		if strings.TrimSpace(cfg.MCPPVE.BaseURL) == "" {
+			return fmt.Errorf("mcp_pve.base_url 不能为空")
+		}
+		if cfg.MCPPVE.TimeoutSeconds <= 0 {
+			return fmt.Errorf("mcp_pve.timeout_seconds 必须大于 0")
+		}
+	}
 	return nil
+}
+
+func (cfg MCPPVEConfig) Timeout() time.Duration {
+	if cfg.TimeoutSeconds <= 0 {
+		return 15 * time.Second
+	}
+	return time.Duration(cfg.TimeoutSeconds) * time.Second
 }
 
 func validateJWTSecret(name string, value string) error {

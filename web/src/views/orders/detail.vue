@@ -13,7 +13,7 @@ const toast = useToast()
 const loading = ref(false)
 const errorMessage = ref('')
 const order = ref<OrderDetail | null>(null)
-const statusText: Record<string, string> = { pending: '待处理', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 const formatMemory = (mb: number) => mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`

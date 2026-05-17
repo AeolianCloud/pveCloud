@@ -18,6 +18,7 @@ export const ADMIN_ROUTE_PATH = {
   realNames: '/web/real-names',
   products: '/products',
   orders: '/orders',
+  instances: '/instances',
   tickets: '/tickets',
   forbidden: '/403',
 } as const
@@ -41,6 +42,7 @@ export const ADMIN_ROUTE_NAME = {
   realNames: 'real-names',
   products: 'products',
   orders: 'orders',
+  instances: 'instances',
   tickets: 'tickets',
   forbidden: 'forbidden',
 } as const

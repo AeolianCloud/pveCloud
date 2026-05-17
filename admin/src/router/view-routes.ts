@@ -197,6 +197,17 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.instances,
+    name: ADMIN_ROUTE_NAME.instances,
+    component: () => import('../views/instances/index.vue'),
+    meta: {
+      title: '实例管理',
+      icon: 'Server',
+      requiresAuth: true,
+      permission: ['page.instances'],
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.tickets,
     name: ADMIN_ROUTE_NAME.tickets,
     component: () => import('../views/tickets/index.vue'),

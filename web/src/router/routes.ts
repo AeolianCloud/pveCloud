@@ -95,6 +95,24 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/user/instances',
+    name: 'instances',
+    component: () => import('../views/instances/index.vue'),
+    meta: {
+      title: '实例管理',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/instances/:instanceNo',
+    name: 'instance-detail',
+    component: () => import('../views/instances/detail.vue'),
+    meta: {
+      title: '实例详情',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/user/tickets',
     name: 'tickets',
     component: () => import('../views/tickets/index.vue'),

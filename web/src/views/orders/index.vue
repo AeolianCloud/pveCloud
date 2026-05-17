@@ -14,7 +14,7 @@ const orders = ref<OrderItem[]>([])
 const total = ref(0)
 const query = reactive({ page: 1, per_page: 15, status: '' })
 
-const statusText: Record<string, string> = { pending: '待处理', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
@@ -61,7 +61,7 @@ onMounted(loadOrders)
         <RouterLink to="/products" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">继续选择套餐</RouterLink>
       </div>
       <div class="mb-6 flex flex-wrap gap-3">
-        <button v-for="item in [{ label: '全部', value: '' }, { label: '待处理', value: 'pending' }, { label: '已取消', value: 'cancelled' }, { label: '已关闭', value: 'closed' }]" :key="item.value || 'all'" type="button" :class="['action-pill border px-4 py-2 text-xs font-black', query.status === item.value ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700 hover:border-neutral-950']" @click="query.status = item.value; query.page = 1; loadOrders()">{{ item.label }}</button>
+        <button v-for="item in [{ label: '全部', value: '' }, { label: '待处理', value: 'pending' }, { label: '交付中', value: 'provisioning' }, { label: '已交付', value: 'fulfilled' }, { label: '已取消', value: 'cancelled' }, { label: '已关闭', value: 'closed' }]" :key="item.value || 'all'" type="button" :class="['action-pill border px-4 py-2 text-xs font-black', query.status === item.value ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700 hover:border-neutral-950']" @click="query.status = item.value; query.page = 1; loadOrders()">{{ item.label }}</button>
       </div>
       <div v-if="loading" class="space-y-3">
         <div v-for="item in 4" :key="item" class="rounded-2xl border border-neutral-200 bg-white p-5">
@@ -77,7 +77,7 @@ onMounted(loadOrders)
         </div>
       </div>
       <div v-else-if="errorMessage" class="state-panel p-8 text-center">
-        <p class="text-xs font-black uppercase tracking-[0.18em] text-red-600">Orders Error</p>
+        <p class="text-xs font-black uppercase tracking-[0.18em] text-red-600">订单异常</p>
         <h2 class="mt-3 text-2xl font-black text-neutral-950">订单加载失败</h2>
         <p class="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-500">{{ errorMessage }}</p>
         <button type="button" class="action-pill mt-5 border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white" @click="loadOrders">重新加载</button>

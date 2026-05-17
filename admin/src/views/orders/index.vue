@@ -27,6 +27,7 @@ import {
   type AdminOrderDetail,
   type AdminOrderItem,
 } from '../../api/order'
+import { provisionOrder } from '../../api/instance'
 import { usePermissionStore } from '../../store/modules/permission'
 import { hasPermissionCode } from '../../utils/permission'
 import { confirm, getDialog, message } from '../../utils/feedback'
@@ -44,8 +45,9 @@ const query = reactive({ page: 1, per_page: 15, status: '', order_no: '', user_k
 
 const canUpdate = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'order:update'))
 const canCancel = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'order:cancel'))
+const canProvision = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:provision'))
 
-const statusText: Record<string, string> = { pending: '待处理', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
 const cycleText: Record<string, string> = {
   monthly: '月付',
   quarterly: '季付',
@@ -55,6 +57,8 @@ const cycleText: Record<string, string> = {
 
 const statusOptions = [
   { label: '待处理', value: 'pending' },
+  { label: '交付中', value: 'provisioning' },
+  { label: '已交付', value: 'fulfilled' },
   { label: '已取消', value: 'cancelled' },
   { label: '已关闭', value: 'closed' },
 ]
@@ -117,6 +121,27 @@ async function updateStatus(action: 'cancel' | 'close', order: AdminOrderItem | 
   }
 }
 
+async function provision(order: AdminOrderItem | AdminOrderDetail) {
+  try {
+    await confirm({
+      title: '触发实例交付',
+      content: `确认对订单 ${order.order_no} 触发实例交付？`,
+      positiveText: '确认交付',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await provisionOrder(order.order_no)
+    message.success('实例交付已提交')
+    await loadOrders()
+    if (detailVisible.value) await openDetail(order.order_no)
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '交付失败')
+  }
+}
+
 function promptReason(content: string, title: string): Promise<string | null> {
   return new Promise((resolve) => {
     const value = ref('')
@@ -151,9 +176,6 @@ function promptReason(content: string, title: string): Promise<string | null> {
     })
   })
 }
-
-// keep confirm import alive (used elsewhere if needed)
-void confirm
 
 function resetQuery() {
   Object.assign(query, { page: 1, per_page: 15, status: '', order_no: '', user_keyword: '' })
@@ -219,6 +241,11 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
           if (canUpdate.value && row.status === 'pending') {
             buttons.push(
               h(NButton, { text: true, type: 'warning', onClick: () => updateStatus('close', row) }, { default: () => '关闭' }),
+            )
+          }
+          if (canProvision.value && row.status === 'pending') {
+            buttons.push(
+              h(NButton, { text: true, type: 'success', onClick: () => provision(row) }, { default: () => '交付' }),
             )
           }
           return buttons
@@ -310,6 +337,7 @@ onMounted(loadOrders)
             <NSpace>
               <NButton v-if="canCancel" type="error" @click="updateStatus('cancel', detail)">取消订单</NButton>
               <NButton v-if="canUpdate" type="warning" @click="updateStatus('close', detail)">关闭订单</NButton>
+              <NButton v-if="canProvision" type="success" @click="provision(detail)">触发交付</NButton>
             </NSpace>
           </div>
         </div>

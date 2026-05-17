@@ -102,3 +102,15 @@ storage:
     - image/gif
     - image/webp
     - application/pdf
+
+
+# MCP PVE client API 配置，用于后端内部调用上游 PVE 适配服务。
+mcp_pve:
+  # 是否启用 MCP PVE client API。关闭时实例交付和实例操作接口应返回外部依赖不可用。
+  enabled: false
+  # MCP PVE client API 基础地址；不要写入用户端或管理端前端配置。
+  base_url: http://127.0.0.1:8081
+  # 可选 Bearer Token；真实 token 只写入 server/config.yaml，并保持不提交。
+  bearer_token: ""
+  # 单次上游调用超时时间，单位为秒。
+  timeout_seconds: 15

@@ -11,8 +11,9 @@
 - 后台备注
 - 取消订单
 - 关闭订单
+- 触发实例交付入口
 
-本页面不支持后台创建订单，不包含支付、实例、库存扣减、PVE 节点或自动开通能力。
+本页面不支持后台创建订单，不包含支付、库存扣减或通用 PVE 管理能力。实例交付通过实例管理域能力触发，只能基于已有用户端订单。
 
 ## 路由与权限
 
@@ -21,6 +22,7 @@
 - 查看：`order:view` 或 `order:*`
 - 更新后台备注和关闭订单：`order:update` 或 `order:*`
 - 取消订单：`order:cancel` 或 `order:*`
+- 触发实例交付：`instance:provision` 或 `instance:*`
 
 ## 页面结构
 
@@ -37,10 +39,11 @@ admin/src/views/orders/index.vue
 - 列表支持按订单状态、订单编号、用户关键字和创建时间范围筛选。
 - 详情展示订单基础信息、用户摘要、状态、金额、用户备注、后台备注和下单快照。
 - 后台备注只在管理端展示，不通过用户端订单详情返回。
-- 管理端只能取消或关闭 `pending` 订单。
+- 管理端只能取消 `pending` 订单；关闭订单按后端状态机裁决。
 - 非 `pending` 订单执行取消或关闭时，后端返回 `409xx` 状态冲突。
+- 管理端可对 `pending` 订单触发实例交付；交付后订单进入 `provisioning`，实例同步成功后进入 `fulfilled`。
 - 取消、关闭和后台备注更新必须写入普通后台操作审计。
-- 页面不得出现支付确认、实例开通、PVE 节点、库存扣减或自动交付操作。
+- 页面不得出现支付确认、PVE 节点、库存扣减或用户侧自动交付承诺。
 
 ## 关联接口
 
@@ -51,6 +54,7 @@ admin/src/views/orders/index.vue
 - `PATCH /admin-api/orders/{order_no}/admin-note`
 - `POST /admin-api/orders/{order_no}/cancel`
 - `POST /admin-api/orders/{order_no}/close`
+- `POST /admin-api/orders/{order_no}/provision`
 
 ## 验收重点
 

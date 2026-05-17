@@ -736,7 +736,7 @@
 
 ## 产品目录
 
-产品目录维护服务器产品展示和可售约束。订单 MVP 创建订单时读取产品目录并保存快照，但产品目录本身不发起支付、不创建实例、不绑定 PVE 节点。网络类型当前只作为后台可维护的套餐可选项、Web 下单选择项和订单快照；后续对接 PVE 时可基于网络类型编码映射真实网络。
+产品目录维护服务器产品展示和可售约束。订单创建时读取产品目录并保存快照。产品目录本身不发起支付、不创建实例、不绑定 PVE 节点；实例交付通过独立交付映射把套餐、地域、系统模板和网络类型映射到 MCP PVE client API 参数。
 
 ### `GET /admin-api/products`
 
@@ -875,7 +875,7 @@
 
 - 鉴权：管理端 Bearer Token
 - 操作权限：`product:create` 或 `product:*`
-- 作用：创建销售地域。销售地域不绑定 PVE 节点。
+- 作用：创建销售地域。销售地域不直接绑定 PVE 节点；实例交付阶段通过交付映射选择上游节点。
 - 审计：`sales_region.create`
 
 ### `PUT /admin-api/sales-regions/{id}`
@@ -903,7 +903,7 @@
 
 - 鉴权：管理端 Bearer Token
 - 操作权限：`product:create` 或 `product:*`
-- 作用：创建服务器系统模板。当前不绑定 PVE 模板。
+- 作用：创建服务器系统模板。系统模板不直接绑定 PVE 模板；实例交付阶段通过交付映射选择上游磁盘来源。
 - 审计：`server_os_template.create`
 
 ### `PUT /admin-api/server-os-templates/{id}`
@@ -931,7 +931,7 @@
 
 - 鉴权：管理端 Bearer Token
 - 操作权限：`product:create` 或 `product:*`
-- 作用：创建网络类型。当前不绑定 PVE 网络。
+- 作用：创建网络类型。网络类型不直接绑定 PVE 网络；实例交付阶段可参与交付映射匹配。
 - 审计：`network_type.create`
 
 ### `PUT /admin-api/network-types/{id}`
@@ -955,11 +955,11 @@
 - 作用：返回 Web 可展示服务器产品目录聚合数据
 - 返回范围：已上架且可见的服务器产品、套餐、周期价格、销售地域、服务器系统模板和网络类型
 - 展示约束：套餐需要至少有一个 active 周期价格、一个 active 且 visible 的销售地域、一个 active 且 visible 的服务器系统模板、一个 active 且 visible 的网络类型才进入公开目录
-- 禁止返回：支付、实例、库存扣减、PVE 节点、PVE 模板 ID、PVE 网络 ID 或资源池信息
+- 禁止返回：支付、库存扣减、PVE 节点、PVE 模板 ID、PVE 网络 ID、上游 VMID、存储、磁盘来源或资源池信息
 
-## 用户端订单 MVP
+## 用户端订单
 
-订单 MVP 只保存用户购买意向和后台人工处理所需快照，不发起支付、不创建实例、不下发 PVE 资源。
+订单保存用户购买意向和后台处理所需快照，不发起支付。管理员触发交付后，服务端基于订单快照和实例交付映射创建实例。
 
 ### `POST /api/orders`
 
@@ -974,13 +974,14 @@
 - 约束：订单价格、地域、系统模板和网络类型必须在创建时从当前产品目录校验并保存快照
 - 约束：网络类型当前只保存编号、编码和名称快照，不返回或保存 PVE 网络 ID
 - 约束：当前阶段不接受自定义 CPU、内存、硬盘、带宽、公网 IP 数量、购买数量或登录密码模式
+- 约束：创建订单不直接调用 MCP PVE client API，不直接创建实例
 
 ### `GET /api/orders`
 
 - 鉴权：用户端 Bearer Token
 - 作用：分页查询当前用户自己的订单列表
 - 查询参数支持：`page`、`per_page`、`status`
-- 列表项包含订单编号、状态、产品名称、套餐名称、计费周期、网络类型、订单金额和创建/取消/关闭时间
+- 列表项包含订单编号、状态、产品名称、套餐名称、计费周期、网络类型、订单金额和创建/取消/关闭时间；订单状态允许 `pending`、`provisioning`、`fulfilled`、`cancelled`、`closed`
 
 ### `GET /api/orders/{order_no}`
 
@@ -993,6 +994,181 @@
 - 鉴权：用户端 Bearer Token
 - 作用：取消当前用户自己的 `pending` 订单
 - 请求字段：`reason` 可选，最多 500 字
+- 约束：仅 `pending` 订单可由用户取消；`provisioning` 和 `fulfilled` 订单不可由用户端取消
+
+## 实例交付和实例管理
+
+实例交付通过 MCP PVE client API 完成。pveCloud 不原样暴露 MCP `/api/pve/*` 路由，不向用户端返回 `node`、`storage`、`disk_source`、`snippets_storage`、`vmid` 或上游 operation ID。
+
+当前只接入 MCP 已提供能力：
+
+- `GET /api/pve/nodes`
+- `GET /api/pve/nodes/{node}`
+- `GET /api/pve/nodes/{node}/vms`
+- `POST /api/pve/nodes/{node}/vms`
+- `GET /api/pve/nodes/{node}/vms/{vmid}`
+- `DELETE /api/pve/nodes/{node}/vms/{vmid}`
+- `POST /api/pve/nodes/{node}/vms/{vmid}/start`
+- `POST /api/pve/nodes/{node}/vms/{vmid}/stop`
+- `GET /api/pve/storage`
+- `GET /api/pve/operations/{id}`
+
+当前不开放重启、重装、重置密码、控制台、快照、备份、迁移、监控、网络防火墙和资源池管理。
+
+### 管理端交付映射
+
+交付映射把产品目录选择映射到 MCP 创建 VM 参数。映射匹配键为 `plan_no`、`region_no`、`template_no` 和 `network_type_no`；`network_type_no` 为空字符串表示不限定网络类型。映射保存 `node`、`storage`、`disk_source`、`disk_format`、`disk_interface`、`snippets_storage`、CloudInit 非敏感参数和 VMID 分配范围。
+
+CloudInit `ci_password` 当前不作为映射配置保存，也不通过接口返回；后续如需初始密码或重置密码，必须先补充一次性凭据展示、加密/脱敏存储和审计契约。
+
+#### `GET /admin-api/instance-provision-mappings`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：分页查询实例交付映射
+- 查询参数支持：`page`、`per_page`、`status`、`plan_no`、`region_no`、`template_no`、`network_type_no`
+
+#### `POST /admin-api/instance-provision-mappings`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:provision` 或 `instance:*`
+- 作用：创建交付映射
+- 请求字段包含映射匹配键、MCP 创建 VM 参数、VMID 范围和状态
+- 约束：`next_vmid` 必须位于 `vmid_start` 和 `vmid_end` 范围内；同一 active 匹配范围只能存在一条有效映射
+- 审计：`instance_mapping.create`
+
+#### `PATCH /admin-api/instance-provision-mappings/{id}`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:provision` 或 `instance:*`
+- 作用：更新交付映射
+- 约束：已用于实例交付的映射不得通过普通编辑回退 `next_vmid` 到已分配范围；禁用映射不影响历史实例
+- 审计：`instance_mapping.update`
+
+### 管理端 MCP 只读资源
+
+以下接口仅用于后台配置交付映射和排障，返回内容必须经过服务端包装和必要字段筛选，不得向用户端开放。
+
+#### `GET /admin-api/mcp-pve/nodes`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：读取 MCP 节点列表
+- 成功数据：数组；每项仅包含 `node`、`name`、`status`
+
+#### `GET /admin-api/mcp-pve/nodes/{node}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：读取 MCP 节点详情
+- 成功数据：仅包含 `node`、`name`、`status`
+
+#### `GET /admin-api/mcp-pve/nodes/{node}/vms`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：读取指定节点 VM 列表，用于排障和 VMID 占用核对
+- 成功数据：数组；每项仅包含 `vmid`、`name`、`status`、`cpus`、`mem`、`maxmem`
+
+#### `GET /admin-api/mcp-pve/storage`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：读取 MCP 存储列表
+- 成功数据：数组；每项仅包含 `storage`、`name`、`type`、`status`
+
+### 管理端实例接口
+
+#### `POST /admin-api/orders/{order_no}/provision`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:provision` 或 `instance:*`
+- 作用：从 `pending` 订单触发实例交付
+- 成功数据包含实例详情和当前交付操作摘要
+- 约束：
+  - 订单必须存在且状态为 `pending`
+  - 必须存在匹配的 active 交付映射
+  - 服务端必须在本地事务中分配 `next_vmid`、创建 `instances` 和 `instance_operations` 初始记录，并把订单置为 `provisioning`
+  - 外部 MCP 创建 VM 调用不得放在长事务中；本地记录必须能在上游失败后进入可排查状态
+  - 重复对同一订单触发交付时，如果已有实例，应返回已有实例或 `409xx` 状态冲突，不得重复创建 VM
+- 审计：`instance.provision`
+
+#### `GET /admin-api/instances`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：分页查询实例列表
+- 查询参数支持：`page`、`per_page`、`status`、`instance_no`、`order_no`、`user_keyword`、`date_from`、`date_to`
+- 列表项包含实例编号、用户摘要、订单号、实例状态、产品/套餐/地域/系统模板快照、管理端可见的 `node` 和 `vmid`、创建时间和释放时间
+
+#### `GET /admin-api/instances/{instance_no}`
+
+- 鉴权：管理端 Bearer Token
+- 菜单权限：`page.instances`
+- 作用：查看实例详情
+- 成功数据包含实例快照、管理端可见的 MCP 资源标识、最近错误、操作记录和订单摘要
+
+#### `POST /admin-api/instances/{instance_no}/start`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:operate` 或 `instance:*`
+- 作用：启动实例
+- 约束：只允许对 `stopped` 或可由 MCP 幂等接受的实例发起；服务端必须创建操作记录并调用 MCP start
+- 审计：`instance.start`
+
+#### `POST /admin-api/instances/{instance_no}/stop`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:operate` 或 `instance:*`
+- 作用：停止实例
+- 约束：只允许对 `running` 或可由 MCP 幂等接受的实例发起；服务端必须创建操作记录并调用 MCP stop
+- 审计：`instance.stop`
+
+#### `POST /admin-api/instances/{instance_no}/release`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:release` 或 `instance:*`
+- 作用：释放实例并调用 MCP 删除 VM
+- 约束：释放中的实例不可重复释放；释放完成后状态为 `released`，本地实例记录保留
+- 审计：`instance.release`
+
+#### `POST /admin-api/instances/{instance_no}/sync`
+
+- 鉴权：管理端 Bearer Token
+- 操作权限：`instance:sync` 或 `instance:*`
+- 作用：同步实例最近 MCP operation 和 VM 状态
+- 约束：若存在未完成 operation，优先查询 MCP operation；operation 成功后再查询 VM 当前状态并映射到本地实例状态
+- 约束：operation 未完成、缺少可查询 operation ID 或无法确认成功时，服务端不得仅凭 VM 查询提前推进实例或订单状态
+- 审计：`instance.sync`
+
+### 用户端实例接口
+
+#### `GET /api/instances`
+
+- 鉴权：用户端 Bearer Token
+- 作用：分页查询当前用户自己的实例列表
+- 查询参数支持：`page`、`per_page`、`status`
+- 列表项包含实例编号、订单号、实例状态、产品/套餐/地域/系统模板快照、创建时间和释放时间
+- 约束：不得返回 `node`、`storage`、`disk_source`、`vmid`、operation ID 或管理端失败详情
+
+#### `GET /api/instances/{instance_no}`
+
+- 鉴权：用户端 Bearer Token
+- 作用：查看当前用户自己的实例详情
+- 成功数据包含实例快照、订单号、状态和用户可见的最近操作摘要
+- 约束：只能查看当前登录用户自己的实例；他人实例不得通过错误文案泄露存在性
+
+#### `POST /api/instances/{instance_no}/start`
+
+- 鉴权：用户端 Bearer Token
+- 作用：启动当前用户自己的实例
+- 约束：只能操作当前登录用户自己的实例；释放中或已释放实例不可操作；重复提交必须依赖本地状态和操作记录幂等保护
+
+#### `POST /api/instances/{instance_no}/stop`
+
+- 鉴权：用户端 Bearer Token
+- 作用：停止当前用户自己的实例
+- 约束：只能操作当前登录用户自己的实例；释放中或已释放实例不可操作；重复提交必须依赖本地状态和操作记录幂等保护
 
 ## 工单
 
@@ -1231,7 +1407,8 @@
 
 以下业务域仍不在当前 API 契约内：
 
-- 用户端业务 API（公开站点配置、用户账号自助、用户实名、服务器产品目录、订单 MVP 和工单 MVP 接口除外）
+- 用户端业务 API（公开站点配置、用户账号自助、用户实名、服务器产品目录、订单、实例和工单接口除外）
 - 支付
-- 实例
-- 异步任务
+- 钱包
+- 通用异步任务平台
+- 通用 PVE 运维管理

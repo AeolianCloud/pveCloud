@@ -27,8 +27,8 @@
 - 账号资料：`/user/profile`
 - 实名认证：`/user/real-name`
 - 订单管理：`/user/orders`
+- 实例管理：`/user/instances`
 - 工单管理：`/user/tickets`
-- 实例管理（如果开放）
 - 钱包管理（如果开放）
 
 ### 账户概览
@@ -36,7 +36,7 @@
 - 账户创建时间
 - 实名状态
 - 最近订单
-- 最近实例（如果开放）
+- 最近实例
 
 ### 导航菜单
 - 用户中心导航菜单，包含：
@@ -44,8 +44,8 @@
   - 账号资料：`/user/profile`
   - 实名认证：`/user/real-name`
   - 订单管理：`/user/orders`
+  - 实例管理：`/user/instances`
   - 工单管理：`/user/tickets`
-  - 实例管理（如果开放）
   - 钱包管理（如果开放）
 
 ## 关联接口
@@ -53,6 +53,7 @@
 - `GET /api/auth/me` - 获取当前用户信息
 - `GET /api/site-config` - 获取站点配置（用于实名状态等）
 - `GET /api/orders` - 获取当前用户订单列表摘要
+- `GET /api/instances` - 获取当前用户实例列表摘要
 - `GET /api/tickets` - 获取当前用户工单列表摘要
 
 具体字段、响应和错误码以 `docs/server/api/` 为准。

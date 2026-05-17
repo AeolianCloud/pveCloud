@@ -27,6 +27,7 @@
 | 实名管理 | `/web/real-names` | `page.real-name-management` |
 | 产品管理 | `/products` | `page.products` |
 | 订单管理 | `/orders` | `page.orders` |
+| 实例管理 | `/instances` | `page.instances` |
 | 工单管理 | `/tickets` | `page.tickets` |
 
 管理员设置页面使用 `permissionMode: any` 时，只要具备管理员账号、管理组权限或管理员会话入口之一即可进入页面；页面内部能力继续按按钮或功能块权限控制。
@@ -51,6 +52,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 - 新页面若需要独立控制，必须先补数据库权限码。
 - 新按钮、标签页或页面内功能块若需要独立显隐，必须先补对应权限码，再挂接 `meta.permission` 或 `v-permission`。
 - 工单管理页面内操作权限包括 `ticket:reply`、`ticket:close`、`ticket:assign`、`ticket:collaborate`、`ticket:note`、`ticket:priority`、`ticket:tag`、`ticket:tag-manage`，均由 `ticket:*` 覆盖。
+- 实例管理页面内操作权限包括 `instance:provision`、`instance:operate`、`instance:release`、`instance:sync`，均由 `instance:*` 覆盖；`page.instances` 控制实例页面和交付映射主数据读取。
 
 ## 新增页面流程
 

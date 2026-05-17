@@ -70,6 +70,8 @@ var (
 	ErrRealNameProviderFailed = New(60001, "实名供应商核验失败", http.StatusBadGateway)
 	/** ErrRealNameProviderUnavailable 表示外部实名供应商不可用或结果无法确认。 */
 	ErrRealNameProviderUnavailable = New(70001, "实名供应商暂不可用", http.StatusBadGateway)
+	/** ErrExternalUnavailable 表示外部系统不可用或结果无法确认。 */
+	ErrExternalUnavailable = New(70002, "外部系统暂不可用", http.StatusBadGateway)
 )
 
 /**

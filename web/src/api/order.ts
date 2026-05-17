@@ -10,7 +10,7 @@ export interface PageResponse<T> {
 
 export interface OrderItem {
   order_no: string
-  status: 'pending' | 'cancelled' | 'closed'
+  status: 'pending' | 'provisioning' | 'fulfilled' | 'cancelled' | 'closed'
   product_name: string
   plan_name: string
   billing_cycle: string

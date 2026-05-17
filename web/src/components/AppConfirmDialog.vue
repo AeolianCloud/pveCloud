@@ -24,7 +24,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           aria-modal="true"
           :aria-label="confirm.state.title"
         >
-          <p class="text-xs font-black uppercase tracking-[0.16em] text-neutral-500">Confirm</p>
+          <p class="text-xs font-black uppercase tracking-[0.16em] text-neutral-500">确认</p>
           <h2 class="mt-3 text-2xl font-black text-neutral-950">{{ confirm.state.title }}</h2>
           <p class="mt-4 text-sm leading-6 text-neutral-600">{{ confirm.state.message }}</p>
           <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

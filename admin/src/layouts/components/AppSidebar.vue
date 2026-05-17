@@ -9,6 +9,7 @@ import {
   PeopleOutline,
   PersonOutline,
   ReceiptOutline,
+  ServerOutline,
   SettingsOutline,
   ShieldCheckmarkOutline,
   SpeedometerOutline,
@@ -38,6 +39,7 @@ const iconMap: Record<string, any> = {
   Checked: ShieldCheckmarkOutline,
   Chatbubbles: ChatbubblesOutline,
   Tickets: ReceiptOutline,
+  Server: ServerOutline,
   Document: DocumentTextOutline,
   DocumentText: DocumentTextOutline,
 }
