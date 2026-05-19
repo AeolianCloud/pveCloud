@@ -32,6 +32,10 @@
 - `MASTER.md` 记录当前总览
 - 进行中的阶段文件放在 `docs/progress/` 根目录，按需要记录阶段进度、验收和重要说明
 
+当前进行中的阶段入口：
+
+- `docs/progress/worker-instance-lifecycle-code-start.md`
+
 阶段完成后：
 
 - 当前事实必须沉淀到对应权威文档

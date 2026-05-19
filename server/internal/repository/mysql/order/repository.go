@@ -12,6 +12,7 @@ type Repository struct{ db *gorm.DB }
 
 type ListFilters struct {
 	UserID      uint64
+	OrderType   string
 	Status      string
 	OrderNo     string
 	UserKeyword string
@@ -50,6 +51,30 @@ func (r *Repository) Create(ctx context.Context, db *gorm.DB, order *Order) erro
 func (r *Repository) FindByUserClientToken(ctx context.Context, userID uint64, token string) (Order, error) {
 	var order Order
 	err := r.db.WithContext(ctx).Where("user_id = ? AND client_token = ?", userID, token).First(&order).Error
+	return order, err
+}
+
+func (r *Repository) FindByUserClientTokenAndType(ctx context.Context, userID uint64, orderType string, token string) (Order, error) {
+	var order Order
+	err := r.db.WithContext(ctx).Where("user_id = ? AND order_type = ? AND client_token = ?", userID, orderType, token).First(&order).Error
+	return order, err
+}
+
+func (r *Repository) FindByOrderNo(ctx context.Context, orderNo string) (Order, error) {
+	var order Order
+	err := r.db.WithContext(ctx).Where("order_no = ?", orderNo).First(&order).Error
+	return order, err
+}
+
+func (r *Repository) FindRenewalByUserInstanceToken(ctx context.Context, userID uint64, instanceNo string, token string) (Order, error) {
+	var order Order
+	err := r.db.WithContext(ctx).Where("user_id = ? AND order_type = ? AND related_instance_no = ? AND client_token = ?", userID, "renewal", instanceNo, token).First(&order).Error
+	return order, err
+}
+
+func (r *Repository) LatestRenewalByInstanceNo(ctx context.Context, instanceNo string) (Order, error) {
+	var order Order
+	err := r.db.WithContext(ctx).Where("order_type = ? AND related_instance_no = ?", "renewal", instanceNo).Order("created_at DESC, id DESC").First(&order).Error
 	return order, err
 }
 
@@ -101,6 +126,9 @@ func (r *Repository) queryDB(db *gorm.DB) *gorm.DB {
 func (r *Repository) applyFilters(db *gorm.DB, filters ListFilters) *gorm.DB {
 	if filters.UserID > 0 {
 		db = db.Where("orders.user_id = ?", filters.UserID)
+	}
+	if strings.TrimSpace(filters.OrderType) != "" {
+		db = db.Where("orders.order_type = ?", strings.TrimSpace(filters.OrderType))
 	}
 	if strings.TrimSpace(filters.Status) != "" {
 		db = db.Where("orders.status = ?", strings.TrimSpace(filters.Status))

@@ -14,6 +14,8 @@ const loading = ref(false)
 const errorMessage = ref('')
 const order = ref<OrderDetail | null>(null)
 const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 const formatMemory = (mb: number) => mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`
@@ -65,6 +67,9 @@ onMounted(loadDetail)
         </div>
         <dl class="mt-6 grid gap-3 md:grid-cols-2">
           <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">计费周期</dt><dd class="mt-1 text-sm font-black">{{ cycleText[order.billing_cycle] || order.billing_cycle }}</dd></div>
+          <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">订单类型</dt><dd class="mt-1 text-sm font-black">{{ orderTypeText[order.order_type] || order.order_type }}</dd></div>
+          <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">支付状态</dt><dd class="mt-1 text-sm font-black">{{ paymentStatusText[order.payment_status] || order.payment_status }}</dd></div>
+          <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">关联实例</dt><dd class="mt-1 text-sm font-black">{{ order.related_instance_no || '-' }}</dd></div>
           <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">销售地域</dt><dd class="mt-1 text-sm font-black">{{ order.region_name }}</dd></div>
           <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">系统模板</dt><dd class="mt-1 text-sm font-black">{{ order.template_name }}</dd></div>
           <div class="rounded-xl bg-neutral-50 p-3"><dt class="text-xs font-black text-neutral-500">网络类型</dt><dd class="mt-1 text-sm font-black">{{ order.network_type_name }}</dd></div>

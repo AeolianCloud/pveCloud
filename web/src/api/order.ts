@@ -10,7 +10,10 @@ export interface PageResponse<T> {
 
 export interface OrderItem {
   order_no: string
+  order_type: 'purchase' | 'renewal'
+  payment_status: 'unpaid' | 'paid' | 'manual_confirmed'
   status: 'pending' | 'provisioning' | 'fulfilled' | 'cancelled' | 'closed'
+  related_instance_no: string | null
   product_name: string
   plan_name: string
   billing_cycle: string
@@ -18,6 +21,7 @@ export interface OrderItem {
   total_amount_cents: number
   currency: string
   created_at: string
+  paid_at: string | null
   cancelled_at: string | null
   closed_at: string | null
 }

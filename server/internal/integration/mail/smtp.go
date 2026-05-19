@@ -45,6 +45,13 @@ func (s *Sender) SendPasswordReset(to string, resetURL string) error {
 	return s.send(to, subject, body)
 }
 
+func (s *Sender) SendPlain(to string, subject string, body string) error {
+	if !s.Enabled() {
+		return fmt.Errorf("mail is disabled")
+	}
+	return s.send(to, subject, body)
+}
+
 func (s *Sender) send(to string, subject string, body string) error {
 	addr := fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port)
 	from := mail.Address{Name: s.cfg.FromName, Address: s.cfg.FromAddress}

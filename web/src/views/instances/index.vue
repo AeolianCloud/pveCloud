@@ -24,6 +24,7 @@ const statusText: Record<string, string> = {
   releasing: '释放中',
   released: '已释放',
 }
+const expireStatusText: Record<string, string> = { active: '服务中', expired: '已到期', released: '已释放', unknown: '未开始' }
 const statusOptions = [
   { label: '全部', value: '' },
   { label: '创建中', value: 'creating' },
@@ -129,6 +130,7 @@ onMounted(loadInstances)
               <div class="truncate text-[11px] font-black uppercase tracking-[0.14em] text-neutral-500">{{ item.instance_no }}</div>
               <h2 class="mt-1 truncate text-base font-black text-neutral-950 sm:text-lg">{{ item.product_name }} · {{ item.plan_name }}</h2>
               <p class="mt-1 truncate text-xs text-neutral-500 sm:text-sm">{{ item.region_name }} · {{ item.template_name }} · {{ item.created_at }}</p>
+              <p class="mt-1 text-xs font-bold text-neutral-500">到期：{{ item.expires_at || '-' }} · {{ expireStatusText[item.expire_status] || item.expire_status }}</p>
             </div>
             <div class="flex items-center justify-between gap-3 lg:block lg:text-right">
               <span class="inline-flex rounded-full border border-neutral-300 px-3 py-1 text-xs font-black">{{ statusText[item.status] }}</span>

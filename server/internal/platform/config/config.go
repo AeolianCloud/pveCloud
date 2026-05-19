@@ -15,16 +15,18 @@ import (
  * Config 表示后端 YAML 配置的根结构。
  */
 type Config struct {
-	App      AppConfig      `yaml:"app"`
-	Database DatabaseConfig `yaml:"database"`
-	Redis    RedisConfig    `yaml:"redis"`
-	JWT      JWTConfig      `yaml:"jwt"`
-	Worker   WorkerConfig   `yaml:"worker"`
-	OpenAPI  OpenAPIConfig  `yaml:"openapi"`
-	Mail     MailConfig     `yaml:"mail"`
-	Log      LogConfig      `yaml:"log"`
-	Storage  StorageConfig  `yaml:"storage"`
-	MCPPVE   MCPPVEConfig   `yaml:"mcp_pve"`
+	App               AppConfig               `yaml:"app"`
+	Database          DatabaseConfig          `yaml:"database"`
+	Redis             RedisConfig             `yaml:"redis"`
+	JWT               JWTConfig               `yaml:"jwt"`
+	Worker            WorkerConfig            `yaml:"worker"`
+	InstanceLifecycle InstanceLifecycleConfig `yaml:"instance_lifecycle"`
+	Notification      NotificationConfig      `yaml:"notification"`
+	OpenAPI           OpenAPIConfig           `yaml:"openapi"`
+	Mail              MailConfig              `yaml:"mail"`
+	Log               LogConfig               `yaml:"log"`
+	Storage           StorageConfig           `yaml:"storage"`
+	MCPPVE            MCPPVEConfig            `yaml:"mcp_pve"`
 }
 
 /**
@@ -78,14 +80,23 @@ type JWTConfig struct {
 	AdminExpireMinutes int    `yaml:"admin_expire_minutes"`
 }
 
-/**
- * WorkerConfig 仅为兼容历史本地配置保留，当前运行时不再使用。
- */
 type WorkerConfig struct {
+	Enabled             bool   `yaml:"enabled"`
 	ID                  string `yaml:"id"`
 	PollIntervalSeconds int    `yaml:"poll_interval_seconds"`
 	LockTTLSeconds      int    `yaml:"lock_ttl_seconds"`
 	BatchSize           int    `yaml:"batch_size"`
+}
+
+type InstanceLifecycleConfig struct {
+	ExpireNoticeBeforeSeconds int  `yaml:"expire_notice_before_seconds"`
+	ExpireReleaseAfterSeconds int  `yaml:"expire_release_after_seconds"`
+	AutoReleaseEnabled        bool `yaml:"auto_release_enabled"`
+}
+
+type NotificationConfig struct {
+	EmailEnabled bool `yaml:"email_enabled"`
+	SMSEnabled   bool `yaml:"sms_enabled"`
 }
 
 /**
@@ -206,6 +217,21 @@ func defaultConfig() *Config {
 			AdminIssuer:        "pvecloud-admin",
 			AdminExpireMinutes: 480,
 		},
+		Worker: WorkerConfig{
+			ID:                  "worker-local-1",
+			PollIntervalSeconds: 5,
+			LockTTLSeconds:      120,
+			BatchSize:           20,
+		},
+		InstanceLifecycle: InstanceLifecycleConfig{
+			ExpireNoticeBeforeSeconds: 86400,
+			ExpireReleaseAfterSeconds: 3600,
+			AutoReleaseEnabled:        false,
+		},
+		Notification: NotificationConfig{
+			EmailEnabled: true,
+			SMSEnabled:   false,
+		},
 		Mail: MailConfig{
 			Enabled:              false,
 			Host:                 "smtp.example.com",
@@ -319,6 +345,26 @@ func (cfg *Config) Validate() error {
 		if cfg.MCPPVE.TimeoutSeconds <= 0 {
 			return fmt.Errorf("mcp_pve.timeout_seconds 必须大于 0")
 		}
+	}
+	if cfg.Worker.Enabled {
+		if strings.TrimSpace(cfg.Worker.ID) == "" {
+			return fmt.Errorf("worker.id 不能为空")
+		}
+		if cfg.Worker.PollIntervalSeconds <= 0 {
+			return fmt.Errorf("worker.poll_interval_seconds 必须大于 0")
+		}
+		if cfg.Worker.LockTTLSeconds <= 0 {
+			return fmt.Errorf("worker.lock_ttl_seconds 必须大于 0")
+		}
+		if cfg.Worker.BatchSize <= 0 {
+			return fmt.Errorf("worker.batch_size 必须大于 0")
+		}
+	}
+	if cfg.InstanceLifecycle.ExpireNoticeBeforeSeconds <= 0 {
+		return fmt.Errorf("instance_lifecycle.expire_notice_before_seconds 必须大于 0")
+	}
+	if cfg.InstanceLifecycle.ExpireReleaseAfterSeconds < 0 {
+		return fmt.Errorf("instance_lifecycle.expire_release_after_seconds 不能小于 0")
 	}
 	return nil
 }

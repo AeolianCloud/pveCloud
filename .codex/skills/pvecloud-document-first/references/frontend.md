@@ -78,8 +78,9 @@
 
 ## 组件与样式
 
-- 现阶段管理端优先用 Element Plus。
-- Element Plus 的优先级只默认适用于 `admin/`；`web/` 是否使用 UI 库以 `docs/web/architecture.md` 和现有代码为准。
+- 现阶段管理端统一使用 Naive UI。
+- Naive UI 的优先级只默认适用于 `admin/`；`web/` 是否使用 UI 库以 `docs/web/architecture.md` 和现有代码为准。
+- 管理端不得新增 Element Plus 或 `@element-plus/icons-vue` 相关代码。
 - 优先复用成熟 UI 能力，不手写复杂底层交互。
 - 不建设替代 UI 框架的本地工具类体系。
 - 只有需要统一业务语义或固定组合时才做项目内封装。

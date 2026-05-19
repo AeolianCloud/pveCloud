@@ -88,6 +88,25 @@ func (h *Handler) Close(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *Handler) ConfirmRenewal(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.OrderRenewalConfirmRequest
+	if c.Request.Body != nil && c.Request.ContentLength != 0 {
+		if !bindJSON(c, &req) {
+			return
+		}
+	}
+	result, err := h.service.ConfirmRenewal(c.Request.Context(), operatorID, c.Param("order_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func currentAdminID(c *gin.Context) (uint64, bool) {
 	operatorID, ok := middleware.CurrentAdminID(c)
 	if !ok {

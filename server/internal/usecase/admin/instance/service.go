@@ -13,6 +13,7 @@ import (
 	domaininstance "github.com/AeolianCloud/pveCloud/server/internal/domain/instance"
 	domainorder "github.com/AeolianCloud/pveCloud/server/internal/domain/order"
 	"github.com/AeolianCloud/pveCloud/server/internal/integration/mcppve"
+	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
 	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
 	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
@@ -25,6 +26,11 @@ import (
 
 const objectType = "instance"
 
+var (
+	ErrOperationPending      = errors.New("instance operation is still running")
+	errExpiredReleaseSkipped = errors.New("expired release task skipped")
+)
+
 type AdminAuditService = adminaudit.AdminAuditService
 type AdminAuditWriteInput = adminaudit.AdminAuditWriteInput
 
@@ -33,14 +39,15 @@ type Service struct {
 	orders    *mysqlorder.Repository
 	instances *mysqlinstance.Repository
 	mcp       *mcppve.Client
+	lifecycle config.InstanceLifecycleConfig
 	audit     *AdminAuditService
 }
 
-func NewService(db *gorm.DB, mcp *mcppve.Client, audit *AdminAuditService) *Service {
+func NewService(db *gorm.DB, mcp *mcppve.Client, audit *AdminAuditService, lifecycle config.InstanceLifecycleConfig) *Service {
 	if audit == nil {
 		audit = adminaudit.NewAdminAuditService(db)
 	}
-	return &Service{db: db, orders: mysqlorder.NewRepository(db), instances: mysqlinstance.NewRepository(db), mcp: mcp, audit: audit}
+	return &Service{db: db, orders: mysqlorder.NewRepository(db), instances: mysqlinstance.NewRepository(db), mcp: mcp, lifecycle: lifecycle, audit: audit}
 }
 
 func (s *Service) ListMappings(ctx context.Context, query admindto.InstanceMappingListQuery) (admindto.PageResponse[admindto.InstanceMappingItem], error) {
@@ -208,8 +215,15 @@ func (s *Service) Provision(ctx context.Context, operatorID uint64, orderNo stri
 		_ = s.markOperationFailed(context.Background(), created.ID, op.ID, callErr)
 		return admindto.ProvisionResponse{}, externalError(callErr)
 	}
-	_ = s.instances.UpdateOperation(ctx, nil, op.ID, map[string]any{"external_operation_id": nullableString(accepted.OperationID), "operation_location": nullableString(accepted.OperationLocation), "resource_location": nullableString(accepted.Location)})
-	_ = s.instances.UpdateInstance(ctx, nil, created.ID, map[string]any{"external_resource_location": nullableString(accepted.Location)})
+	if err := s.instances.UpdateOperation(ctx, nil, op.ID, map[string]any{"external_operation_id": nullableString(accepted.OperationID), "operation_location": nullableString(accepted.OperationLocation), "resource_location": nullableString(accepted.Location)}); err != nil {
+		return admindto.ProvisionResponse{}, err
+	}
+	if err := s.instances.UpdateInstance(ctx, nil, created.ID, map[string]any{"external_resource_location": nullableString(accepted.Location)}); err != nil {
+		return admindto.ProvisionResponse{}, err
+	}
+	if err := s.enqueueOperationSync(ctx, nil, created.InstanceNo, op.OperationNo); err != nil {
+		return admindto.ProvisionResponse{}, err
+	}
 	return s.provisionResponse(ctx, created.InstanceNo)
 }
 
@@ -246,10 +260,74 @@ func (s *Service) Release(ctx context.Context, operatorID uint64, instanceNo str
 }
 
 func (s *Service) Sync(ctx context.Context, operatorID uint64, instanceNo string) (admindto.InstanceDetail, error) {
-	return s.sync(ctx, strings.TrimSpace(instanceNo), &operatorID)
+	return s.sync(ctx, strings.TrimSpace(instanceNo), &operatorID, true)
+}
+
+func (s *Service) SyncByWorker(ctx context.Context, instanceNo string) (admindto.InstanceDetail, error) {
+	return s.sync(ctx, strings.TrimSpace(instanceNo), nil, false)
+}
+
+func (s *Service) ReleaseExpiredByWorker(ctx context.Context, instanceNo string, expectedExpiresAt time.Time) (admindto.InstanceDetail, error) {
+	instanceNo = strings.TrimSpace(instanceNo)
+	detail, err := s.operateWithGuard(ctx, instanceNo, nil, nil, domaininstance.OperationRelease, func(current mysqlinstance.Instance) error {
+		if current.Status == domaininstance.StatusReleased || current.Status == domaininstance.StatusReleasing {
+			return errExpiredReleaseSkipped
+		}
+		if current.ExpiresAt == nil || current.ExpiresAt.After(time.Now()) {
+			return errExpiredReleaseSkipped
+		}
+		if !current.ExpiresAt.Truncate(time.Millisecond).Equal(expectedExpiresAt.Truncate(time.Millisecond)) {
+			return errExpiredReleaseSkipped
+		}
+		return nil
+	})
+	if errors.Is(err, errExpiredReleaseSkipped) {
+		return s.detail(ctx, instanceNo)
+	}
+	return detail, err
+}
+
+func (s *Service) UpdateExpiresAt(ctx context.Context, operatorID uint64, instanceNo string, req admindto.InstanceExpiresAtRequest) (admindto.InstanceDetail, error) {
+	if !req.ExpiresAt.After(time.Now()) {
+		return admindto.InstanceDetail{}, apperrors.ErrValidation.WithMessage("到期时间必须晚于当前时间")
+	}
+	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		current, err := s.instances.InstanceForUpdate(ctx, tx, strings.TrimSpace(instanceNo))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.ErrNotFound.WithMessage("实例不存在")
+		}
+		if err != nil {
+			return err
+		}
+		if current.Status == domaininstance.StatusReleased {
+			return apperrors.ErrConflict.WithMessage("已释放实例不能调整到期时间")
+		}
+		expiresAt := normalizeDBTime(req.ExpiresAt)
+		updates := map[string]any{"expires_at": expiresAt, "expire_notice_sent_at": nil}
+		if s.lifecycle.AutoReleaseEnabled {
+			updates["expire_release_scheduled_at"] = normalizeDBTime(expiresAt.Add(time.Duration(s.lifecycle.ExpireReleaseAfterSeconds) * time.Second))
+		} else {
+			updates["expire_release_scheduled_at"] = nil
+		}
+		if err := s.instances.UpdateInstance(ctx, tx, current.ID, updates); err != nil {
+			return err
+		}
+		if err := s.enqueueLifecycleTasks(ctx, tx, current.InstanceNo, expiresAt); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: "instance.expires_at.update", ObjectType: objectType, ObjectID: current.InstanceNo, BeforeData: instanceAudit(current), AfterData: map[string]any{"expires_at": expiresAt, "remark": req.Remark}, Remark: "调整实例到期时间"})
+	})
+	if err != nil {
+		return admindto.InstanceDetail{}, err
+	}
+	return s.detail(ctx, strings.TrimSpace(instanceNo))
 }
 
 func (s *Service) operate(ctx context.Context, instanceNo string, adminID *uint64, userID *uint64, action string) (admindto.InstanceDetail, error) {
+	return s.operateWithGuard(ctx, instanceNo, adminID, userID, action, nil)
+}
+
+func (s *Service) operateWithGuard(ctx context.Context, instanceNo string, adminID *uint64, userID *uint64, action string, guard func(mysqlinstance.Instance) error) (admindto.InstanceDetail, error) {
 	if !s.mcp.Enabled() {
 		return admindto.InstanceDetail{}, mcpUnavailableError()
 	}
@@ -265,6 +343,11 @@ func (s *Service) operate(ctx context.Context, instanceNo string, adminID *uint6
 		}
 		if !canOperate(current.Status, action) {
 			return apperrors.ErrConflict.WithMessage("当前实例状态不能执行该操作")
+		}
+		if guard != nil {
+			if err := guard(current); err != nil {
+				return err
+			}
 		}
 		row = current
 		op = newOperation(current.ID, &current.OrderID, adminID, userID, action)
@@ -286,11 +369,16 @@ func (s *Service) operate(ctx context.Context, instanceNo string, adminID *uint6
 		_ = s.markOperationFailed(context.Background(), row.ID, op.ID, callErr)
 		return admindto.InstanceDetail{}, externalError(callErr)
 	}
-	_ = s.instances.UpdateOperation(ctx, nil, op.ID, map[string]any{"external_operation_id": nullableString(accepted.OperationID), "operation_location": nullableString(accepted.OperationLocation), "resource_location": nullableString(accepted.Location)})
+	if err := s.instances.UpdateOperation(ctx, nil, op.ID, map[string]any{"external_operation_id": nullableString(accepted.OperationID), "operation_location": nullableString(accepted.OperationLocation), "resource_location": nullableString(accepted.Location)}); err != nil {
+		return admindto.InstanceDetail{}, err
+	}
+	if err := s.enqueueOperationSync(ctx, nil, row.InstanceNo, op.OperationNo); err != nil {
+		return admindto.InstanceDetail{}, err
+	}
 	return s.detail(ctx, row.InstanceNo)
 }
 
-func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64) (admindto.InstanceDetail, error) {
+func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64, recordSyncOperation bool) (admindto.InstanceDetail, error) {
 	if !s.mcp.Enabled() {
 		return admindto.InstanceDetail{}, mcpUnavailableError()
 	}
@@ -314,11 +402,14 @@ func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64) 
 			return err
 		}
 		row = current
-		syncOp = newOperation(current.ID, &current.OrderID, adminID, nil, domaininstance.OperationSync)
-		if err := s.instances.CreateOperation(ctx, tx, &syncOp); err != nil {
-			return err
+		if recordSyncOperation {
+			syncOp = newOperation(current.ID, &current.OrderID, adminID, nil, domaininstance.OperationSync)
+			if err := s.instances.CreateOperation(ctx, tx, &syncOp); err != nil {
+				return err
+			}
+			return s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: adminID, Action: "instance.sync", ObjectType: objectType, ObjectID: current.InstanceNo, BeforeData: instanceAudit(current), Remark: "同步实例状态"})
 		}
-		return s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: adminID, Action: "instance.sync", ObjectType: objectType, ObjectID: current.InstanceNo, BeforeData: instanceAudit(current), Remark: "同步实例状态"})
+		return nil
 	})
 	if err != nil {
 		return admindto.InstanceDetail{}, err
@@ -326,67 +417,143 @@ func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64) 
 
 	if hasLatestOp && latestOp.Status == domaininstance.OperationStatusRunning {
 		if latestOp.ExternalOperationID == nil || strings.TrimSpace(*latestOp.ExternalOperationID) == "" {
-			now := time.Now()
-			_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-			return s.detail(ctx, row.InstanceNo)
+			if recordSyncOperation {
+				if err := s.markSyncSucceeded(ctx, syncOp.ID); err != nil {
+					return admindto.InstanceDetail{}, err
+				}
+				return s.detail(ctx, row.InstanceNo)
+			}
+			return admindto.InstanceDetail{}, ErrOperationPending
 		}
 		result, callErr := s.mcp.Operation(ctx, strings.TrimSpace(*latestOp.ExternalOperationID))
 		if callErr != nil {
-			_ = s.markSyncFailed(context.Background(), syncOp.ID, callErr)
+			if recordSyncOperation {
+				_ = s.markSyncFailed(context.Background(), syncOp.ID, callErr)
+			}
 			return admindto.InstanceDetail{}, externalError(callErr)
 		}
 		if isOperationFailed(result.Status) || result.Error != nil {
-			message := "虚拟化操作失败"
-			code := "mcp_operation_failed"
-			if result.Error != nil {
-				code = result.Error.Code
-				if strings.TrimSpace(result.Error.Message) != "" {
-					message = "虚拟化操作失败"
-				}
+			if err := s.applyOperationFailure(ctx, row, latestOp, syncOp, recordSyncOperation, result); err != nil {
+				return admindto.InstanceDetail{}, err
 			}
-			now := time.Now()
-			_ = s.instances.UpdateOperation(ctx, nil, latestOp.ID, map[string]any{"status": domaininstance.OperationStatusFailed, "error_code": nullableString(code), "error_message": nullableString(message), "completed_at": now})
-			_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-			_ = s.instances.UpdateInstance(ctx, nil, row.ID, map[string]any{"status": domaininstance.StatusError, "last_error_code": nullableString(code), "last_error_message": nullableString(message)})
 			return s.detail(ctx, row.InstanceNo)
 		}
 		if isOperationSucceeded(result.Status) {
 			now := time.Now()
-			_ = s.instances.UpdateOperation(ctx, nil, latestOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "resource_location": nullableString(result.ResourceLocation), "completed_at": now})
+			if err := s.instances.UpdateOperation(ctx, nil, latestOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "resource_location": nullableString(result.ResourceLocation), "completed_at": now}); err != nil {
+				return admindto.InstanceDetail{}, err
+			}
 			latestOpSucceeded = true
 		} else {
-			now := time.Now()
-			_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-			return s.detail(ctx, row.InstanceNo)
+			if recordSyncOperation {
+				if err := s.markSyncSucceeded(ctx, syncOp.ID); err != nil {
+					return admindto.InstanceDetail{}, err
+				}
+				return s.detail(ctx, row.InstanceNo)
+			}
+			return admindto.InstanceDetail{}, ErrOperationPending
 		}
 	} else if hasLatestOp && latestOp.Status == domaininstance.OperationStatusSucceeded {
 		latestOpSucceeded = true
 	}
 	if row.Status == domaininstance.StatusReleasing {
 		if !latestOpSucceeded || latestOp.Action != domaininstance.OperationRelease {
-			now := time.Now()
-			_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-			return s.detail(ctx, row.InstanceNo)
+			if recordSyncOperation {
+				if err := s.markSyncSucceeded(ctx, syncOp.ID); err != nil {
+					return admindto.InstanceDetail{}, err
+				}
+				return s.detail(ctx, row.InstanceNo)
+			}
+			return admindto.InstanceDetail{}, ErrOperationPending
 		}
-		now := time.Now()
-		_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-		_ = s.instances.UpdateInstance(ctx, nil, row.ID, map[string]any{"status": domaininstance.StatusReleased, "released_at": now})
+		if err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+			now := time.Now()
+			if recordSyncOperation {
+				if err := s.instances.UpdateOperation(ctx, tx, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now}); err != nil {
+					return err
+				}
+			}
+			return s.instances.UpdateInstance(ctx, tx, row.ID, map[string]any{"status": domaininstance.StatusReleased, "released_at": now})
+		}); err != nil {
+			return admindto.InstanceDetail{}, err
+		}
 		return s.detail(ctx, row.InstanceNo)
 	}
 	vm, callErr := s.mcp.VM(ctx, row.ExternalNode, row.ExternalVMID)
 	if callErr != nil {
-		_ = s.markSyncFailed(context.Background(), syncOp.ID, callErr)
-		_ = s.instances.UpdateInstance(ctx, nil, row.ID, map[string]any{"status": domaininstance.StatusError, "last_error_code": nullableString("mcp_query_failed"), "last_error_message": nullableString(externalStoredMessage(callErr))})
+		if recordSyncOperation {
+			_ = s.markSyncFailed(context.Background(), syncOp.ID, callErr)
+		}
+		if err := s.instances.UpdateInstance(ctx, nil, row.ID, map[string]any{"status": domaininstance.StatusError, "last_error_code": nullableString("mcp_query_failed"), "last_error_message": nullableString(externalStoredMessage(callErr))}); err != nil {
+			return admindto.InstanceDetail{}, err
+		}
 		return admindto.InstanceDetail{}, externalError(callErr)
 	}
 	mappedStatus := domaininstance.MapVMStatus(vm.Status)
-	now := time.Now()
-	_ = s.instances.UpdateOperation(ctx, nil, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
-	_ = s.instances.UpdateInstance(ctx, nil, row.ID, map[string]any{"status": mappedStatus, "last_error_code": nil, "last_error_message": nil})
-	if (mappedStatus == domaininstance.StatusRunning || mappedStatus == domaininstance.StatusStopped) && row.Status == domaininstance.StatusCreating {
-		_ = s.orders.Update(ctx, nil, row.OrderID, map[string]any{"status": domainorder.StatusFulfilled})
+	if err := s.applyVMStatus(ctx, row, syncOp, recordSyncOperation, mappedStatus); err != nil {
+		return admindto.InstanceDetail{}, err
 	}
 	return s.detail(ctx, row.InstanceNo)
+}
+
+func (s *Service) applyOperationFailure(ctx context.Context, row mysqlinstance.Instance, latestOp mysqlinstance.Operation, syncOp mysqlinstance.Operation, recordSyncOperation bool, result mcppve.Operation) error {
+	message := "虚拟化操作失败"
+	code := "mcp_operation_failed"
+	if result.Error != nil {
+		code = result.Error.Code
+	}
+	now := time.Now()
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		if err := s.instances.UpdateOperation(ctx, tx, latestOp.ID, map[string]any{"status": domaininstance.OperationStatusFailed, "error_code": nullableString(code), "error_message": nullableString(message), "completed_at": now}); err != nil {
+			return err
+		}
+		if recordSyncOperation {
+			if err := s.instances.UpdateOperation(ctx, tx, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now}); err != nil {
+				return err
+			}
+		}
+		return s.instances.UpdateInstance(ctx, tx, row.ID, map[string]any{"status": domaininstance.StatusError, "last_error_code": nullableString(code), "last_error_message": nullableString(message)})
+	})
+}
+
+func (s *Service) applyVMStatus(ctx context.Context, row mysqlinstance.Instance, syncOp mysqlinstance.Operation, recordSyncOperation bool, mappedStatus string) error {
+	now := normalizeDBTime(time.Now())
+	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		if recordSyncOperation {
+			if err := s.instances.UpdateOperation(ctx, tx, syncOp.ID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now}); err != nil {
+				return err
+			}
+		}
+		instanceUpdates := map[string]any{"status": mappedStatus, "last_error_code": nil, "last_error_message": nil}
+		if (mappedStatus == domaininstance.StatusRunning || mappedStatus == domaininstance.StatusStopped) && row.Status == domaininstance.StatusCreating {
+			order, err := s.orders.FindByOrderNo(ctx, row.OrderNo)
+			if err != nil {
+				return err
+			}
+			months, ok := domainorder.BillingCycleMonths(order.BillingCycle)
+			if !ok {
+				return apperrors.ErrValidation.WithMessage("订单周期不支持")
+			}
+			expiresAt := normalizeDBTime(now.AddDate(0, months, 0))
+			instanceUpdates["service_started_at"] = now
+			instanceUpdates["expires_at"] = expiresAt
+			if s.lifecycle.AutoReleaseEnabled {
+				instanceUpdates["expire_release_scheduled_at"] = normalizeDBTime(expiresAt.Add(time.Duration(s.lifecycle.ExpireReleaseAfterSeconds) * time.Second))
+			}
+			if err := s.enqueueLifecycleTasks(ctx, tx, row.InstanceNo, expiresAt); err != nil {
+				return err
+			}
+			if err := s.orders.Update(ctx, tx, row.OrderID, map[string]any{"status": domainorder.StatusFulfilled}); err != nil {
+				return err
+			}
+		}
+		return s.instances.UpdateInstance(ctx, tx, row.ID, instanceUpdates)
+	})
+}
+
+func (s *Service) markSyncSucceeded(ctx context.Context, operationID uint64) error {
+	now := time.Now()
+	return s.instances.UpdateOperation(ctx, nil, operationID, map[string]any{"status": domaininstance.OperationStatusSucceeded, "completed_at": now})
 }
 
 func (s *Service) callOperation(ctx context.Context, row mysqlinstance.Instance, action string) (mcppve.AsyncAccepted, error) {
@@ -446,7 +613,13 @@ func (s *Service) detail(ctx context.Context, instanceNo string) (admindto.Insta
 	if err != nil {
 		return admindto.InstanceDetail{}, err
 	}
-	return instanceDetail(row, ops), nil
+	var latest *admindto.RenewalOrderSummary
+	if renewal, err := s.orders.LatestRenewalByInstanceNo(ctx, row.InstanceNo); err == nil {
+		latest = renewalSummary(renewal)
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return admindto.InstanceDetail{}, err
+	}
+	return instanceDetail(row, ops, latest), nil
 }
 
 func mappingFromRequest(req admindto.InstanceMappingRequest) mysqlinstance.ProvisionMapping {
@@ -480,6 +653,39 @@ func createVMRequest(instance mysqlinstance.Instance, mapping mysqlinstance.Prov
 
 func newOperation(instanceID uint64, orderID *uint64, adminID *uint64, userID *uint64, action string) mysqlinstance.Operation {
 	return mysqlinstance.Operation{OperationNo: fmt.Sprintf("OP-%d", time.Now().UnixNano()), InstanceID: instanceID, OrderID: orderID, AdminID: adminID, UserID: userID, Action: action, Status: domaininstance.OperationStatusRunning}
+}
+
+func (s *Service) enqueueOperationSync(ctx context.Context, tx *gorm.DB, instanceNo string, operationNo string) error {
+	payload := map[string]string{"instance_no": instanceNo}
+	data, _ := json.Marshal(payload)
+	idempotencyKey := "operation_sync:" + strings.TrimSpace(operationNo)
+	objectType := "instance"
+	objectNo := strings.TrimSpace(instanceNo)
+	task := mysqlinstance.Task{TaskNo: fmt.Sprintf("TASK-%d", time.Now().UnixNano()), TaskType: domaininstance.TaskTypeOperationSync, IdempotencyKey: &idempotencyKey, Status: domaininstance.TaskStatusPending, ObjectType: &objectType, ObjectNo: &objectNo, Payload: stringPtr(string(data)), MaxAttempts: 20, ScheduledAt: normalizeDBTime(time.Now())}
+	return s.instances.CreateTaskIgnoreDuplicate(ctx, tx, &task)
+}
+
+func (s *Service) enqueueLifecycleTasks(ctx context.Context, tx *gorm.DB, instanceNo string, expiresAt time.Time) error {
+	expiresAt = normalizeDBTime(expiresAt)
+	payload := map[string]string{"instance_no": instanceNo, "expires_at": expiresAt.Format(time.RFC3339Nano)}
+	data, _ := json.Marshal(payload)
+	objectType := "instance"
+	objectNo := strings.TrimSpace(instanceNo)
+	noticeAt := normalizeDBTime(expiresAt.Add(-time.Duration(s.lifecycle.ExpireNoticeBeforeSeconds) * time.Second))
+	if noticeAt.Before(time.Now()) {
+		noticeAt = normalizeDBTime(time.Now())
+	}
+	noticeKey := "expiry_notice:" + objectNo + ":" + expiresAt.Format(time.RFC3339Nano)
+	noticeTask := mysqlinstance.Task{TaskNo: fmt.Sprintf("TASK-%d", time.Now().UnixNano()), TaskType: domaininstance.TaskTypeExpiryNotice, IdempotencyKey: &noticeKey, Status: domaininstance.TaskStatusPending, ObjectType: &objectType, ObjectNo: &objectNo, Payload: stringPtr(string(data)), MaxAttempts: 10, ScheduledAt: noticeAt}
+	if err := s.instances.CreateTaskIgnoreDuplicate(ctx, tx, &noticeTask); err != nil {
+		return err
+	}
+	if !s.lifecycle.AutoReleaseEnabled {
+		return nil
+	}
+	releaseKey := "expiry_release:" + objectNo + ":" + expiresAt.Format(time.RFC3339Nano)
+	releaseTask := mysqlinstance.Task{TaskNo: fmt.Sprintf("TASK-%d", time.Now().UnixNano()+1), TaskType: domaininstance.TaskTypeExpiryRelease, IdempotencyKey: &releaseKey, Status: domaininstance.TaskStatusPending, ObjectType: &objectType, ObjectNo: &objectNo, Payload: stringPtr(string(data)), MaxAttempts: 10, ScheduledAt: normalizeDBTime(expiresAt.Add(time.Duration(s.lifecycle.ExpireReleaseAfterSeconds) * time.Second))}
+	return s.instances.CreateTaskIgnoreDuplicate(ctx, tx, &releaseTask)
 }
 
 func canOperate(status string, action string) bool {
@@ -664,15 +870,19 @@ func mappingItem(row mysqlinstance.ProvisionMapping) admindto.InstanceMappingIte
 }
 
 func instanceItem(row mysqlinstance.InstanceRow) admindto.InstanceItem {
-	return admindto.InstanceItem{InstanceNo: row.InstanceNo, OrderNo: row.OrderNo, User: admindto.OrderUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Status: row.Status, ProductName: row.ProductName, PlanName: row.PlanName, RegionName: row.RegionName, NetworkTypeName: row.NetworkTypeName, TemplateName: row.TemplateName, ExternalNode: row.ExternalNode, ExternalVMID: row.ExternalVMID, CreatedAt: row.CreatedAt, ReleasedAt: row.ReleasedAt}
+	return admindto.InstanceItem{InstanceNo: row.InstanceNo, OrderNo: row.OrderNo, User: admindto.OrderUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Status: row.Status, ProductName: row.ProductName, PlanName: row.PlanName, RegionName: row.RegionName, NetworkTypeName: row.NetworkTypeName, TemplateName: row.TemplateName, ExternalNode: row.ExternalNode, ExternalVMID: row.ExternalVMID, ServiceStartedAt: row.ServiceStartedAt, ExpiresAt: row.ExpiresAt, ExpireNoticeSentAt: row.ExpireNoticeSentAt, ExpireReleaseScheduledAt: row.ExpireReleaseScheduledAt, ExpireReleasedAt: row.ExpireReleasedAt, CreatedAt: row.CreatedAt, ReleasedAt: row.ReleasedAt}
 }
 
-func instanceDetail(row mysqlinstance.InstanceRow, ops []mysqlinstance.Operation) admindto.InstanceDetail {
+func instanceDetail(row mysqlinstance.InstanceRow, ops []mysqlinstance.Operation, latest *admindto.RenewalOrderSummary) admindto.InstanceDetail {
 	items := make([]admindto.InstanceOperation, 0, len(ops))
 	for _, op := range ops {
 		items = append(items, operationItem(op))
 	}
-	return admindto.InstanceDetail{InstanceItem: instanceItem(row), ProductNo: row.ProductNo, PlanNo: row.PlanNo, CPUCores: row.CPUCores, MemoryMB: row.MemoryMB, SystemDiskGB: row.SystemDiskGB, DataDiskGB: row.DataDiskGB, BandwidthMbps: row.BandwidthMbps, RegionNo: row.RegionNo, NetworkTypeNo: row.NetworkTypeNo, TemplateNo: row.TemplateNo, OSFamily: row.OSFamily, OSDistribution: row.OSDistribution, OSVersion: row.OSVersion, ExternalResourceLocation: row.ExternalResourceLocation, LastErrorCode: row.LastErrorCode, LastErrorMessage: row.LastErrorMessage, Operations: items}
+	return admindto.InstanceDetail{InstanceItem: instanceItem(row), ProductNo: row.ProductNo, PlanNo: row.PlanNo, CPUCores: row.CPUCores, MemoryMB: row.MemoryMB, SystemDiskGB: row.SystemDiskGB, DataDiskGB: row.DataDiskGB, BandwidthMbps: row.BandwidthMbps, RegionNo: row.RegionNo, NetworkTypeNo: row.NetworkTypeNo, TemplateNo: row.TemplateNo, OSFamily: row.OSFamily, OSDistribution: row.OSDistribution, OSVersion: row.OSVersion, ExternalResourceLocation: row.ExternalResourceLocation, LastErrorCode: row.LastErrorCode, LastErrorMessage: row.LastErrorMessage, RenewalAvailable: row.Status != domaininstance.StatusReleased && row.Status != domaininstance.StatusReleasing, LatestRenewalOrder: latest, Operations: items}
+}
+
+func renewalSummary(order mysqlorder.Order) *admindto.RenewalOrderSummary {
+	return &admindto.RenewalOrderSummary{OrderNo: order.OrderNo, Status: order.Status, PaymentStatus: order.PaymentStatus, BillingCycle: order.BillingCycle, TotalAmountCents: order.TotalAmountCents, Currency: order.Currency, PaidAt: order.PaidAt, CreatedAt: order.CreatedAt}
 }
 
 func operationItem(op mysqlinstance.Operation) admindto.InstanceOperation {
@@ -684,7 +894,7 @@ func mappingAudit(mapping mysqlinstance.ProvisionMapping) map[string]any {
 }
 
 func instanceAudit(row mysqlinstance.Instance) map[string]any {
-	return map[string]any{"instance_no": row.InstanceNo, "order_no": row.OrderNo, "status": row.Status, "node": row.ExternalNode, "vmid": row.ExternalVMID}
+	return map[string]any{"instance_no": row.InstanceNo, "order_no": row.OrderNo, "status": row.Status, "node": row.ExternalNode, "vmid": row.ExternalVMID, "expires_at": row.ExpiresAt}
 }
 
 func normalizeOptional(value *string) *string {
@@ -702,11 +912,19 @@ func nullableString(value string) *string {
 	return &trimmed
 }
 
+func stringPtr(value string) *string {
+	return &value
+}
+
 func value(ptr *string) string {
 	if ptr == nil {
 		return ""
 	}
 	return strings.TrimSpace(*ptr)
+}
+
+func normalizeDBTime(value time.Time) time.Time {
+	return value.Truncate(time.Millisecond)
 }
 
 func validateCIPackages(value *string) error {

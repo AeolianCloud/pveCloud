@@ -46,6 +46,7 @@ func RegisterWebRoutes(group *gin.RouterGroup, app *api.App) {
 	protected.GET("/instances/:instance_no", routes.Instance.Detail)
 	protected.POST("/instances/:instance_no/start", routes.Instance.Start)
 	protected.POST("/instances/:instance_no/stop", routes.Instance.Stop)
+	protected.POST("/instances/:instance_no/renewal-orders", routes.Instance.CreateRenewalOrder)
 	protected.GET("/tickets", routes.Ticket.List)
 	protected.POST("/tickets", routes.Ticket.Create)
 	protected.GET("/tickets/:ticket_no", routes.Ticket.Detail)

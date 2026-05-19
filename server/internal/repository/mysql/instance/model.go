@@ -64,6 +64,11 @@ type Instance struct {
 	ExternalResourceLocation *string    `gorm:"column:external_resource_location"`
 	LastErrorCode            *string    `gorm:"column:last_error_code"`
 	LastErrorMessage         *string    `gorm:"column:last_error_message"`
+	ServiceStartedAt         *time.Time `gorm:"column:service_started_at"`
+	ExpiresAt                *time.Time `gorm:"column:expires_at"`
+	ExpireNoticeSentAt       *time.Time `gorm:"column:expire_notice_sent_at"`
+	ExpireReleaseScheduledAt *time.Time `gorm:"column:expire_release_scheduled_at"`
+	ExpireReleasedAt         *time.Time `gorm:"column:expire_released_at"`
 	CreatedAt                time.Time  `gorm:"column:created_at"`
 	UpdatedAt                time.Time  `gorm:"column:updated_at"`
 	ReleasedAt               *time.Time `gorm:"column:released_at"`
@@ -91,6 +96,52 @@ type Operation struct {
 }
 
 func (Operation) TableName() string { return "instance_operations" }
+
+type Task struct {
+	ID               uint64     `gorm:"column:id;primaryKey"`
+	TaskNo           string     `gorm:"column:task_no"`
+	TaskType         string     `gorm:"column:task_type"`
+	IdempotencyKey   *string    `gorm:"column:idempotency_key"`
+	Status           string     `gorm:"column:status"`
+	ObjectType       *string    `gorm:"column:object_type"`
+	ObjectNo         *string    `gorm:"column:object_no"`
+	Payload          *string    `gorm:"column:payload"`
+	Result           *string    `gorm:"column:result"`
+	Attempts         int        `gorm:"column:attempts"`
+	MaxAttempts      int        `gorm:"column:max_attempts"`
+	ScheduledAt      time.Time  `gorm:"column:scheduled_at"`
+	LockedBy         *string    `gorm:"column:locked_by"`
+	LockedUntil      *time.Time `gorm:"column:locked_until"`
+	LastErrorCode    *string    `gorm:"column:last_error_code"`
+	LastErrorMessage *string    `gorm:"column:last_error_message"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+	CompletedAt      *time.Time `gorm:"column:completed_at"`
+}
+
+func (Task) TableName() string { return "async_tasks" }
+
+type Notification struct {
+	ID                uint64     `gorm:"column:id;primaryKey"`
+	NotificationNo    string     `gorm:"column:notification_no"`
+	UserID            uint64     `gorm:"column:user_id"`
+	Channel           string     `gorm:"column:channel"`
+	Scene             string     `gorm:"column:scene"`
+	Target            string     `gorm:"column:target"`
+	Status            string     `gorm:"column:status"`
+	Subject           *string    `gorm:"column:subject"`
+	ContentSummary    *string    `gorm:"column:content_summary"`
+	RelatedObjectType *string    `gorm:"column:related_object_type"`
+	RelatedObjectNo   *string    `gorm:"column:related_object_no"`
+	TaskNo            *string    `gorm:"column:task_no"`
+	ErrorCode         *string    `gorm:"column:error_code"`
+	ErrorMessage      *string    `gorm:"column:error_message"`
+	CreatedAt         time.Time  `gorm:"column:created_at"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+	SentAt            *time.Time `gorm:"column:sent_at"`
+}
+
+func (Notification) TableName() string { return "notifications" }
 
 type InstanceRow struct {
 	Instance

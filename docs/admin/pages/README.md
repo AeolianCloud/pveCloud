@@ -16,6 +16,7 @@
 - `Product Management`：`docs/admin/pages/product-management.md`
 - `Order Management`：`docs/admin/pages/order-management.md`
 - `Instance Management`：`docs/admin/pages/instance-management.md`
+- `Async Tasks`：`docs/admin/pages/async-tasks.md`
 - `Ticket Management`：`docs/admin/pages/ticket-management.md`
 - `403`：`docs/admin/pages/403.md`
 

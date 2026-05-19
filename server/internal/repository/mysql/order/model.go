@@ -3,55 +3,62 @@ package order
 import "time"
 
 type Order struct {
-	ID                 uint64     `gorm:"column:id;primaryKey"`
-	OrderNo            string     `gorm:"column:order_no"`
-	UserID             uint64     `gorm:"column:user_id"`
-	ClientToken        string     `gorm:"column:client_token"`
-	Status             string     `gorm:"column:status"`
-	ProductNo          string     `gorm:"column:product_no"`
-	ProductType        string     `gorm:"column:product_type"`
-	ProductName        string     `gorm:"column:product_name"`
-	ProductSummary     *string    `gorm:"column:product_summary"`
-	PlanNo             string     `gorm:"column:plan_no"`
-	PlanCode           string     `gorm:"column:plan_code"`
-	PlanName           string     `gorm:"column:plan_name"`
-	PlanSummary        *string    `gorm:"column:plan_summary"`
-	CPUCores           int        `gorm:"column:cpu_cores"`
-	MemoryMB           int        `gorm:"column:memory_mb"`
-	SystemDiskGB       int        `gorm:"column:system_disk_gb"`
-	DataDiskGB         int        `gorm:"column:data_disk_gb"`
-	BandwidthMbps      int        `gorm:"column:bandwidth_mbps"`
-	TrafficGB          *int       `gorm:"column:traffic_gb"`
-	PublicIPCount      int        `gorm:"column:public_ip_count"`
-	Virtualization     string     `gorm:"column:virtualization"`
-	Architecture       string     `gorm:"column:architecture"`
-	BillingCycle       string     `gorm:"column:billing_cycle"`
-	PriceCents         uint64     `gorm:"column:price_cents"`
-	OriginalPriceCents *uint64    `gorm:"column:original_price_cents"`
-	Currency           string     `gorm:"column:currency"`
-	Quantity           int        `gorm:"column:quantity"`
-	TotalAmountCents   uint64     `gorm:"column:total_amount_cents"`
-	RegionNo           string     `gorm:"column:region_no"`
-	RegionCode         string     `gorm:"column:region_code"`
-	RegionName         string     `gorm:"column:region_name"`
-	NetworkTypeNo      string     `gorm:"column:network_type_no"`
-	NetworkTypeCode    string     `gorm:"column:network_type_code"`
-	NetworkTypeName    string     `gorm:"column:network_type_name"`
-	TemplateNo         string     `gorm:"column:template_no"`
-	TemplateCode       string     `gorm:"column:template_code"`
-	TemplateName       string     `gorm:"column:template_name"`
-	OSFamily           string     `gorm:"column:os_family"`
-	OSDistribution     string     `gorm:"column:os_distribution"`
-	OSVersion          string     `gorm:"column:os_version"`
-	OSArchitecture     string     `gorm:"column:os_architecture"`
-	UserNote           *string    `gorm:"column:user_note"`
-	AdminNote          *string    `gorm:"column:admin_note"`
-	CancelReason       *string    `gorm:"column:cancel_reason"`
-	ClosedReason       *string    `gorm:"column:closed_reason"`
-	CreatedAt          time.Time  `gorm:"column:created_at"`
-	UpdatedAt          time.Time  `gorm:"column:updated_at"`
-	CancelledAt        *time.Time `gorm:"column:cancelled_at"`
-	ClosedAt           *time.Time `gorm:"column:closed_at"`
+	ID                     uint64     `gorm:"column:id;primaryKey"`
+	OrderNo                string     `gorm:"column:order_no"`
+	UserID                 uint64     `gorm:"column:user_id"`
+	ClientToken            string     `gorm:"column:client_token"`
+	Status                 string     `gorm:"column:status"`
+	OrderType              string     `gorm:"column:order_type"`
+	RelatedInstanceNo      *string    `gorm:"column:related_instance_no"`
+	ProductNo              string     `gorm:"column:product_no"`
+	ProductType            string     `gorm:"column:product_type"`
+	ProductName            string     `gorm:"column:product_name"`
+	ProductSummary         *string    `gorm:"column:product_summary"`
+	PlanNo                 string     `gorm:"column:plan_no"`
+	PlanCode               string     `gorm:"column:plan_code"`
+	PlanName               string     `gorm:"column:plan_name"`
+	PlanSummary            *string    `gorm:"column:plan_summary"`
+	CPUCores               int        `gorm:"column:cpu_cores"`
+	MemoryMB               int        `gorm:"column:memory_mb"`
+	SystemDiskGB           int        `gorm:"column:system_disk_gb"`
+	DataDiskGB             int        `gorm:"column:data_disk_gb"`
+	BandwidthMbps          int        `gorm:"column:bandwidth_mbps"`
+	TrafficGB              *int       `gorm:"column:traffic_gb"`
+	PublicIPCount          int        `gorm:"column:public_ip_count"`
+	Virtualization         string     `gorm:"column:virtualization"`
+	Architecture           string     `gorm:"column:architecture"`
+	BillingCycle           string     `gorm:"column:billing_cycle"`
+	PriceCents             uint64     `gorm:"column:price_cents"`
+	OriginalPriceCents     *uint64    `gorm:"column:original_price_cents"`
+	Currency               string     `gorm:"column:currency"`
+	Quantity               int        `gorm:"column:quantity"`
+	TotalAmountCents       uint64     `gorm:"column:total_amount_cents"`
+	PaymentStatus          string     `gorm:"column:payment_status"`
+	PaidAt                 *time.Time `gorm:"column:paid_at"`
+	PaymentProvider        *string    `gorm:"column:payment_provider"`
+	PaymentTradeNo         *string    `gorm:"column:payment_trade_no"`
+	PaymentCallbackPayload *string    `gorm:"column:payment_callback_payload"`
+	RegionNo               string     `gorm:"column:region_no"`
+	RegionCode             string     `gorm:"column:region_code"`
+	RegionName             string     `gorm:"column:region_name"`
+	NetworkTypeNo          string     `gorm:"column:network_type_no"`
+	NetworkTypeCode        string     `gorm:"column:network_type_code"`
+	NetworkTypeName        string     `gorm:"column:network_type_name"`
+	TemplateNo             string     `gorm:"column:template_no"`
+	TemplateCode           string     `gorm:"column:template_code"`
+	TemplateName           string     `gorm:"column:template_name"`
+	OSFamily               string     `gorm:"column:os_family"`
+	OSDistribution         string     `gorm:"column:os_distribution"`
+	OSVersion              string     `gorm:"column:os_version"`
+	OSArchitecture         string     `gorm:"column:os_architecture"`
+	UserNote               *string    `gorm:"column:user_note"`
+	AdminNote              *string    `gorm:"column:admin_note"`
+	CancelReason           *string    `gorm:"column:cancel_reason"`
+	ClosedReason           *string    `gorm:"column:closed_reason"`
+	CreatedAt              time.Time  `gorm:"column:created_at"`
+	UpdatedAt              time.Time  `gorm:"column:updated_at"`
+	CancelledAt            *time.Time `gorm:"column:cancelled_at"`
+	ClosedAt               *time.Time `gorm:"column:closed_at"`
 }
 
 func (Order) TableName() string { return "orders" }
@@ -91,6 +98,17 @@ type CatalogSelection struct {
 	OSDistribution     string
 	OSVersion          string
 	OSArchitecture     string
+}
+
+type RenewalQuote struct {
+	OrderType          string
+	RelatedInstanceNo  string
+	BillingCycle       string
+	PriceCents         uint64
+	OriginalPriceCents *uint64
+	Currency           string
+	TotalAmountCents   uint64
+	NextExpiresAt      time.Time
 }
 
 type UserSummary struct {

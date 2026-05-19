@@ -55,6 +55,23 @@ func (h *Handler) Stop(c *gin.Context) {
 	h.operate(c, h.service.Stop)
 }
 
+func (h *Handler) CreateRenewalOrder(c *gin.Context) {
+	userID, ok := currentUserID(c)
+	if !ok {
+		return
+	}
+	var req webdto.RenewalOrderCreateRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.CreateRenewalOrder(c.Request.Context(), userID, c.Param("instance_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *Handler) operate(c *gin.Context, fn func(context.Context, uint64, string) (webdto.InstanceDetail, error)) {
 	userID, ok := currentUserID(c)
 	if !ok {
@@ -79,6 +96,18 @@ func currentUserID(c *gin.Context) (uint64, bool) {
 
 func bindQuery(c *gin.Context, target any) bool {
 	if err := c.ShouldBindQuery(target); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
+		return false
+	}
+	if err := validator.Struct(target); err != nil {
+		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))
+		return false
+	}
+	return true
+}
+
+func bindJSON(c *gin.Context, target any) bool {
+	if err := c.ShouldBindJSON(target); err != nil {
 		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数格式错误"))
 		return false
 	}

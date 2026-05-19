@@ -6,6 +6,7 @@ import (
 	adminrolehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/adminrole"
 	adminsessionhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/adminsession"
 	adminuserhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/adminuser"
+	asynctaskhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/asynctask"
 	audithttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/audit"
 	adminauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/auth"
 	dashboardhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/dashboard"
@@ -36,6 +37,7 @@ import (
 	adminroleusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/adminrole"
 	adminsessionusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/adminsession"
 	adminuserusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/adminuser"
+	asynctaskusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/asynctask"
 	auditusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/audit"
 	adminauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/auth"
 	dashboardusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/dashboard"
@@ -73,6 +75,7 @@ type AdminRouteSet struct {
 	Logs           *adminlogshttp.Handler
 	Order          *adminorderhttp.Handler
 	Instance       *admininstancehttp.Handler
+	AsyncTask      *asynctaskhttp.Handler
 	Ticket         *admintickethttp.Handler
 	Audit          *audithttp.AdminAuditHandler
 	ClientLogs     *clientlogshttp.Handler
@@ -122,8 +125,9 @@ func NewRouteSets(app *App) RouteSets {
 			ProductCatalog: productcataloghttp.NewProductCatalogHandler(productcatalogusecase.NewProductCatalogService(app.DB, auditService)),
 			RealName:       adminrealnamehttp.NewRealNameHandler(adminrealnameusecase.NewRealNameService(app.DB, app.Redis, auditService)),
 			Logs:           adminlogshttp.NewHandler(logsService),
-			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService)),
-			Instance:       admininstancehttp.NewHandler(admininstanceusecase.NewService(app.DB, app.MCPPVE, auditService)),
+			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService, app.Config.InstanceLifecycle)),
+			Instance:       admininstancehttp.NewHandler(admininstanceusecase.NewService(app.DB, app.MCPPVE, auditService, app.Config.InstanceLifecycle)),
+			AsyncTask:      asynctaskhttp.NewHandler(asynctaskusecase.NewService(app.DB, auditService)),
 			Ticket:         admintickethttp.NewHandler(adminticketusecase.NewService(app.DB, auditService, app.Config.Storage)),
 			Audit:          audithttp.NewAdminAuditHandler(auditService, adminmiddleware.CurrentAdminPermissionCodes),
 			ClientLogs:     clientlogshttp.NewHandler("admin", app.Redis, app.LogRecorder),

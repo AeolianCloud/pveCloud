@@ -74,8 +74,11 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.OrderCre
 }
 
 func (s *Service) List(ctx context.Context, userID uint64, query webdto.OrderListQuery) (webdto.PageResponse[webdto.OrderItem], error) {
+	if !domainorder.IsKnownType(query.OrderType) {
+		return webdto.PageResponse[webdto.OrderItem]{}, apperrors.ErrValidation.WithMessage("订单类型不支持")
+	}
 	page, perPage := normalizePage(query.Page, query.PerPage)
-	rows, total, err := s.orders.List(ctx, mysqlorder.ListFilters{UserID: userID, Status: query.Status}, perPage, (page-1)*perPage)
+	rows, total, err := s.orders.List(ctx, mysqlorder.ListFilters{UserID: userID, OrderType: query.OrderType, Status: query.Status}, perPage, (page-1)*perPage)
 	if err != nil {
 		return webdto.PageResponse[webdto.OrderItem]{}, err
 	}
@@ -129,11 +132,19 @@ func (s *Service) Cancel(ctx context.Context, userID uint64, orderNo string, req
 }
 
 func orderFromSelection(userID uint64, clientToken string, req webdto.OrderCreateRequest, selection mysqlorder.CatalogSelection) mysqlorder.Order {
-	return mysqlorder.Order{OrderNo: fmt.Sprintf("ORD-%d", time.Now().UnixNano()), UserID: userID, ClientToken: clientToken, Status: domainorder.StatusPending, ProductNo: selection.ProductNo, ProductType: selection.ProductType, ProductName: selection.ProductName, ProductSummary: selection.ProductSummary, PlanNo: selection.PlanNo, PlanCode: selection.PlanCode, PlanName: selection.PlanName, PlanSummary: selection.PlanSummary, CPUCores: selection.CPUCores, MemoryMB: selection.MemoryMB, SystemDiskGB: selection.SystemDiskGB, DataDiskGB: selection.DataDiskGB, BandwidthMbps: selection.BandwidthMbps, TrafficGB: selection.TrafficGB, PublicIPCount: selection.PublicIPCount, Virtualization: selection.Virtualization, Architecture: selection.Architecture, BillingCycle: selection.BillingCycle, PriceCents: selection.PriceCents, OriginalPriceCents: selection.OriginalPriceCents, Currency: selection.Currency, Quantity: 1, TotalAmountCents: selection.PriceCents, RegionNo: selection.RegionNo, RegionCode: selection.RegionCode, RegionName: selection.RegionName, NetworkTypeNo: selection.NetworkTypeNo, NetworkTypeCode: selection.NetworkTypeCode, NetworkTypeName: selection.NetworkTypeName, TemplateNo: selection.TemplateNo, TemplateCode: selection.TemplateCode, TemplateName: selection.TemplateName, OSFamily: selection.OSFamily, OSDistribution: selection.OSDistribution, OSVersion: selection.OSVersion, OSArchitecture: selection.OSArchitecture, UserNote: textutil.NormalizeOptionalString(req.UserNote)}
+	return mysqlorder.Order{OrderNo: fmt.Sprintf("ORD-%d", time.Now().UnixNano()), UserID: userID, ClientToken: clientToken, Status: domainorder.StatusPending, OrderType: domainorder.TypePurchase, PaymentStatus: domainorder.PaymentStatusUnpaid, ProductNo: selection.ProductNo, ProductType: selection.ProductType, ProductName: selection.ProductName, ProductSummary: selection.ProductSummary, PlanNo: selection.PlanNo, PlanCode: selection.PlanCode, PlanName: selection.PlanName, PlanSummary: selection.PlanSummary, CPUCores: selection.CPUCores, MemoryMB: selection.MemoryMB, SystemDiskGB: selection.SystemDiskGB, DataDiskGB: selection.DataDiskGB, BandwidthMbps: selection.BandwidthMbps, TrafficGB: selection.TrafficGB, PublicIPCount: selection.PublicIPCount, Virtualization: selection.Virtualization, Architecture: selection.Architecture, BillingCycle: selection.BillingCycle, PriceCents: selection.PriceCents, OriginalPriceCents: selection.OriginalPriceCents, Currency: selection.Currency, Quantity: 1, TotalAmountCents: selection.PriceCents, RegionNo: selection.RegionNo, RegionCode: selection.RegionCode, RegionName: selection.RegionName, NetworkTypeNo: selection.NetworkTypeNo, NetworkTypeCode: selection.NetworkTypeCode, NetworkTypeName: selection.NetworkTypeName, TemplateNo: selection.TemplateNo, TemplateCode: selection.TemplateCode, TemplateName: selection.TemplateName, OSFamily: selection.OSFamily, OSDistribution: selection.OSDistribution, OSVersion: selection.OSVersion, OSArchitecture: selection.OSArchitecture, UserNote: textutil.NormalizeOptionalString(req.UserNote)}
 }
 
 func webOrderItem(order mysqlorder.Order) webdto.OrderItem {
-	return webdto.OrderItem{OrderNo: order.OrderNo, Status: order.Status, ProductName: order.ProductName, PlanName: order.PlanName, BillingCycle: order.BillingCycle, NetworkTypeName: order.NetworkTypeName, TotalAmountCents: order.TotalAmountCents, Currency: order.Currency, CreatedAt: order.CreatedAt, CancelledAt: order.CancelledAt, ClosedAt: order.ClosedAt}
+	orderType := order.OrderType
+	if orderType == "" {
+		orderType = domainorder.TypePurchase
+	}
+	paymentStatus := order.PaymentStatus
+	if paymentStatus == "" {
+		paymentStatus = domainorder.PaymentStatusUnpaid
+	}
+	return webdto.OrderItem{OrderNo: order.OrderNo, OrderType: orderType, PaymentStatus: paymentStatus, Status: order.Status, RelatedInstanceNo: order.RelatedInstanceNo, ProductName: order.ProductName, PlanName: order.PlanName, BillingCycle: order.BillingCycle, NetworkTypeName: order.NetworkTypeName, TotalAmountCents: order.TotalAmountCents, Currency: order.Currency, CreatedAt: order.CreatedAt, PaidAt: order.PaidAt, CancelledAt: order.CancelledAt, ClosedAt: order.ClosedAt}
 }
 
 func webOrderDetail(order mysqlorder.Order) webdto.OrderDetail {

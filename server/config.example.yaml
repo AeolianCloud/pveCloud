@@ -114,3 +114,32 @@ mcp_pve:
   bearer_token: ""
   # 单次上游调用超时时间，单位为秒。
   timeout_seconds: 15
+
+# Worker 配置。Worker 独立进程使用同一份配置连接 MariaDB、Redis 和 MCP。
+worker:
+  # 是否启用 Worker 进程。API 进程不应因该值为 false 而拒绝启动。
+  enabled: false
+  # Worker 实例 ID；生产环境多 Worker 时必须唯一。
+  id: worker-local-1
+  # 轮询待执行任务的间隔，单位秒。
+  poll_interval_seconds: 5
+  # 单轮最多领取任务数。
+  batch_size: 20
+  # 任务领取锁 TTL，单位秒；任务超时后可被其它 Worker 重新领取。
+  lock_ttl_seconds: 120
+
+# 实例生命周期配置。
+instance_lifecycle:
+  # 到期前多久发送提醒，单位秒；默认 86400 表示提前 1 天。
+  expire_notice_before_seconds: 86400
+  # 到期后多久计划自动释放，单位秒；默认 3600 表示到期后 1 小时。
+  expire_release_after_seconds: 3600
+  # 是否启用到期自动释放；关闭时只提醒和展示到期状态，不删除上游 VM。
+  auto_release_enabled: false
+
+# 通知配置。短信当前只做占位任务和记录，不接真实供应商。
+notification:
+  # 是否允许 Worker 发送实例生命周期邮件。
+  email_enabled: true
+  # 短信占位开关；true 仅生成占位任务和记录，不真实发送。
+  sms_enabled: false

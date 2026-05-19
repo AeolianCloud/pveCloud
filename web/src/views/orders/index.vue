@@ -15,6 +15,8 @@ const total = ref(0)
 const query = reactive({ page: 1, per_page: 15, status: '' })
 
 const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
@@ -88,10 +90,12 @@ onMounted(loadOrders)
             <div class="min-w-0">
               <div class="truncate text-[11px] font-black uppercase tracking-[0.14em] text-neutral-500">{{ order.order_no }}</div>
               <h2 class="mt-1 truncate text-base font-black text-neutral-950 sm:text-lg">{{ order.product_name }} · {{ order.plan_name }}</h2>
-              <p class="mt-1 truncate text-xs text-neutral-500 sm:text-sm">{{ cycleText[order.billing_cycle] || order.billing_cycle }} · {{ order.network_type_name }} · {{ order.created_at }}</p>
+              <p class="mt-1 truncate text-xs text-neutral-500 sm:text-sm">{{ orderTypeText[order.order_type] || order.order_type }} · {{ cycleText[order.billing_cycle] || order.billing_cycle }} · {{ order.network_type_name }} · {{ order.created_at }}</p>
+              <p v-if="order.related_instance_no" class="mt-1 text-xs font-bold text-neutral-500">关联实例：{{ order.related_instance_no }}</p>
             </div>
             <div class="flex items-center justify-between gap-3 lg:block lg:text-right">
               <span class="inline-flex rounded-full border border-neutral-300 px-3 py-1 text-xs font-black">{{ statusText[order.status] }}</span>
+              <div class="mt-1 text-xs font-black text-neutral-500">{{ paymentStatusText[order.payment_status] || order.payment_status }}</div>
               <div class="text-lg font-black lg:mt-2">{{ formatMoney(order.total_amount_cents) }}</div>
             </div>
             <div class="flex flex-wrap gap-2 lg:justify-end">

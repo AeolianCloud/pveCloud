@@ -2,6 +2,7 @@
 import {
   NButton,
   NCard,
+  NDatePicker,
   NDescriptions,
   NDescriptionsItem,
   NDrawer,
@@ -10,6 +11,7 @@ import {
   NFormItem,
   NInput,
   NInputNumber,
+  NModal,
   NSelect,
   NSpace,
   NTabPane,
@@ -31,6 +33,7 @@ import {
   startInstance,
   stopInstance,
   syncInstance,
+  updateInstanceExpiresAt,
   updateInstanceMapping,
   type InstanceDetail,
   type InstanceItem,
@@ -64,6 +67,7 @@ const mappingLoading = ref(false)
 const mcpLoading = ref(false)
 const detailLoading = ref(false)
 const detailVisible = ref(false)
+const expiresAtVisible = ref(false)
 const mappingVisible = ref(false)
 const mappingMode = ref<MappingDialogMode>('create')
 const mappingEditId = ref<number | null>(null)
@@ -78,6 +82,7 @@ const pveNodes = ref<PveNode[]>([])
 const pveStorage = ref<PveStorage[]>([])
 const pveVMs = ref<PveVM[]>([])
 const mappingForm = reactive<InstanceMappingPayload>(makeEmptyMappingForm())
+const expiresAtValue = ref<number | null>(null)
 
 const instanceQuery = reactive({ page: 1, per_page: 15, status: '', instance_no: '', order_no: '', user_keyword: '', date_from: '', date_to: '' })
 const mappingQuery = reactive({ page: 1, per_page: 15, status: '', plan_no: '', region_no: '', template_no: '', network_type_no: '' })
@@ -86,6 +91,7 @@ const canProvision = computed(() => hasPermissionCode(permissionStore.permission
 const canOperate = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:operate'))
 const canRelease = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:release'))
 const canSync = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:sync'))
+const canRenew = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:renew'))
 
 const mappingStatusOptions = [
   { label: '启用', value: 'active' },
@@ -150,6 +156,31 @@ async function operateInstance(action: 'start' | 'stop' | 'release' | 'sync', it
     if (detailVisible.value) detail.value = updated
   } catch (err) {
     message.error(err instanceof Error ? err.message : `${label}失败`)
+  }
+}
+
+function openExpiresAtModal() {
+  if (!detail.value) return
+  expiresAtValue.value = detail.value.expires_at ? new Date(detail.value.expires_at).getTime() : Date.now() + 30 * 24 * 60 * 60 * 1000
+  expiresAtVisible.value = true
+}
+
+async function updateExpiresAt() {
+  if (!detail.value || !expiresAtValue.value) {
+    message.error('请选择新的到期时间')
+    return false
+  }
+  if (expiresAtValue.value <= Date.now()) {
+    message.error('到期时间必须晚于当前时间')
+    return false
+  }
+  try {
+    detail.value = await updateInstanceExpiresAt(detail.value.instance_no, new Date(expiresAtValue.value).toISOString())
+    message.success('实例到期时间已更新')
+    expiresAtVisible.value = false
+    await loadInstances()
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '到期时间更新失败')
   }
 }
 
@@ -368,6 +399,17 @@ onMounted(() => {
             <NDescriptionsItem label="地域">{{ detail.region_name }}</NDescriptionsItem>
             <NDescriptionsItem label="系统">{{ detail.template_name }} · {{ detail.os_distribution }} {{ detail.os_version }}</NDescriptionsItem>
             <NDescriptionsItem label="上游资源">{{ detail.external_node }} / {{ detail.external_vmid }}</NDescriptionsItem>
+            <NDescriptionsItem label="服务开始">{{ formatDateTime(detail.service_started_at) }}</NDescriptionsItem>
+            <NDescriptionsItem label="到期时间">{{ formatDateTime(detail.expires_at) }}</NDescriptionsItem>
+            <NDescriptionsItem label="到期提醒">{{ formatDateTime(detail.expire_notice_sent_at) }}</NDescriptionsItem>
+            <NDescriptionsItem label="自动释放计划">{{ formatDateTime(detail.expire_release_scheduled_at) }}</NDescriptionsItem>
+            <NDescriptionsItem label="因到期释放">{{ formatDateTime(detail.expire_released_at) }}</NDescriptionsItem>
+            <NDescriptionsItem label="最近续费">
+              <span v-if="detail.latest_renewal_order">
+                {{ detail.latest_renewal_order.order_no }} / {{ detail.latest_renewal_order.payment_status }}
+              </span>
+              <span v-else>-</span>
+            </NDescriptionsItem>
             <NDescriptionsItem label="最近错误">{{ detail.last_error_message || '-' }}</NDescriptionsItem>
           </NDescriptions>
           <div class="detail-actions">
@@ -375,6 +417,7 @@ onMounted(() => {
               <NButton v-if="canOperate && detail.status === 'stopped'" type="success" @click="operateInstance('start', detail)">开机</NButton>
               <NButton v-if="canOperate && detail.status === 'running'" type="warning" @click="operateInstance('stop', detail)">关机</NButton>
               <NButton v-if="canSync" @click="operateInstance('sync', detail)">同步</NButton>
+              <NButton v-if="canRenew && detail.status !== 'released'" @click="openExpiresAtModal">调整到期</NButton>
               <NButton v-if="canRelease && detail.status !== 'released' && detail.status !== 'releasing'" type="error" @click="operateInstance('release', detail)">释放</NButton>
             </NSpace>
           </div>
@@ -395,6 +438,17 @@ onMounted(() => {
         <div v-else-if="detailLoading">加载中...</div>
       </NDrawerContent>
     </NDrawer>
+
+    <NModal
+      v-model:show="expiresAtVisible"
+      preset="dialog"
+      title="调整到期时间"
+      positive-text="保存"
+      negative-text="取消"
+      @positive-click="updateExpiresAt"
+    >
+      <NDatePicker v-model:value="expiresAtValue" type="datetime" clearable style="width: 100%" />
+    </NModal>
 
     <NDrawer v-model:show="mappingVisible" :width="720">
       <NDrawerContent :title="mappingMode === 'create' ? '新增交付映射' : '编辑交付映射'" closable>

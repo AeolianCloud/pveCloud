@@ -17,6 +17,25 @@ const (
 	OperationStatusRunning   = "running"
 	OperationStatusSucceeded = "succeeded"
 	OperationStatusFailed    = "failed"
+
+	TaskTypeOperationSync  = "instance_operation_sync"
+	TaskTypeExpiryNotice   = "instance_expiry_notice"
+	TaskTypeExpiryRelease  = "instance_expiry_release"
+	TaskTypeEmailSend      = "notification_email_send"
+	TaskTypeSMSPlaceholder = "notification_sms_placeholder"
+
+	TaskStatusPending   = "pending"
+	TaskStatusRunning   = "running"
+	TaskStatusSucceeded = "succeeded"
+	TaskStatusFailed    = "failed"
+	TaskStatusCancelled = "cancelled"
+
+	NotificationChannelEmail  = "email"
+	NotificationChannelSMS    = "sms"
+	NotificationStatusPending = "pending"
+	NotificationStatusSent    = "sent"
+	NotificationStatusFailed  = "failed"
+	NotificationStatusSkipped = "skipped"
 )
 
 func IsKnownStatus(status string) bool {
@@ -48,5 +67,23 @@ func MapVMStatus(status string) string {
 		return StatusStopped
 	default:
 		return StatusError
+	}
+}
+
+func IsKnownTaskStatus(status string) bool {
+	switch status {
+	case "", TaskStatusPending, TaskStatusRunning, TaskStatusSucceeded, TaskStatusFailed, TaskStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsKnownTaskType(taskType string) bool {
+	switch taskType {
+	case "", TaskTypeOperationSync, TaskTypeExpiryNotice, TaskTypeExpiryRelease, TaskTypeEmailSend, TaskTypeSMSPlaceholder:
+		return true
+	default:
+		return false
 	}
 }

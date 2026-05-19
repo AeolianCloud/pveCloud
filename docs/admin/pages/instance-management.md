@@ -9,6 +9,8 @@
 - 交付映射列表和维护
 - MCP 节点、节点详情、节点 VM 列表和存储只读查看
 - 从订单触发交付后的实例状态排障
+- 查看和维护实例服务期、到期时间、到期提醒和自动释放计划
+- 查看实例续费记录，后台手动调整到期时间
 - 开机、关机、释放和同步
 
 本页面不开放通用 PVE 运维管理，不提供重启、重装、重置密码、控制台、快照、备份、迁移、监控、网络防火墙或资源池管理。
@@ -22,6 +24,7 @@
 - 开机、关机：`instance:operate` 或 `instance:*`
 - 释放：`instance:release` 或 `instance:*`
 - 同步：`instance:sync` 或 `instance:*`
+- 调整服务期和确认续费相关入口：`instance:renew` 或 `instance:*`
 
 ## 页面结构
 
@@ -41,10 +44,12 @@ admin/src/views/instances/
 
 - 列表支持按实例状态、实例编号、订单编号、用户关键字和创建时间范围筛选。
 - 实例详情可展示管理端可见的 MCP `node`、`vmid`、最近 operation 和失败原因。
+- 实例详情必须展示服务开始时间、到期时间、到期提醒发送时间、自动释放计划时间、因到期释放完成时间和续费订单摘要。
 - 用户端不可见的 `node`、`storage`、`disk_source`、`snippets_storage`、`vmid` 和上游 operation ID 不得出现在用户端接口或用户端页面。
 - 交付映射维护 MCP 创建 VM 所需参数和 VMID 分配范围；`ci_password` 当前不作为配置项维护。
 - MCP 节点、存储和节点 VM 列表仅用于配置映射和排障，不作为资源池管理页面。
 - 开机、关机、释放和同步必须以服务端返回状态为准，前端只做按钮可见性和二次确认。
+- 后台手动调整到期时间必须二次确认，并展示会影响到期提醒和自动释放计划。
 
 ## 关联接口
 
@@ -63,6 +68,8 @@ admin/src/views/instances/
 - `POST /admin-api/instances/{instance_no}/stop`
 - `POST /admin-api/instances/{instance_no}/release`
 - `POST /admin-api/instances/{instance_no}/sync`
+- `PATCH /admin-api/instances/{instance_no}/expires-at`
+- `POST /admin-api/orders/{order_no}/confirm-renewal`
 - `POST /admin-api/orders/{order_no}/provision`
 
 ## 验收重点
@@ -72,3 +79,4 @@ admin/src/views/instances/
 - 低权限管理员看不到或无法触发无权限操作按钮。
 - 交付映射、实例列表、实例详情和 MCP 只读资源查询正常。
 - 页面不出现 MCP 未提供能力的入口。
+- 实例服务期、续费记录和自动释放计划展示正常。

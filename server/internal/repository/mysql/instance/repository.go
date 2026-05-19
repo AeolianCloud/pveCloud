@@ -3,6 +3,7 @@ package instance
 import (
 	"context"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,6 +27,24 @@ type MappingFilters struct {
 	RegionNo      string
 	TemplateNo    string
 	NetworkTypeNo string
+}
+
+type TaskFilters struct {
+	TaskType   string
+	Status     string
+	ObjectType string
+	ObjectNo   string
+	DateFrom   string
+	DateTo     string
+}
+
+type NotificationFilters struct {
+	UserID   uint64
+	Scene    string
+	Status   string
+	Target   string
+	DateFrom string
+	DateTo   string
 }
 
 func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
@@ -151,6 +170,93 @@ func (r *Repository) Operations(ctx context.Context, instanceID uint64, limit in
 	return rows, err
 }
 
+func (r *Repository) CreateTask(ctx context.Context, db *gorm.DB, task *Task) error {
+	return r.queryDB(db).WithContext(ctx).Create(task).Error
+}
+
+func (r *Repository) CreateTaskIgnoreDuplicate(ctx context.Context, db *gorm.DB, task *Task) error {
+	return r.queryDB(db).WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(task).Error
+}
+
+func (r *Repository) UpdateTask(ctx context.Context, db *gorm.DB, id uint64, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.queryDB(db).WithContext(ctx).Model(&Task{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *Repository) TaskByNo(ctx context.Context, taskNo string) (Task, error) {
+	var task Task
+	err := r.db.WithContext(ctx).Where("task_no = ?", taskNo).First(&task).Error
+	return task, err
+}
+
+func (r *Repository) TaskForUpdate(ctx context.Context, db *gorm.DB, taskNo string) (Task, error) {
+	var task Task
+	err := r.queryDB(db).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("task_no = ?", taskNo).First(&task).Error
+	return task, err
+}
+
+func (r *Repository) ListTasks(ctx context.Context, filters TaskFilters, limit, offset int) ([]Task, int64, error) {
+	query := r.applyTaskFilters(r.db.WithContext(ctx).Model(&Task{}), filters)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []Task
+	if err := query.Order("scheduled_at DESC, id DESC").Limit(limit).Offset(offset).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+func (r *Repository) ClaimTasks(ctx context.Context, db *gorm.DB, workerID string, limit int, lockUntil time.Time) ([]Task, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	now := time.Now()
+	var rows []Task
+	query := r.queryDB(db).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("scheduled_at <= ?", now).
+		Where("(status = ? OR (status = ? AND locked_until IS NOT NULL AND locked_until < ?))", "pending", "running", now).
+		Order("scheduled_at ASC, id ASC").
+		Limit(limit)
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		if err := r.UpdateTask(ctx, db, rows[i].ID, map[string]any{"status": "running", "locked_by": workerID, "locked_until": lockUntil, "attempts": rows[i].Attempts + 1}); err != nil {
+			return nil, err
+		}
+		rows[i].Status = "running"
+		rows[i].LockedBy = &workerID
+		rows[i].LockedUntil = &lockUntil
+		rows[i].Attempts++
+	}
+	return rows, nil
+}
+
+func (r *Repository) CreateNotification(ctx context.Context, db *gorm.DB, notification *Notification) error {
+	return r.queryDB(db).WithContext(ctx).Create(notification).Error
+}
+
+func (r *Repository) CreateNotificationIgnoreDuplicate(ctx context.Context, db *gorm.DB, notification *Notification) error {
+	return r.queryDB(db).WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(notification).Error
+}
+
+func (r *Repository) UpdateNotification(ctx context.Context, db *gorm.DB, id uint64, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.queryDB(db).WithContext(ctx).Model(&Notification{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (r *Repository) NotificationByNo(ctx context.Context, notificationNo string) (Notification, error) {
+	var notification Notification
+	err := r.db.WithContext(ctx).Where("notification_no = ?", notificationNo).First(&notification).Error
+	return notification, err
+}
+
 func (r *Repository) queryDB(db *gorm.DB) *gorm.DB {
 	if db != nil {
 		return db
@@ -199,6 +305,28 @@ func (r *Repository) applyInstanceFilters(db *gorm.DB, filters InstanceFilters) 
 	}
 	if strings.TrimSpace(filters.DateTo) != "" {
 		db = db.Where("instances.created_at <= ?", strings.TrimSpace(filters.DateTo))
+	}
+	return db
+}
+
+func (r *Repository) applyTaskFilters(db *gorm.DB, filters TaskFilters) *gorm.DB {
+	if strings.TrimSpace(filters.TaskType) != "" {
+		db = db.Where("task_type = ?", strings.TrimSpace(filters.TaskType))
+	}
+	if strings.TrimSpace(filters.Status) != "" {
+		db = db.Where("status = ?", strings.TrimSpace(filters.Status))
+	}
+	if strings.TrimSpace(filters.ObjectType) != "" {
+		db = db.Where("object_type = ?", strings.TrimSpace(filters.ObjectType))
+	}
+	if strings.TrimSpace(filters.ObjectNo) != "" {
+		db = db.Where("object_no = ?", strings.TrimSpace(filters.ObjectNo))
+	}
+	if strings.TrimSpace(filters.DateFrom) != "" {
+		db = db.Where("created_at >= ?", strings.TrimSpace(filters.DateFrom))
+	}
+	if strings.TrimSpace(filters.DateTo) != "" {
+		db = db.Where("created_at <= ?", strings.TrimSpace(filters.DateTo))
 	}
 	return db
 }

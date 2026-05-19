@@ -22,23 +22,28 @@ type OrderCreateRequest struct {
 }
 
 type OrderListQuery struct {
-	Page    int    `form:"page" validate:"omitempty,min=1"`
-	PerPage int    `form:"per_page" validate:"omitempty,min=1,max=100"`
-	Status  string `form:"status" validate:"omitempty,oneof=pending provisioning fulfilled cancelled closed"`
+	Page      int    `form:"page" validate:"omitempty,min=1"`
+	PerPage   int    `form:"per_page" validate:"omitempty,min=1,max=100"`
+	Status    string `form:"status" validate:"omitempty,oneof=pending provisioning fulfilled cancelled closed"`
+	OrderType string `form:"order_type" validate:"omitempty,oneof=purchase renewal"`
 }
 
 type OrderItem struct {
-	OrderNo          string     `json:"order_no"`
-	Status           string     `json:"status"`
-	ProductName      string     `json:"product_name"`
-	PlanName         string     `json:"plan_name"`
-	BillingCycle     string     `json:"billing_cycle"`
-	NetworkTypeName  string     `json:"network_type_name"`
-	TotalAmountCents uint64     `json:"total_amount_cents"`
-	Currency         string     `json:"currency"`
-	CreatedAt        time.Time  `json:"created_at"`
-	CancelledAt      *time.Time `json:"cancelled_at"`
-	ClosedAt         *time.Time `json:"closed_at"`
+	OrderNo           string     `json:"order_no"`
+	OrderType         string     `json:"order_type"`
+	PaymentStatus     string     `json:"payment_status"`
+	Status            string     `json:"status"`
+	RelatedInstanceNo *string    `json:"related_instance_no"`
+	ProductName       string     `json:"product_name"`
+	PlanName          string     `json:"plan_name"`
+	BillingCycle      string     `json:"billing_cycle"`
+	NetworkTypeName   string     `json:"network_type_name"`
+	TotalAmountCents  uint64     `json:"total_amount_cents"`
+	Currency          string     `json:"currency"`
+	CreatedAt         time.Time  `json:"created_at"`
+	PaidAt            *time.Time `json:"paid_at"`
+	CancelledAt       *time.Time `json:"cancelled_at"`
+	ClosedAt          *time.Time `json:"closed_at"`
 }
 
 type OrderDetail struct {
@@ -79,4 +84,9 @@ type OrderDetail struct {
 
 type OrderCancelRequest struct {
 	Reason *string `json:"reason" validate:"omitempty,max=500"`
+}
+
+type RenewalOrderCreateRequest struct {
+	BillingCycle string `json:"billing_cycle" validate:"required,oneof=monthly quarterly semi_yearly yearly"`
+	ClientToken  string `json:"client_token" validate:"required,max=128"`
 }

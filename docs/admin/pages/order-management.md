@@ -12,8 +12,10 @@
 - 取消订单
 - 关闭订单
 - 触发实例交付入口
+- 查看续费订单和支付占位状态
+- 人工确认续费订单
 
-本页面不支持后台创建订单，不包含支付、库存扣减或通用 PVE 管理能力。实例交付通过实例管理域能力触发，只能基于已有用户端订单。
+本页面不支持后台创建订单，不包含真实支付网关、库存扣减或通用 PVE 管理能力。实例交付通过实例管理域能力触发，只能基于已有用户端订单；续费订单由用户端创建，后台可人工确认并延长实例服务期。
 
 ## 路由与权限
 
@@ -23,6 +25,7 @@
 - 更新后台备注和关闭订单：`order:update` 或 `order:*`
 - 取消订单：`order:cancel` 或 `order:*`
 - 触发实例交付：`instance:provision` 或 `instance:*`
+- 人工确认续费：`order:update` 或 `order:*`
 
 ## 页面结构
 
@@ -41,9 +44,10 @@ admin/src/views/orders/index.vue
 - 后台备注只在管理端展示，不通过用户端订单详情返回。
 - 管理端只能取消 `pending` 订单；关闭订单按后端状态机裁决。
 - 非 `pending` 订单执行取消或关闭时，后端返回 `409xx` 状态冲突。
-- 管理端可对 `pending` 订单触发实例交付；交付后订单进入 `provisioning`，实例同步成功后进入 `fulfilled`。
+- 管理端可对 `order_type=purchase` 且 `pending` 的订单触发实例交付；交付后订单进入 `provisioning`，实例同步成功后进入 `fulfilled`。
+- 管理端可对 `order_type=renewal` 且 `pending` 的续费订单人工确认；确认后订单 `payment_status=manual_confirmed`、状态进入 `fulfilled`，关联实例到期时间顺延。
 - 取消、关闭和后台备注更新必须写入普通后台操作审计。
-- 页面不得出现支付确认、PVE 节点、库存扣减或用户侧自动交付承诺。
+- 页面不得出现真实支付网关、PVE 节点、库存扣减或用户侧自动交付承诺。
 
 ## 关联接口
 
@@ -55,6 +59,7 @@ admin/src/views/orders/index.vue
 - `POST /admin-api/orders/{order_no}/cancel`
 - `POST /admin-api/orders/{order_no}/close`
 - `POST /admin-api/orders/{order_no}/provision`
+- `POST /admin-api/orders/{order_no}/confirm-renewal`
 
 ## 验收重点
 

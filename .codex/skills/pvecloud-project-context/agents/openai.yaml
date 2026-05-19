@@ -1,0 +1,4 @@
+interface:
+  display_name: "pveCloud Project Context"
+  short_description: "Navigate current pveCloud tech stack, feature scope, and owner docs."
+  default_prompt: "Use $pvecloud-project-context to find current pveCloud project facts from owner docs."

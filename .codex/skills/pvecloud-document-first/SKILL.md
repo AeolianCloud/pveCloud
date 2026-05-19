@@ -29,13 +29,14 @@ Always start with:
 1. `AGENTS.md`
 2. This `SKILL.md`
 3. `references/workflow.md`
-4. The task-relevant guardrail:
+4. `references/contract-quality.md` when the task touches state changes, external side effects, async jobs, permissions, config, schema, API, security, or cross-surface business behavior
+5. The task-relevant guardrail:
    - backend: `references/backend.md`
    - database: `references/database.md`
    - frontend: `references/frontend.md`
    - operations: `references/operations.md`
    - historical basic admin scope: `.codex/skills/pvecloud-basic-admin/SKILL.md`
-5. The matching owner docs or machine contracts:
+6. The matching owner docs or machine contracts:
    - server/API: `docs/server/`, `docs/server/api/`
    - security: `docs/security.md`
    - admin frontend: `docs/admin/`
@@ -73,6 +74,7 @@ AI workflow changes include `AGENTS.md`, `.codex/skills/`, skill metadata, and s
 - Name the exact owner docs/contracts read before editing implementation files.
 - If the working tree already has changes, code was pulled, or the user is continuing unfinished work, do a drift-first check before adding implementation.
 - For contract/behavior work, update owner docs or machine contracts first, then stop for maintainer confirmation.
+- For contract/behavior work covered by `references/contract-quality.md`, run that quality gate before stopping for confirmation; do not treat vague statements such as "must be idempotent" or "must be recoverable" as sufficient contract.
 - Do not implement contract/behavior code until the maintainer confirms.
 - If implementation discovers new behavior, validation, hardening, storage, permission, route, config, or transaction changes, return to the document-first gate.
 - For AI workflow-only changes, update AI workflow files directly after checking they do not introduce or override project contracts.

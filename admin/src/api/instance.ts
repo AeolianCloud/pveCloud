@@ -76,6 +76,11 @@ export interface InstanceItem {
   template_name: string
   external_node: string
   external_vmid: number
+  service_started_at: string | null
+  expires_at: string | null
+  expire_notice_sent_at: string | null
+  expire_release_scheduled_at: string | null
+  expire_released_at: string | null
   created_at: string
   released_at: string | null
 }
@@ -110,6 +115,17 @@ export interface InstanceDetail extends InstanceItem {
   external_resource_location: string | null
   last_error_code: string | null
   last_error_message: string | null
+  renewal_available: boolean
+  latest_renewal_order: {
+    order_no: string
+    status: string
+    payment_status: string
+    billing_cycle: string
+    total_amount_cents: number
+    currency: string
+    paid_at: string | null
+    created_at: string
+  } | null
   operations: InstanceOperation[]
 }
 
@@ -182,6 +198,14 @@ export async function releaseInstance(instanceNo: string) {
 
 export async function syncInstance(instanceNo: string) {
   const response = await http.post<ApiEnvelope<InstanceDetail>>(`/instances/${instanceNo}/sync`)
+  return response.data.data
+}
+
+export async function updateInstanceExpiresAt(instanceNo: string, expiresAt: string, remark?: string | null) {
+  const response = await http.patch<ApiEnvelope<InstanceDetail>>(`/instances/${instanceNo}/expires-at`, {
+    expires_at: expiresAt,
+    remark,
+  })
   return response.data.data
 }
 

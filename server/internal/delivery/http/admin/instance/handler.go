@@ -156,6 +156,23 @@ func (h *Handler) Sync(c *gin.Context) {
 	h.operate(c, h.service.Sync)
 }
 
+func (h *Handler) UpdateExpiresAt(c *gin.Context) {
+	operatorID, ok := currentAdminID(c)
+	if !ok {
+		return
+	}
+	var req admindto.InstanceExpiresAtRequest
+	if !bindJSON(c, &req) {
+		return
+	}
+	result, err := h.service.UpdateExpiresAt(c.Request.Context(), operatorID, c.Param("instance_no"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *Handler) operate(c *gin.Context, fn func(context.Context, uint64, string) (admindto.InstanceDetail, error)) {
 	operatorID, ok := currentAdminID(c)
 	if !ok {

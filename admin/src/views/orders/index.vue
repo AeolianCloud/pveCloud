@@ -21,6 +21,7 @@ import { computed, h, onMounted, reactive, ref } from 'vue'
 import {
   cancelOrder,
   closeOrder,
+  confirmRenewalOrder,
   getOrderDetail,
   getOrders,
   updateOrderAdminNote,
@@ -41,13 +42,15 @@ const detail = ref<AdminOrderDetail | null>(null)
 const noteDraft = ref('')
 const orders = ref<AdminOrderItem[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, per_page: 15, status: '', order_no: '', user_keyword: '' })
+const query = reactive({ page: 1, per_page: 15, status: '', order_type: '', order_no: '', user_keyword: '' })
 
 const canUpdate = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'order:update'))
 const canCancel = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'order:cancel'))
 const canProvision = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:provision'))
 
 const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
 const cycleText: Record<string, string> = {
   monthly: '月付',
   quarterly: '季付',
@@ -61,6 +64,10 @@ const statusOptions = [
   { label: '已交付', value: 'fulfilled' },
   { label: '已取消', value: 'cancelled' },
   { label: '已关闭', value: 'closed' },
+]
+const orderTypeOptions = [
+  { label: '新购', value: 'purchase' },
+  { label: '续费', value: 'renewal' },
 ]
 
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
@@ -142,6 +149,27 @@ async function provision(order: AdminOrderItem | AdminOrderDetail) {
   }
 }
 
+async function confirmRenewal(order: AdminOrderItem | AdminOrderDetail) {
+  try {
+    await confirm({
+      title: '确认续费订单',
+      content: `确认人工确认续费订单 ${order.order_no}？实例到期时间会按周期顺延。`,
+      positiveText: '确认续费',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await confirmRenewalOrder(order.order_no)
+    message.success('续费订单已确认')
+    await loadOrders()
+    if (detailVisible.value) await openDetail(order.order_no)
+  } catch (err) {
+    message.error(err instanceof Error ? err.message : '续费确认失败')
+  }
+}
+
 function promptReason(content: string, title: string): Promise<string | null> {
   return new Promise((resolve) => {
     const value = ref('')
@@ -178,7 +206,7 @@ function promptReason(content: string, title: string): Promise<string | null> {
 }
 
 function resetQuery() {
-  Object.assign(query, { page: 1, per_page: 15, status: '', order_no: '', user_keyword: '' })
+  Object.assign(query, { page: 1, per_page: 15, status: '', order_type: '', order_no: '', user_keyword: '' })
   loadOrders()
 }
 
@@ -201,7 +229,8 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
     render: (row) =>
       h('div', null, [
         h('div', { class: 'strong' }, row.product_name),
-        h('div', { class: 'muted' }, `${row.plan_name} · ${cycleText[row.billing_cycle] || row.billing_cycle} · ${row.network_type_name || '-'}`),
+        h('div', { class: 'muted' }, `${orderTypeText[row.order_type] || row.order_type} · ${row.plan_name} · ${cycleText[row.billing_cycle] || row.billing_cycle} · ${row.network_type_name || '-'}`),
+        row.related_instance_no ? h('div', { class: 'muted' }, `关联实例：${row.related_instance_no}`) : null,
       ]),
   },
   {
@@ -213,8 +242,11 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
   {
     key: 'status',
     title: '状态',
-    width: 100,
-    render: (row) => h(NTag, { size: 'small' }, { default: () => statusText[row.status] || row.status }),
+    width: 130,
+    render: (row) => h('div', null, [
+      h(NTag, { size: 'small' }, { default: () => statusText[row.status] || row.status }),
+      h('div', { class: 'muted' }, paymentStatusText[row.payment_status] || row.payment_status),
+    ]),
   },
   {
     key: 'created_at',
@@ -243,9 +275,14 @@ const columns = computed<DataTableColumns<AdminOrderItem>>(() => [
               h(NButton, { text: true, type: 'warning', onClick: () => updateStatus('close', row) }, { default: () => '关闭' }),
             )
           }
-          if (canProvision.value && row.status === 'pending') {
+          if (canProvision.value && row.order_type === 'purchase' && row.status === 'pending') {
             buttons.push(
               h(NButton, { text: true, type: 'success', onClick: () => provision(row) }, { default: () => '交付' }),
+            )
+          }
+          if (canUpdate.value && row.order_type === 'renewal' && row.status === 'pending') {
+            buttons.push(
+              h(NButton, { text: true, type: 'success', onClick: () => confirmRenewal(row) }, { default: () => '确认续费' }),
             )
           }
           return buttons
@@ -275,6 +312,15 @@ onMounted(loadOrders)
             clearable
             placeholder="全部"
             style="width: 140px"
+          />
+        </NFormItem>
+        <NFormItem label="类型">
+          <NSelect
+            v-model:value="query.order_type"
+            :options="orderTypeOptions"
+            clearable
+            placeholder="全部"
+            style="width: 120px"
           />
         </NFormItem>
         <NFormItem label="订单号">
@@ -326,6 +372,9 @@ onMounted(loadOrders)
             <NDescriptionsItem label="地域">{{ detail.region_name }}</NDescriptionsItem>
             <NDescriptionsItem label="系统">{{ detail.template_name }}</NDescriptionsItem>
             <NDescriptionsItem label="金额">{{ formatMoney(detail.total_amount_cents) }}</NDescriptionsItem>
+            <NDescriptionsItem label="订单类型">{{ orderTypeText[detail.order_type] || detail.order_type }}</NDescriptionsItem>
+            <NDescriptionsItem label="支付状态">{{ paymentStatusText[detail.payment_status] || detail.payment_status }}</NDescriptionsItem>
+            <NDescriptionsItem label="关联实例">{{ detail.related_instance_no || '-' }}</NDescriptionsItem>
             <NDescriptionsItem label="用户备注">{{ detail.user_note || '-' }}</NDescriptionsItem>
           </NDescriptions>
           <div class="mt">
@@ -337,7 +386,8 @@ onMounted(loadOrders)
             <NSpace>
               <NButton v-if="canCancel" type="error" @click="updateStatus('cancel', detail)">取消订单</NButton>
               <NButton v-if="canUpdate" type="warning" @click="updateStatus('close', detail)">关闭订单</NButton>
-              <NButton v-if="canProvision" type="success" @click="provision(detail)">触发交付</NButton>
+              <NButton v-if="canProvision && detail.order_type === 'purchase'" type="success" @click="provision(detail)">触发交付</NButton>
+              <NButton v-if="canUpdate && detail.order_type === 'renewal'" type="success" @click="confirmRenewal(detail)">确认续费</NButton>
             </NSpace>
           </div>
         </div>

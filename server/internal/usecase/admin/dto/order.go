@@ -6,6 +6,7 @@ type OrderListQuery struct {
 	Page        int    `form:"page" validate:"omitempty,min=1"`
 	PerPage     int    `form:"per_page" validate:"omitempty,min=1,max=100"`
 	Status      string `form:"status" validate:"omitempty,oneof=pending provisioning fulfilled cancelled closed"`
+	OrderType   string `form:"order_type" validate:"omitempty,oneof=purchase renewal"`
 	OrderNo     string `form:"order_no" validate:"omitempty,max=64"`
 	UserKeyword string `form:"user_keyword" validate:"omitempty,max=128"`
 	DateFrom    string `form:"date_from" validate:"omitempty,max=32"`
@@ -20,19 +21,23 @@ type OrderUserSummary struct {
 }
 
 type AdminOrderItem struct {
-	OrderNo          string           `json:"order_no"`
-	User             OrderUserSummary `json:"user"`
-	Status           string           `json:"status"`
-	ProductName      string           `json:"product_name"`
-	PlanName         string           `json:"plan_name"`
-	BillingCycle     string           `json:"billing_cycle"`
-	NetworkTypeName  string           `json:"network_type_name"`
-	TotalAmountCents uint64           `json:"total_amount_cents"`
-	Currency         string           `json:"currency"`
-	AdminNote        *string          `json:"admin_note"`
-	CreatedAt        time.Time        `json:"created_at"`
-	CancelledAt      *time.Time       `json:"cancelled_at"`
-	ClosedAt         *time.Time       `json:"closed_at"`
+	OrderNo           string           `json:"order_no"`
+	OrderType         string           `json:"order_type"`
+	PaymentStatus     string           `json:"payment_status"`
+	User              OrderUserSummary `json:"user"`
+	Status            string           `json:"status"`
+	RelatedInstanceNo *string          `json:"related_instance_no"`
+	ProductName       string           `json:"product_name"`
+	PlanName          string           `json:"plan_name"`
+	BillingCycle      string           `json:"billing_cycle"`
+	NetworkTypeName   string           `json:"network_type_name"`
+	TotalAmountCents  uint64           `json:"total_amount_cents"`
+	Currency          string           `json:"currency"`
+	AdminNote         *string          `json:"admin_note"`
+	CreatedAt         time.Time        `json:"created_at"`
+	PaidAt            *time.Time       `json:"paid_at"`
+	CancelledAt       *time.Time       `json:"cancelled_at"`
+	ClosedAt          *time.Time       `json:"closed_at"`
 }
 
 type AdminOrderDetail struct {
@@ -79,4 +84,8 @@ type OrderAdminNoteRequest struct {
 
 type OrderStatusRequest struct {
 	Reason *string `json:"reason" validate:"omitempty,max=500"`
+}
+
+type OrderRenewalConfirmRequest struct {
+	Remark *string `json:"remark" validate:"omitempty,max=500"`
 }

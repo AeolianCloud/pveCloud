@@ -81,40 +81,66 @@ type InstanceMappingItem struct {
 }
 
 type InstanceItem struct {
-	InstanceNo      string           `json:"instance_no"`
-	OrderNo         string           `json:"order_no"`
-	User            OrderUserSummary `json:"user"`
-	Status          string           `json:"status"`
-	ProductName     string           `json:"product_name"`
-	PlanName        string           `json:"plan_name"`
-	RegionName      string           `json:"region_name"`
-	NetworkTypeName *string          `json:"network_type_name"`
-	TemplateName    string           `json:"template_name"`
-	ExternalNode    string           `json:"external_node"`
-	ExternalVMID    uint             `json:"external_vmid"`
-	CreatedAt       time.Time        `json:"created_at"`
-	ReleasedAt      *time.Time       `json:"released_at"`
+	InstanceNo               string           `json:"instance_no"`
+	OrderNo                  string           `json:"order_no"`
+	User                     OrderUserSummary `json:"user"`
+	Status                   string           `json:"status"`
+	ProductName              string           `json:"product_name"`
+	PlanName                 string           `json:"plan_name"`
+	RegionName               string           `json:"region_name"`
+	NetworkTypeName          *string          `json:"network_type_name"`
+	TemplateName             string           `json:"template_name"`
+	ExternalNode             string           `json:"external_node"`
+	ExternalVMID             uint             `json:"external_vmid"`
+	ServiceStartedAt         *time.Time       `json:"service_started_at"`
+	ExpiresAt                *time.Time       `json:"expires_at"`
+	ExpireNoticeSentAt       *time.Time       `json:"expire_notice_sent_at"`
+	ExpireReleaseScheduledAt *time.Time       `json:"expire_release_scheduled_at"`
+	ExpireReleasedAt         *time.Time       `json:"expire_released_at"`
+	CreatedAt                time.Time        `json:"created_at"`
+	ReleasedAt               *time.Time       `json:"released_at"`
 }
 
 type InstanceDetail struct {
 	InstanceItem
-	ProductNo                string              `json:"product_no"`
-	PlanNo                   string              `json:"plan_no"`
-	CPUCores                 int                 `json:"cpu_cores"`
-	MemoryMB                 int                 `json:"memory_mb"`
-	SystemDiskGB             int                 `json:"system_disk_gb"`
-	DataDiskGB               int                 `json:"data_disk_gb"`
-	BandwidthMbps            int                 `json:"bandwidth_mbps"`
-	RegionNo                 string              `json:"region_no"`
-	NetworkTypeNo            *string             `json:"network_type_no"`
-	TemplateNo               string              `json:"template_no"`
-	OSFamily                 string              `json:"os_family"`
-	OSDistribution           string              `json:"os_distribution"`
-	OSVersion                string              `json:"os_version"`
-	ExternalResourceLocation *string             `json:"external_resource_location"`
-	LastErrorCode            *string             `json:"last_error_code"`
-	LastErrorMessage         *string             `json:"last_error_message"`
-	Operations               []InstanceOperation `json:"operations"`
+	ProductNo                string               `json:"product_no"`
+	PlanNo                   string               `json:"plan_no"`
+	CPUCores                 int                  `json:"cpu_cores"`
+	MemoryMB                 int                  `json:"memory_mb"`
+	SystemDiskGB             int                  `json:"system_disk_gb"`
+	DataDiskGB               int                  `json:"data_disk_gb"`
+	BandwidthMbps            int                  `json:"bandwidth_mbps"`
+	RegionNo                 string               `json:"region_no"`
+	NetworkTypeNo            *string              `json:"network_type_no"`
+	TemplateNo               string               `json:"template_no"`
+	OSFamily                 string               `json:"os_family"`
+	OSDistribution           string               `json:"os_distribution"`
+	OSVersion                string               `json:"os_version"`
+	ExternalResourceLocation *string              `json:"external_resource_location"`
+	LastErrorCode            *string              `json:"last_error_code"`
+	LastErrorMessage         *string              `json:"last_error_message"`
+	ExpireNoticeSentAt       *time.Time           `json:"expire_notice_sent_at"`
+	ExpireReleaseScheduledAt *time.Time           `json:"expire_release_scheduled_at"`
+	ExpireReleasedAt         *time.Time           `json:"expire_released_at"`
+	RenewalAvailable         bool                 `json:"renewal_available"`
+	LatestRenewalOrder       *RenewalOrderSummary `json:"latest_renewal_order"`
+	Operations               []InstanceOperation  `json:"operations"`
+}
+
+type RenewalOrderSummary struct {
+	OrderNo          string     `json:"order_no"`
+	Status           string     `json:"status"`
+	PaymentStatus    string     `json:"payment_status"`
+	BillingCycle     string     `json:"billing_cycle"`
+	TotalAmountCents uint64     `json:"total_amount_cents"`
+	Currency         string     `json:"currency"`
+	PaidAt           *time.Time `json:"paid_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+}
+
+type InstanceExpiresAtRequest struct {
+	ExpiresAt time.Time `json:"expires_at" validate:"required"`
+	Remark    *string   `json:"remark" validate:"omitempty,max=500"`
 }
 
 type InstanceOperation struct {

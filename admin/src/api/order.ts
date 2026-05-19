@@ -10,8 +10,11 @@ export interface OrderUserSummary {
 
 export interface AdminOrderItem {
   order_no: string
+  order_type: 'purchase' | 'renewal'
+  payment_status: 'unpaid' | 'paid' | 'manual_confirmed'
   user: OrderUserSummary
   status: 'pending' | 'provisioning' | 'fulfilled' | 'cancelled' | 'closed'
+  related_instance_no: string | null
   product_name: string
   plan_name: string
   billing_cycle: string
@@ -20,6 +23,7 @@ export interface AdminOrderItem {
   currency: string
   admin_note: string | null
   created_at: string
+  paid_at: string | null
   cancelled_at: string | null
   closed_at: string | null
 }
@@ -83,5 +87,10 @@ export async function cancelOrder(orderNo: string, reason?: string) {
 
 export async function closeOrder(orderNo: string, reason?: string) {
   const response = await http.post<ApiEnvelope<AdminOrderDetail>>(`/orders/${orderNo}/close`, { reason })
+  return response.data.data
+}
+
+export async function confirmRenewalOrder(orderNo: string, remark?: string | null) {
+  const response = await http.post<ApiEnvelope<AdminOrderDetail>>(`/orders/${orderNo}/confirm-renewal`, { remark })
   return response.data.data
 }

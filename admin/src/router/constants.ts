@@ -19,6 +19,7 @@ export const ADMIN_ROUTE_PATH = {
   products: '/products',
   orders: '/orders',
   instances: '/instances',
+  asyncTasks: '/async-tasks',
   tickets: '/tickets',
   forbidden: '/403',
 } as const
@@ -43,6 +44,7 @@ export const ADMIN_ROUTE_NAME = {
   products: 'products',
   orders: 'orders',
   instances: 'instances',
+  asyncTasks: 'async-tasks',
   tickets: 'tickets',
   forbidden: 'forbidden',
 } as const

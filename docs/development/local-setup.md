@@ -13,8 +13,9 @@
 - MariaDB：业务事实来源
 - Redis：缓存、限流、验证码、短 TTL 状态、短锁和辅助幂等
 - API：HTTP 接口
+- Worker：后台异步任务、实例生命周期和通知任务
 - `admin`：管理端前端
-- `web`：用户端前端；当前承载公开站点、产品目录、用户账号自助、支付宝/微信侧个人实名入口、订单、实例和工单，不代表支付 API 已开放
+- `web`：用户端前端；当前承载公开站点、产品目录、用户账号自助、支付宝/微信侧个人实名入口、订单、续费订单、实例和工单，不代表真实支付 API 已开放
 
 ## 配置
 
@@ -31,8 +32,9 @@
 1. MariaDB
 2. Redis
 3. API
-4. `admin`
-5. `web`
+4. Worker（需要验证异步任务、到期提醒或自动释放时启动）
+5. `admin`
+6. `web`
 
 ## 检查接口
 
@@ -51,6 +53,15 @@ Copy-Item config.example.yaml config.yaml
 go test ./...
 air -c .air.toml
 ```
+
+Worker：
+
+```powershell
+cd server
+go run ./cmd/worker
+```
+
+说明：本地只验证普通 API 时可以保持 `worker.enabled=false` 且不启动 Worker；验证实例 operation 自动同步、到期提醒、到期释放或通知任务时，需要在真实 `server/config.yaml` 中启用 Worker 和相关实例生命周期配置。
 
 后端 API 变更验证：
 
@@ -85,7 +96,7 @@ cd web
 bun run build
 ```
 
-说明：`web/` 已存在。当前用户端开放公开站点配置、用户账号自助、支付宝/微信侧用户实名、服务器产品目录、订单、实例和工单接口，不代表支付 API 已开放。
+说明：`web/` 已存在。当前用户端开放公开站点配置、用户账号自助、支付宝/微信侧用户实名、服务器产品目录、订单、续费订单、实例和工单接口，不代表真实支付 API 已开放。
 
 ## 本地一键启动脚本约定
 

@@ -208,6 +208,17 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.asyncTasks,
+    name: ADMIN_ROUTE_NAME.asyncTasks,
+    component: () => import('../views/async-tasks/index.vue'),
+    meta: {
+      title: '异步任务',
+      icon: 'Timer',
+      requiresAuth: true,
+      permission: ['page.async-tasks'],
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.tickets,
     name: ADMIN_ROUTE_NAME.tickets,
     component: () => import('../views/tickets/index.vue'),
