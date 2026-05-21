@@ -8,10 +8,17 @@ description: Enforce the pveCloud document-first workflow. Use whenever work may
 ## Purpose
 
 This skill is the AI workflow entry for `pveCloud`.
-It defines how AI should read, classify, pause, implement, and verify work.
+It defines how AI should read, classify, pause, implement, and verify work through the document-first gates.
 It must not define API fields, response payloads, table schemas, config values, page contracts, or durable product behavior.
 
 Use it whenever the task touches implementation, refactoring, migration, frontend behavior, request wrappers, routes, permissions, config, deployment, cross-module business rules, or AI collaboration workflow files such as `AGENTS.md` and `.codex/skills/`.
+
+Use companion skills only when they match the user's actual task:
+
+- `$pvecloud-project-context` for read-only questions about current stack, feature scope, module boundaries, stage status, or owner-doc locations.
+- `$pvecloud-systematic-debugging` for concrete bugs, failing tests, broken builds, runtime errors, or unexpected behavior.
+- `$pvecloud-skill-quality` for creating, editing, or reviewing pveCloud AI workflow skills.
+- `$pvecloud-basic-admin` only for historical basic-admin scope or drift between old stage notes and the current admin surface.
 
 ## Source Boundaries
 
@@ -36,6 +43,8 @@ Always start with:
    - frontend: `references/frontend.md`
    - operations: `references/operations.md`
    - historical basic admin scope: `.codex/skills/pvecloud-basic-admin/SKILL.md`
+   - concrete failures: `.codex/skills/pvecloud-systematic-debugging/SKILL.md`
+   - AI workflow quality: `.codex/skills/pvecloud-skill-quality/SKILL.md`
 6. The matching owner docs or machine contracts:
    - server/API: `docs/server/`, `docs/server/api/`
    - security: `docs/security.md`
@@ -76,10 +85,16 @@ AI workflow changes include `AGENTS.md`, `.codex/skills/`, skill metadata, and s
 - For contract/behavior work, update owner docs or machine contracts first, then stop for maintainer confirmation.
 - For contract/behavior work covered by `references/contract-quality.md`, run that quality gate before stopping for confirmation; do not treat vague statements such as "must be idempotent" or "must be recoverable" as sufficient contract.
 - Do not implement contract/behavior code until the maintainer confirms.
+- For ambiguous new features, complex workflows, complex UI, or cross-surface direction, clarify the goal, current docs, impact, non-goals, risks, and confirmation points before writing contracts or implementation.
+- For non-trivial confirmed work, write a short execution plan before implementation: scope, confirmed docs, non-goals, ordered steps, verification, and stop conditions.
+- For multi-step work, implement in small coherent batches; after each batch check scope, drift, and the smallest meaningful verification.
+- For bug fixes or behavior changes, capture the original symptom or a targeted regression check before fixing when practical; use `$pvecloud-systematic-debugging` for failure investigations.
 - If implementation discovers new behavior, validation, hardening, storage, permission, route, config, or transaction changes, return to the document-first gate.
 - For AI workflow-only changes, update AI workflow files directly after checking they do not introduce or override project contracts.
-- Before final response, compare implementation and owner docs/contracts for drift.
-- Verify with the smallest meaningful tests or builds.
+- For AI workflow changes, use `$pvecloud-skill-quality` before final verification.
+- For security, permission, cross-surface, migration, config, or large refactor work, do a code-review pass before final verification.
+- Before final response, check git state, scope, contract alignment, validation evidence, temporary artifacts, sensitive output, and skill metadata when relevant.
+- Verify with the smallest meaningful tests, builds, or text checks.
 - Do not mutate Git staging, commits, or remotes unless the maintainer explicitly asks.
 
 Detailed workflow, drift, coupled-surface, progress-doc, commit-message, and document-sweep rules live in `references/workflow.md`.

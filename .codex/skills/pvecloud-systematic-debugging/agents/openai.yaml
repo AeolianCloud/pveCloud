@@ -1,0 +1,4 @@
+interface:
+  display_name: "pveCloud Systematic Debugging"
+  short_description: "Debug pveCloud failures from evidence."
+  default_prompt: "Use $pvecloud-systematic-debugging to investigate and fix this pveCloud failure."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "pveCloud Skill Quality"
+  short_description: "Check pveCloud AI workflow skills for metadata, scope, and contract boundaries."
+  default_prompt: "Use $pvecloud-skill-quality to review these pveCloud AI workflow skill changes."
