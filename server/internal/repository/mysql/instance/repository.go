@@ -66,6 +66,12 @@ func (r *Repository) MappingByID(ctx context.Context, id uint64) (ProvisionMappi
 	return mapping, err
 }
 
+func (r *Repository) MappingByIDForUpdate(ctx context.Context, db *gorm.DB, id uint64) (ProvisionMapping, error) {
+	var mapping ProvisionMapping
+	err := r.queryDB(db).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&mapping).Error
+	return mapping, err
+}
+
 func (r *Repository) ListMappings(ctx context.Context, filters MappingFilters, limit, offset int) ([]ProvisionMapping, int64, error) {
 	query := r.applyMappingFilters(r.db.WithContext(ctx).Model(&ProvisionMapping{}), filters)
 	var total int64
@@ -161,6 +167,17 @@ func (r *Repository) LatestOperation(ctx context.Context, instanceID uint64) (Op
 func (r *Repository) LatestOperationExcluding(ctx context.Context, instanceID uint64, excludedAction string) (Operation, error) {
 	var op Operation
 	err := r.db.WithContext(ctx).Where("instance_id = ? AND action <> ?", instanceID, excludedAction).Order("created_at DESC, id DESC").First(&op).Error
+	return op, err
+}
+
+func (r *Repository) LatestRunningOperationForUpdate(ctx context.Context, db *gorm.DB, instanceID uint64, excludedActions ...string) (Operation, error) {
+	var op Operation
+	query := r.queryDB(db).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("instance_id = ? AND status = ?", instanceID, "running")
+	if len(excludedActions) > 0 {
+		query = query.Where("action NOT IN ?", excludedActions)
+	}
+	err := query.Order("created_at DESC, id DESC").First(&op).Error
 	return op, err
 }
 

@@ -95,7 +95,7 @@ func (s *Service) UpdateMapping(ctx context.Context, operatorID uint64, id uint6
 	}
 	var updated mysqlinstance.ProvisionMapping
 	err := mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
-		current, err := s.instances.MappingByID(ctx, id)
+		current, err := s.instances.MappingByIDForUpdate(ctx, tx, id)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return apperrors.ErrNotFound.WithMessage("交付映射不存在")
 		}
@@ -115,7 +115,7 @@ func (s *Service) UpdateMapping(ctx context.Context, operatorID uint64, id uint6
 		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: "instance_mapping.update", ObjectType: "instance_mapping", ObjectID: current.MappingNo, BeforeData: mappingAudit(current), AfterData: mappingAudit(next), Remark: "更新实例交付映射"}); err != nil {
 			return err
 		}
-		updated, err = s.instances.MappingByID(ctx, id)
+		updated, err = s.instances.MappingByIDForUpdate(ctx, tx, id)
 		return err
 	})
 	if err != nil {
@@ -269,7 +269,7 @@ func (s *Service) SyncByWorker(ctx context.Context, instanceNo string) (admindto
 
 func (s *Service) ReleaseExpiredByWorker(ctx context.Context, instanceNo string, expectedExpiresAt time.Time) (admindto.InstanceDetail, error) {
 	instanceNo = strings.TrimSpace(instanceNo)
-	detail, err := s.operateWithGuard(ctx, instanceNo, nil, nil, domaininstance.OperationRelease, func(current mysqlinstance.Instance) error {
+	detail, err := s.operateWithGuardWithPendingError(ctx, instanceNo, nil, nil, domaininstance.OperationRelease, ErrOperationPending, func(current mysqlinstance.Instance) error {
 		if current.Status == domaininstance.StatusReleased || current.Status == domaininstance.StatusReleasing {
 			return errExpiredReleaseSkipped
 		}
@@ -328,6 +328,10 @@ func (s *Service) operate(ctx context.Context, instanceNo string, adminID *uint6
 }
 
 func (s *Service) operateWithGuard(ctx context.Context, instanceNo string, adminID *uint64, userID *uint64, action string, guard func(mysqlinstance.Instance) error) (admindto.InstanceDetail, error) {
+	return s.operateWithGuardWithPendingError(ctx, instanceNo, adminID, userID, action, apperrors.ErrConflict.WithMessage("实例已有未完成操作"), guard)
+}
+
+func (s *Service) operateWithGuardWithPendingError(ctx context.Context, instanceNo string, adminID *uint64, userID *uint64, action string, pendingErr error, guard func(mysqlinstance.Instance) error) (admindto.InstanceDetail, error) {
 	if !s.mcp.Enabled() {
 		return admindto.InstanceDetail{}, mcpUnavailableError()
 	}
@@ -348,6 +352,9 @@ func (s *Service) operateWithGuard(ctx context.Context, instanceNo string, admin
 			if err := guard(current); err != nil {
 				return err
 			}
+		}
+		if err := s.ensureNoRunningOperation(ctx, tx, current.ID, pendingErr); err != nil {
+			return err
 		}
 		row = current
 		op = newOperation(current.ID, &current.OrderID, adminID, userID, action)
@@ -376,6 +383,20 @@ func (s *Service) operateWithGuard(ctx context.Context, instanceNo string, admin
 		return admindto.InstanceDetail{}, err
 	}
 	return s.detail(ctx, row.InstanceNo)
+}
+
+func (s *Service) ensureNoRunningOperation(ctx context.Context, tx *gorm.DB, instanceID uint64, pendingErr error) error {
+	_, err := s.instances.LatestRunningOperationForUpdate(ctx, tx, instanceID, domaininstance.OperationSync)
+	if err == nil {
+		if pendingErr != nil {
+			return pendingErr
+		}
+		return apperrors.ErrConflict.WithMessage("实例已有未完成操作")
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	return err
 }
 
 func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64, recordSyncOperation bool) (admindto.InstanceDetail, error) {

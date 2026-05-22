@@ -2,6 +2,8 @@ package logging
 
 import (
 	"context"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"gorm.io/gorm"
@@ -13,6 +15,15 @@ import (
 
 type Recorder struct {
 	logs *mysqllogs.Repository
+}
+
+const frontendLogMaskedValue = "[已脱敏]"
+
+var sensitiveFrontendTextPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)((?:cookie|set-cookie)\s*[:=]\s*)[^\r\n]+`),
+	regexp.MustCompile(`(?i)(bearer\s+)[^\s"'<>]+`),
+	regexp.MustCompile(`(?i)((?:access[_-]?token|refresh[_-]?token|token|password|passwd|pwd|secret|captcha|authorization|credential|cookie|set-cookie|config[_-]?value|api[_-]?key)\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s&;,]+)`),
+	regexp.MustCompile(`(?i)("(?:access[_-]?token|refresh[_-]?token|token|password|passwd|pwd|secret|captcha|authorization|credential|cookie|set-cookie|config[_-]?value|api[_-]?key)"\s*:\s*)("[^"]*"|[^,\}\s]+)`),
 }
 
 type FrontendErrorInput struct {
@@ -109,19 +120,19 @@ func (r *Recorder) FrontendError(ctx context.Context, tx *gorm.DB, input Fronten
 		SourceApp:    sourceApp,
 		UserID:       input.UserID,
 		AdminID:      input.AdminID,
-		RequestID:    stringPtr(firstNonEmpty(input.RequestID, request.RequestID)),
-		PagePath:     firstNonEmpty(input.PagePath, request.RequestPath),
-		ErrorType:    firstNonEmpty(input.ErrorType, "unknown"),
-		Message:      textutil.TrimTo(firstNonEmpty(input.Message, "前端错误"), 500),
-		Stack:        stringPtr(textutil.TrimTo(input.Stack, 5000)),
-		APIPath:      stringPtr(textutil.TrimTo(input.APIPath, 255)),
+		RequestID:    stringPtr(sanitizeFrontendLogText(firstNonEmpty(input.RequestID, request.RequestID), 64)),
+		PagePath:     sanitizeFrontendLogURL(firstNonEmpty(input.PagePath, request.RequestPath), 255),
+		ErrorType:    sanitizeFrontendLogText(firstNonEmpty(input.ErrorType, "unknown"), 64),
+		Message:      sanitizeFrontendLogText(firstNonEmpty(input.Message, "前端错误"), 500),
+		Stack:        stringPtr(sanitizeFrontendLogText(input.Stack, 5000)),
+		APIPath:      stringPtr(sanitizeFrontendLogURL(input.APIPath, 255)),
 		HTTPStatus:   input.HTTPStatus,
 		BusinessCode: input.BusinessCode,
-		Browser:      stringPtr(textutil.TrimTo(input.Browser, 255)),
-		OS:           stringPtr(textutil.TrimTo(input.OS, 255)),
-		AppVersion:   stringPtr(textutil.TrimTo(input.AppVersion, 64)),
+		Browser:      stringPtr(sanitizeFrontendLogText(input.Browser, 255)),
+		OS:           stringPtr(sanitizeFrontendLogText(input.OS, 255)),
+		AppVersion:   stringPtr(sanitizeFrontendLogText(input.AppVersion, 64)),
 		IP:           stringPtr(firstNonEmpty(input.IP, request.IP)),
-		UserAgent:    stringPtr(textutil.TrimTo(firstNonEmpty(input.UserAgent, request.UserAgent), 500)),
+		UserAgent:    stringPtr(sanitizeFrontendLogText(firstNonEmpty(input.UserAgent, request.UserAgent), 500)),
 	})
 }
 
@@ -168,6 +179,84 @@ func trimPtr(value *string, limit int) *string {
 		return nil
 	}
 	return stringPtr(textutil.TrimTo(*value, limit))
+}
+
+func sanitizeFrontendLogText(value string, limit int) string {
+	return textutil.TrimTo(redactFrontendLogSensitive(value), limit)
+}
+
+func sanitizeFrontendLogURL(value string, limit int) string {
+	redacted := redactFrontendLogURLValues(strings.TrimSpace(value))
+	return sanitizeFrontendLogText(redacted, limit)
+}
+
+func redactFrontendLogSensitive(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	for _, pattern := range sensitiveFrontendTextPatterns {
+		value = pattern.ReplaceAllString(value, "${1}"+frontendLogMaskedValue)
+	}
+	return value
+}
+
+func redactFrontendLogURLValues(value string) string {
+	if value == "" {
+		return ""
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.RawQuery == "" {
+		return value
+	}
+	query := parsed.Query()
+	changed := false
+	for key := range query {
+		if isSensitiveFrontendLogKey(key) {
+			query.Set(key, frontendLogMaskedValue)
+			changed = true
+		}
+	}
+	if !changed {
+		return value
+	}
+	parsed.RawQuery = query.Encode()
+	return strings.ReplaceAll(parsed.String(), url.QueryEscape(frontendLogMaskedValue), frontendLogMaskedValue)
+}
+
+func isSensitiveFrontendLogKey(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+	if normalized == "" {
+		return false
+	}
+	sensitiveParts := []string{
+		"password",
+		"passwd",
+		"pwd",
+		"token",
+		"jwt",
+		"secret",
+		"captcha",
+		"authorization",
+		"credential",
+		"cookie",
+		"config_value",
+		"configvalue",
+		"api_key",
+		"apikey",
+		"access_key",
+		"accesskey",
+		"secret_key",
+		"secretkey",
+	}
+	for _, part := range sensitiveParts {
+		if strings.Contains(normalized, part) {
+			return true
+		}
+	}
+	return false
 }
 
 func firstNonEmpty(values ...string) string {

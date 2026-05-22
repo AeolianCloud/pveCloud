@@ -163,6 +163,9 @@ func (s *Service) operate(ctx context.Context, userID uint64, instanceNo string,
 		if !canOperate(current.Status, action) {
 			return apperrors.ErrConflict.WithMessage("当前实例状态不能执行该操作")
 		}
+		if err := s.ensureNoRunningOperation(ctx, tx, current.ID); err != nil {
+			return err
+		}
 		row = current
 		op = mysqlinstance.Operation{OperationNo: fmt.Sprintf("OP-%d", time.Now().UnixNano()), InstanceID: current.ID, OrderID: &current.OrderID, UserID: &userID, Action: action, Status: domaininstance.OperationStatusRunning}
 		return s.instances.CreateOperation(ctx, tx, &op)
@@ -187,6 +190,17 @@ func (s *Service) operate(ctx context.Context, userID uint64, instanceNo string,
 		return webdto.InstanceDetail{}, err
 	}
 	return s.Detail(ctx, userID, row.InstanceNo)
+}
+
+func (s *Service) ensureNoRunningOperation(ctx context.Context, tx *gorm.DB, instanceID uint64) error {
+	_, err := s.instances.LatestRunningOperationForUpdate(ctx, tx, instanceID, domaininstance.OperationSync)
+	if err == nil {
+		return apperrors.ErrConflict.WithMessage("实例已有未完成操作")
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	return err
 }
 
 func (s *Service) callOperation(ctx context.Context, row mysqlinstance.Instance, action string) (mcppve.AsyncAccepted, error) {

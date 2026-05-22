@@ -155,6 +155,9 @@ func (h *FileAttachmentHandler) Download(c *gin.Context) {
 	}
 	c.Header("Content-Type", mimeType)
 	c.Header("Content-Disposition", fmt.Sprintf("%s; filename*=UTF-8''%s", contentDisposition, urlEncodeFilename(filename)))
+	c.Header("Cache-Control", "no-store, private")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
 	c.File(path)
 }
 
