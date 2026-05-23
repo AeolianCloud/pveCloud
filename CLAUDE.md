@@ -125,6 +125,7 @@
 
 - 不覆盖用户未提交改动
 - 维护者要求提交时，提交信息遵循 Conventional Commits 1.0.0：`<type>[optional scope][!]: <description>`；说明内容默认使用中文，非平凡变更必须在 body 写清背景、主要变更、验证和风险
+- 技术栈约束：Go 后端、管理端前端和用户端前端分别以各自 architecture 文档和 `package.json` / `go.mod` 为准，不要擅自引入第二套框架或跨端共享运行时代码包
 - `admin/` 和 `web/` 独立管理，不创建跨前端共享运行时代码包
 - 管理端只调用 `/admin-api/*`
 - 用户端只调用 `/api/*`
@@ -198,6 +199,7 @@
 - API 契约来自 `docs/server/api/`，不要只改 handler 或 DTO
 - 表结构契约最终来自 `server/migrations/`
 - 配置项契约最终来自 `server/config.example.yaml`
+- Go 代码遵循官方 Go 风格：`gofmt`/`go fmt`、Effective Go、Go Code Review Comments 和 Go Doc Comments
 - 服务负责业务规则，handler 负责请求解析、权限声明和响应
 - 目录按技术层分为 `delivery`、`usecase`、`domain`、`repository`、`integration`、`platform`、`shared`，每层下再按领域子包分组
 - 管理端接口由 `server/internal/delivery/http/admin/*` 聚合路由，用户端接口由 `server/internal/delivery/http/web/*` 聚合路由

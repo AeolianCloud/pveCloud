@@ -96,6 +96,15 @@
 
 - 组件化、模块化、类型安全、状态管理、数据缓存、实时更新、错误边界。
 
+Go 后端代码默认遵循官方 Go 风格：`gofmt`/`go fmt`、Effective Go、Go Code Review Comments 和 Go Doc Comments；包名、导出注释、错误处理和接口抽象优先按官方惯用法收敛。
+
+技术栈约束：
+
+- Go 后端技术栈以 `docs/server/go-technical.md`、`docs/server/architecture.md` 和 `server/go.mod` 为准。
+- 管理端前端技术栈以 `docs/admin/architecture.md` 和 `admin/package.json` 为准。
+- 用户端前端技术栈以 `docs/web/architecture.md` 和 `web/package.json` 为准。
+- 不要擅自引入第二套 UI 框架、状态库、路由方案、HTTP 框架、ORM、任务框架或跨端共享运行时代码包。
+
 协作八荣八耻：
 
 - 以瞎猜接口为耻，以认真查询为荣。

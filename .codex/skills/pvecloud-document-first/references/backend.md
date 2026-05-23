@@ -32,6 +32,12 @@
 
 ## 代码守则
 
+- Go 代码默认遵循官方 Go 风格：`gofmt`/`go fmt`、Effective Go、Go Code Review Comments 和 Go Doc Comments。参考：https://go.dev/doc/effective_go、https://go.dev/wiki/CodeReviewComments、https://go.dev/doc/comment。
+- Go 后端依赖和框架选择以 `docs/server/go-technical.md`、`docs/server/architecture.md` 和 `server/go.mod` 为准；不要擅自引入第二套 HTTP 框架、ORM、任务框架或共享运行时包。
+- 包名使用简短、小写、单词化命名；避免下划线、mixedCaps、泛名和重复包语义的导出名。
+- 导出类型、函数、变量、常量和包级文档应按 Go Doc Comments 书写；注释应解释用途、约束和调用语义。
+- 错误处理保持 Go 惯用风格：显式检查 `error`，必要时用 `%w` 包装上下文；不要吞掉错误或用 panic 表达普通业务失败。
+- 接口应由消费方按最小行为定义；不要为了“未来扩展”提前抽象大接口或泛型工具层。
 - 服务负责业务规则，handler 负责请求解析、权限声明和响应。
 - 目录按技术层分为 `delivery`、`usecase`、`domain`、`repository`、`integration`、`platform`、`shared`，每层下再按领域子包分组。
 - 管理端和用户端不仅是不同 HTTP delivery，应用用例也必须拆到 `usecase/admin/*` 和 `usecase/web/*`，不要继续落在扁平共享目录里。

@@ -17,6 +17,7 @@ description: Operations guardrails for pveCloud. Use when working on config, dep
 - 配置项说明和默认语义以 `server/config.example.yaml` 为准。
 - 本地开发流程写在 `docs/development/`。
 - 部署拓扑、代理边界、依赖要求写在 `docs/operations/`。
+- 技术栈和运行时选择以 `docs/server/go-technical.md`、`docs/admin/architecture.md`、`docs/web/architecture.md` 和各自 `package.json` 为准；不要擅自替换为第二套构建器、代理或进程管理方案。
 
 ## 守则
 

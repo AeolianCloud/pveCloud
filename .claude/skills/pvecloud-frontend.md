@@ -19,6 +19,7 @@ description: Frontend implementation guardrails for pveCloud. Use when working o
 - 不创建跨前端共享运行时代码包。
 - `admin/` 只调用 `/admin-api/*`。
 - `web/` 只调用 `/api/*`。
+- 前端技术栈和 UI 约束分别以 `docs/admin/architecture.md`、`docs/web/architecture.md`、`docs/admin/README.md` 和现有 `package.json` 为准；不要擅自引入第二套 UI 框架、状态库、路由方案或跨端运行时。
 
 ## 前端安全守则
 
