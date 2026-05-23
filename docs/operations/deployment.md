@@ -39,6 +39,13 @@ Redis
 
 仓库根目录的 `scripts/dev.mjs` 仅面向开发环境。它不是生产进程管理方案。
 
+## Worker 启动口径
+
+- API 进程入口为 `server/cmd/api`，Worker 进程入口为 `server/cmd/worker`；两者应作为独立进程由进程管理器分别守护。
+- Worker 使用 `-config` 指定同一份后端 YAML 配置；不注册 HTTP 路由，也不需要反向代理健康入口。
+- `worker.enabled=false` 时，Worker 进程会保持空闲等待退出信号，不领取任务；生产启用后台任务前必须设为 `true`。
+- 多 Worker 并行时依赖 MariaDB 中的任务锁字段避免重复执行，仍必须保证每个进程的 `worker.id` 唯一，便于排查锁持有者。
+
 ## 运维关注点
 
 - API 启动时必须检查 Redis 可用性

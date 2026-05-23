@@ -1,11 +1,21 @@
-# Worker、实例生命周期和续费阶段代码开工说明
+# Worker、实例生命周期和续费阶段实现复盘
 
-本文档用于下一轮进入代码实现前快速恢复上下文。
+本文档用于阶段收尾后快速恢复上下文、复查实现范围和安排后续验收。
 它不是最终接口、数据库、页面或配置契约；如有冲突，以 `docs/server/api/`、`docs/server/`、`docs/admin/`、`docs/web/`、`server/migrations/` 和 `server/config.example.yaml` 为准。
 
 ## 当前结论
 
-文档和机器契约已先完成，下一轮可以进入代码实现。
+Worker、实例生命周期和续费订单闭环已经进入实现收尾状态。代码侧已具备 Worker 进程、异步任务查询和重试、operation 自动同步、实例服务期、到期提醒、到期自动释放、续费订单创建与后台确认、管理端到期调整以及 admin/web 展示入口。
+
+后续再修改本阶段能力时，仍以 owner docs 和机器契约为准：
+
+- 接口：`docs/server/api/endpoints.md`
+- 数据库：`docs/server/database/design.md`、`server/migrations/037_worker_instance_lifecycle.sql`
+- Worker：`docs/server/jobs.md`
+- 配置：`server/config.example.yaml`
+- 页面：`docs/admin/pages/async-tasks.md`、`docs/admin/pages/instance-management.md`、`docs/admin/pages/order-management.md`、`docs/web/pages/instances.md`、`docs/web/pages/orders.md`、`docs/web/pages/order-detail.md`
+
+本文件只保留阶段背景、实现范围、审查点和验收建议，不作为新增接口或数据库字段的来源。
 
 本阶段只基于当前 MCP PVE client API 已提供能力推进：
 
@@ -32,7 +42,7 @@
 
 真实支付网关不在本阶段。续费订单只做订单和实例服务期延长，支付字段为占位；后台人工确认续费，未来支付回调复用同一确认逻辑。
 
-## 开工前必读
+## 复查必读
 
 按顺序读取：
 
@@ -56,7 +66,7 @@
 
 - `docs/progress/mcp-pve-instance-handoff.md`
 
-## 本阶段实现范围
+## 本阶段已实现范围
 
 后端：
 
@@ -96,7 +106,7 @@
 - 订单列表和详情展示 `purchase`、`renewal` 两类订单，以及支付占位状态。
 - 不展示真实支付入口。
 
-## 推荐实现顺序
+## 已执行的实现顺序
 
 1. 迁移和配置模型
    - 确认 `037_worker_instance_lifecycle.sql` 可执行。
@@ -223,4 +233,3 @@ git diff --check
 - 用户端任务查询。
 - 通用 PVE 运维。
 - MCP 未提供的重启、重装、重置密码、控制台、快照、备份、迁移、监控、防火墙。
-

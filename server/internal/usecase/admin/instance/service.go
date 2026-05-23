@@ -494,7 +494,7 @@ func (s *Service) sync(ctx context.Context, instanceNo string, adminID *uint64, 
 					return err
 				}
 			}
-			return s.instances.UpdateInstance(ctx, tx, row.ID, map[string]any{"status": domaininstance.StatusReleased, "released_at": now})
+			return s.instances.UpdateInstance(ctx, tx, row.ID, releaseCompletionUpdates(latestOp, now))
 		}); err != nil {
 			return admindto.InstanceDetail{}, err
 		}
@@ -908,6 +908,16 @@ func renewalSummary(order mysqlorder.Order) *admindto.RenewalOrderSummary {
 
 func operationItem(op mysqlinstance.Operation) admindto.InstanceOperation {
 	return admindto.InstanceOperation{OperationNo: op.OperationNo, Action: op.Action, Status: op.Status, ExternalOperationID: op.ExternalOperationID, OperationLocation: op.OperationLocation, ResourceLocation: op.ResourceLocation, ErrorCode: op.ErrorCode, ErrorMessage: op.ErrorMessage, CreatedAt: op.CreatedAt, CompletedAt: op.CompletedAt}
+}
+
+func releaseCompletionUpdates(op mysqlinstance.Operation, now time.Time) map[string]any {
+	updates := map[string]any{"status": domaininstance.StatusReleased, "released_at": now}
+	// 到期释放由 Worker 以无 admin/user 主体的 release operation 触发。
+	// 只有这类释放写入 expire_released_at，避免管理端手动释放被误判为到期释放。
+	if op.Action == domaininstance.OperationRelease && op.AdminID == nil && op.UserID == nil {
+		updates["expire_released_at"] = now
+	}
+	return updates
 }
 
 func mappingAudit(mapping mysqlinstance.ProvisionMapping) map[string]any {
