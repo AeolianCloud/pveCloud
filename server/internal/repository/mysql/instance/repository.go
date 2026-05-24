@@ -214,6 +214,12 @@ func (r *Repository) TaskForUpdate(ctx context.Context, db *gorm.DB, taskNo stri
 	return task, err
 }
 
+func (r *Repository) TaskByIdempotencyKeyForUpdate(ctx context.Context, db *gorm.DB, key string) (Task, error) {
+	var task Task
+	err := r.queryDB(db).WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("idempotency_key = ?", key).First(&task).Error
+	return task, err
+}
+
 func (r *Repository) ListTasks(ctx context.Context, filters TaskFilters, limit, offset int) ([]Task, int64, error) {
 	query := r.applyTaskFilters(r.db.WithContext(ctx).Model(&Task{}), filters)
 	var total int64

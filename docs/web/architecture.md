@@ -4,8 +4,8 @@
 
 ## 当前状态
 
-- Web 用户端前端已重新开放官网展示、用户账号自助、用户实名、产品目录、订单、续费订单、实例和工单。
-- 当前不开放真实支付页、钱包页、发票、SSH 密钥管理、PVE 节点、资源池、库存扣减或通用 PVE 运维流程。
+- Web 用户端前端已重新开放官网展示、用户账号自助、用户实名、产品目录、订单、支付、续费订单、实例和工单。
+- 当前开放支付页，只支持支付宝电脑网页/手机网页、微信 Native 扫码和微信 H5；不开放钱包页、发票、JSAPI/openid、小程序支付、SSH 密钥管理、PVE 节点、资源池、库存扣减或通用 PVE 运维流程。
 - 后续重新开放真实支付、钱包或其它用户端业务页面前必须先更新本文档和对应页面契约。
 
 ## 文档入口
@@ -23,6 +23,7 @@
 - `docs/web/pages/real-name.md` - 实名认证页
 - `docs/web/pages/orders.md` - 订单列表页
 - `docs/web/pages/order-detail.md` - 订单详情页
+- `docs/web/pages/payment.md` - 支付页
 - `docs/web/pages/instances.md` - 实例页面
 - `docs/web/pages/tickets.md` - 工单页面
 - `docs/web/pages/not-found.md` - 404页面
@@ -58,11 +59,11 @@
 - 用户端前端只做登录态展示、路由保护和交互引导；用户状态、会话状态、实名状态、产品可售性和资源归属以后端为准。
 - 用户端不得读取、调用或复用管理端权限模型、菜单、token、请求封装或运行时代码。
 - 用户端本地保存的 access token 只用于请求认证，不代表当前会话一定有效；启动恢复和受保护路由进入前必须按本文状态边界校验。
-- 用户端仅展示 owner docs 已开放的订单、续费订单、实例和工单能力；不得展示尚未开放的真实支付入口、钱包、资源池、通用 PVE 运维或用户侧 SLA 承诺。
+- 用户端仅展示 owner docs 已开放的订单、支付、续费订单、实例和工单能力；不得展示尚未开放的钱包、发票、JSAPI/openid、小程序支付、资源池、通用 PVE 运维或用户侧 SLA 承诺。
 
 ## 当前阶段范围
 
-当前阶段开放官网展示、用户账号自助页面、订单、续费订单、实例和工单，不开放真实支付等业务流程。
+当前阶段开放官网展示、用户账号自助页面、订单、支付、续费订单、实例和工单。
 
 开放页面：
 - 首页（Home）
@@ -76,6 +77,7 @@
 - 实名认证页（Real Name）
 - 订单列表页（Orders）
 - 订单详情页（Order Detail）
+- 支付页（Payment）
 - 实例列表页（Instances）
 - 实例详情页（Instance Detail）
 - 工单列表页（Tickets）
@@ -85,13 +87,12 @@
 
 不开放页面：
 - 价格页
-- 支付页
 - 钱包页
+- 发票页
 
 ## 本阶段不开放能力
 
-- 真实支付流程
-- 支付发起、回调和支付结果确认
+- JSAPI/openid、小程序支付、钱包余额、发票和部分退款
 - MCP/PVE 节点、存储、VMID、资源池、控制台、快照、备份、重装、重置密码和通用运维操作
 - 工单指派、转派、内部 SLA、实时推送、邮件通知和内部协作流；用户端只展示公开标签和当前优先级
 - 钱包、发票、SSH密钥管理
@@ -158,6 +159,7 @@ web/src/
 - `/user/real-name` - 实名认证页（受保护）
 - `/user/orders` - 订单列表页（受保护）
 - `/user/orders/:orderNo` - 订单详情页（受保护）
+- `/user/payments/:paymentNo` - 支付页（受保护）
 - `/user/instances` - 实例列表页（受保护）
 - `/user/instances/:instanceNo` - 实例详情页（受保护）
 - `/user/tickets` - 工单列表页（受保护）
@@ -184,6 +186,7 @@ web/src/
   - 实名认证：`GET /api/user/real-name`、`POST /api/user/real-name`、`POST /api/user/real-name/sync`
   - 产品目录：`GET /api/server-catalog`，返回套餐可选价格、销售地域、系统模板和网络类型
   - 订单：`POST /api/orders`、`GET /api/orders`、`GET /api/orders/{order_no}`、`POST /api/orders/{order_no}/cancel`
+  - 支付：`POST /api/orders/{order_no}/payments`、`GET /api/payments/{payment_no}`
   - 实例：`GET /api/instances`、`GET /api/instances/{instance_no}`、`POST /api/instances/{instance_no}/start`、`POST /api/instances/{instance_no}/stop`
   - 工单：`GET /api/tickets`、`POST /api/tickets`、`GET /api/tickets/{ticket_no}`、`POST /api/tickets/{ticket_no}/messages`、`POST /api/tickets/{ticket_no}/close`、`GET /api/tickets/{ticket_no}/attachments/{file_id}/download`
 - 后续接入真实业务接口时，必须先更新 `docs/server/api/` 和必要的数据库契约。
@@ -230,7 +233,7 @@ token 刷新：
 
 ## 订单
 
-用户端订单表示购买意向和后台处理入口；实例交付由管理端触发后生成用户可见实例。
+用户端订单表示购买意向和后台处理入口；真实支付成功后可触发自动交付，人工流程仍可由管理端处理。
 
 页面范围：
 
@@ -240,12 +243,14 @@ token 刷新：
 - 当后台配置 `real_name.required_for_order=true` 时，未通过实名的用户不能创建订单，应引导到 `/user/real-name`。
 - `/user/orders` 展示当前登录用户自己的订单列表。
 - `/user/orders/:orderNo` 展示当前登录用户自己的订单详情。
+- `/user/payments/:paymentNo` 展示当前登录用户自己的支付状态。
 - 用户可以取消自己的 `pending` 订单。
+- 用户可以为自己的可支付订单进入支付页，按后端返回的支付入口完成支付宝跳转、微信扫码或微信 H5 唤起。
 
 展示限制：
 
-- 展示订单状态 `pending`、`provisioning`、`fulfilled`、`cancelled`、`closed`。
-- 可展示订单类型和续费支付占位状态，但不展示真实支付入口、PVE 节点、资源池、库存扣减或上游自动开通进度。
+- 展示订单状态 `pending`、`provisioning`、`fulfilled`、`error`、`cancelled`、`closed`。
+- 可展示订单类型、支付状态、最近支付摘要和支付入口，但不展示商户密钥、完整回调 payload、PVE 节点、资源池、库存扣减或上游自动开通进度。
 - 订单金额、产品可售性、地域、系统模板和网络类型最终以后端订单接口返回为准。
 
 ## 实例
@@ -259,7 +264,7 @@ token 刷新：
 - `/user/instances/:instanceNo` 展示当前登录用户自己的实例详情。
 - 用户可以启动自己的 `stopped` 实例。
 - 用户可以停止自己的 `running` 实例。
-- 用户可以为自己的未释放实例创建续费订单；真实支付网关未开放时，续费订单等待后台确认或后续支付接入处理。
+- 用户可以为自己的未释放实例创建续费订单；续费订单可由后台人工确认或真实支付成功后延长服务期。
 
 状态范围：
 
@@ -280,7 +285,7 @@ token 刷新：
 - 用户端只能展示和操作当前登录用户自己的实例。
 - 不展示 MCP/PVE `node`、`storage`、`disk_source`、`snippets_storage`、`vmid`、operation ID 或管理端失败详情。
 - 不展示重启、重装、重置密码、控制台、快照、备份、迁移、监控、网络防火墙或资源池管理入口。
-- 不展示真实支付入口，直到支付网关契约和回调实现开放。
+- 实例页只展示最近续费订单摘要和订单/支付跳转入口，不直接承载支付流程。
 
 ## 工单 MVP
 
@@ -313,15 +318,15 @@ token 刷新：
 - 页面行为、状态语义、请求包装和登录流程必须以 `docs/server/api/` 和对应业务设计文档为准
 - 订单金额、产品可售性、服务器系统模板、地域、网络类型等最终以后端为准
 - 用户端前端负责展示与交互，不负责最终业务裁决
-- 用户端展示页不能隐式承诺后台尚未开放的真实支付、通用 PVE 或 MCP 未提供能力；订单按契约展示购买意向、续费意向和后台处理入口，实例按契约展示已交付云主机、基础电源操作和服务期，工单按契约展示沟通和附件能力
+- 用户端展示页不能隐式承诺后台尚未开放的钱包、发票、通用 PVE 或 MCP 未提供能力；订单按契约展示购买意向、续费意向和后台处理入口，支付页按契约展示支付状态和渠道入口，实例按契约展示已交付云主机、基础电源操作和服务期，工单按契约展示沟通和附件能力
 
 ## 后续阶段要求
 
-后续开放支付、重装、重置密码、控制台、快照、备份或其它真实用户端业务前，至少需要补齐：
+后续开放钱包、发票、JSAPI/openid、小程序支付、重装、重置密码、控制台、快照、备份或其它真实用户端业务前，至少需要补齐：
 
 - 相关用户端 `/api/*` 接口契约
 - 相关数据库契约
-- 支付流程说明
+- 对应业务流程说明
 - 用户端路由、权限和请求包装口径的行为细节
 - 必要的管理端运营页面和权限口径
 

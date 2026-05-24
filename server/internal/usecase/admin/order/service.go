@@ -133,17 +133,8 @@ func (s *Service) ConfirmRenewal(ctx context.Context, operatorID uint64, orderNo
 			return apperrors.ErrValidation.WithMessage("续费周期不支持")
 		}
 		now := time.Now()
-		base := now
-		if instance.ExpiresAt != nil && instance.ExpiresAt.After(now) {
-			base = *instance.ExpiresAt
-		}
-		nextExpiresAt := normalizeDBTime(base.AddDate(0, months, 0))
-		instanceUpdates := map[string]any{"expires_at": nextExpiresAt, "expire_notice_sent_at": nil}
-		if s.lifecycle.AutoReleaseEnabled {
-			instanceUpdates["expire_release_scheduled_at"] = normalizeDBTime(nextExpiresAt.Add(time.Duration(s.lifecycle.ExpireReleaseAfterSeconds) * time.Second))
-		} else {
-			instanceUpdates["expire_release_scheduled_at"] = nil
-		}
+		nextExpiresAt := renewalExpiresAt(now, instance.ExpiresAt, months)
+		instanceUpdates := renewalInstanceUpdates(s.lifecycle, nextExpiresAt)
 		if err := s.instances.UpdateInstance(ctx, tx, instance.ID, instanceUpdates); err != nil {
 			return err
 		}
@@ -248,6 +239,25 @@ func (s *Service) enqueueLifecycleTasks(ctx context.Context, tx *gorm.DB, instan
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func renewalExpiresAt(now time.Time, currentExpiresAt *time.Time, months int) time.Time {
+	base := now
+	// 未到期实例必须从原到期时间顺延，避免用户提前续费时损失剩余服务期。
+	if currentExpiresAt != nil && currentExpiresAt.After(now) {
+		base = *currentExpiresAt
+	}
+	return normalizeDBTime(base.AddDate(0, months, 0))
+}
+
+func renewalInstanceUpdates(lifecycle config.InstanceLifecycleConfig, nextExpiresAt time.Time) map[string]any {
+	updates := map[string]any{"expires_at": nextExpiresAt, "expire_notice_sent_at": nil}
+	if lifecycle.AutoReleaseEnabled {
+		updates["expire_release_scheduled_at"] = normalizeDBTime(nextExpiresAt.Add(time.Duration(lifecycle.ExpireReleaseAfterSeconds) * time.Second))
+	} else {
+		updates["expire_release_scheduled_at"] = nil
+	}
+	return updates
 }
 
 func firstNonEmptyValue(value *string, fallback string) string {

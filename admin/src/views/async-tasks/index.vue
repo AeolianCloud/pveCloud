@@ -56,6 +56,7 @@ const taskTypeOptions = [
   { label: '实例操作同步', value: 'instance_operation_sync' },
   { label: '实例到期提醒', value: 'instance_expiry_notice' },
   { label: '实例到期释放', value: 'instance_expiry_release' },
+  { label: '支付后自动交付', value: 'payment_order_provision' },
   { label: '邮件通知发送', value: 'notification_email_send' },
   { label: '短信通知占位', value: 'notification_sms_placeholder' },
 ]

@@ -89,6 +89,17 @@ func (r *Repository) RealNameConfigRows(ctx context.Context, db *gorm.DB) ([]Sys
 	return configs, nil
 }
 
+func (r *Repository) ConfigRowsByPrefix(ctx context.Context, db *gorm.DB, prefix string) ([]SystemConfig, error) {
+	var configs []SystemConfig
+	if err := r.queryDB(db).
+		WithContext(ctx).
+		Where("config_key LIKE ?", prefix+"%").
+		Find(&configs).Error; err != nil {
+		return nil, err
+	}
+	return configs, nil
+}
+
 func (r *Repository) CountRealNameApplicationsByDigestVersion(ctx context.Context, db *gorm.DB, version string) (int64, error) {
 	var count int64
 	if err := r.queryDB(db).

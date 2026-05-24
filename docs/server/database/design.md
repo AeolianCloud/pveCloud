@@ -59,7 +59,7 @@ user_sessions
 user_password_reset_tokens
 ```
 
-`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、续费订单、实例和工单，不开放钱包、真实支付网关或其它业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、支付、续费订单、实例和工单，不开放钱包、发票或其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
 
@@ -142,7 +142,7 @@ plan_regions
 plan_os_templates
 ```
 
-服务器产品目录用于维护 Web 可展示的固定服务器套餐，不包含支付、库存扣减或 PVE 节点直接绑定。实例交付通过独立交付映射把产品目录选择映射到 MCP PVE client API 参数。
+服务器产品目录用于维护 Web 可展示的固定服务器套餐，不包含支付流水、库存扣减或 PVE 节点直接绑定。实例交付通过独立交付映射把产品目录选择映射到 MCP PVE client API 参数。
 
 `products` 表示产品主数据，当前只开放 `type=server` 的云服务器产品。
 
@@ -173,6 +173,7 @@ orders
 - `pending`：订单已创建，等待运营处理或后续人工流程。
 - `provisioning`：管理员已触发实例交付，实例创建或同步处理中。
 - `fulfilled`：实例交付完成，至少存在一条已成功创建的实例记录。
+- `error`：真实支付后的自动交付失败，需要管理端处理或重试。
 - `cancelled`：订单已取消，可由当前用户或管理员取消。
 - `closed`：订单已关闭，只能由管理员关闭。
 
@@ -196,7 +197,27 @@ orders
 
 订单状态变更必须检查当前状态并在事务中写入。管理端取消、关闭、后台备注变更和交付触发必须与普通后台审计写入保持同事务。
 
-订单类型允许 `purchase` 和 `renewal`。`purchase` 表示新购订单，仍由管理端触发实例交付；`renewal` 表示实例续费订单，必须关联当前用户自己的未释放实例，不创建新实例。续费订单支付预留字段包括 `payment_status`、`paid_at`、`payment_provider`、`payment_trade_no` 和 `payment_callback_payload`；当前阶段不接真实支付网关，管理端可将续费订单确认为 `manual_confirmed` 并延长实例服务期。后续接入支付时，支付回调必须复用同一套续期确认逻辑。
+订单类型允许 `purchase` 和 `renewal`。`purchase` 表示新购订单，可由管理端人工触发交付，也可由真实支付成功后自动投递交付任务；`renewal` 表示实例续费订单，必须关联当前用户自己的未释放实例，不创建新实例。
+
+订单支付字段包括 `payment_status`、`paid_at`、`payment_provider`、`payment_trade_no` 和 `payment_callback_payload`，只作为摘要字段。真实支付流水、回调摘要、退款和支付生效事实以支付相关表为准。`payment_status` 允许 `unpaid`、`paid`、`manual_confirmed`、`refunded`；管理端人工续费确认继续使用 `manual_confirmed`，真实支付成功使用 `paid`。
+
+### 支付
+
+```text
+payment_transactions
+refund_transactions
+payment_effects
+```
+
+`payment_transactions` 保存用户端为订单创建的真实支付交易。支付编号使用 `payment_no` 对外展示，不直接暴露自增 ID。供应商允许 `alipay` 和 `wechat`；方式允许 `alipay_page`、`alipay_wap`、`wechat_native`、`wechat_h5`。状态允许 `pending`、`paid`、`closed`、`failed`、`refunded`。金额字段使用分为单位，币种一期固定为 `CNY`。
+
+同一订单、供应商、方式和用户端 `client_token` 必须唯一，用于支付创建幂等。供应商交易号按 `provider + upstream_trade_no` 唯一；为空时允许多条未完成交易。支付记录可保存二维码 URL、跳转 URL、过期时间、支付完成时间、关闭时间、失败时间、渠道查询摘要和回调摘要；不得保存商户私钥、API v3 key、签名串、完整回调 payload 或完整上游响应。
+
+`refund_transactions` 保存全额退款流水。退款编号使用 `refund_no` 对外展示，一期同一支付最多一条退款记录，通过 `payment_id` 唯一约束兜底。状态允许 `pending`、`succeeded`、`failed`。退款先创建本地 `pending` 记录，再调用渠道；渠道退款成功或查询确认后，才在本地事务中回滚续费生效、更新支付和订单状态。渠道失败不得扣回用户服务期。供应商退款号按 `provider + upstream_refund_no` 唯一。
+
+`payment_effects` 保存支付成功后的业务生效记录。新购支付记录关联后续交付出的实例编号；续费支付记录保存续费前 `before_expires_at` 和续费后 `after_expires_at`，用于审计和退款回滚。状态允许 `active` 和 `reverted`。同一支付最多一条生效记录；退款成功回滚后记录退款编号和 `reverted_at`。
+
+支付相关写入必须明确事务边界：本地支付状态、订单摘要、支付生效记录和任务投递使用本地事务；渠道下单、退款、主动查询和异步通知处理不得在长事务中保存完整上游响应。回调处理必须锁定支付和订单记录，按本地状态幂等推进。
 
 ### 实例交付
 
@@ -488,9 +509,18 @@ Web 用户管理需要新增以下管理端权限目录：
 - `async-task:*`
 - `async-task:retry`
 
+支付管理需要新增以下管理端权限目录：
+
+- `page.payments`
+- `payment:*`
+- `payment:view`
+- `payment:refund`
+- `payment:sync`
+- `payment:retry-provision`
+
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放和异步任务为现行数据库契约，不以通用 PVE 运维管理、真实支付网关或钱包为现行数据库契约
+- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放、真实支付一期和异步任务为现行数据库契约，不以通用 PVE 运维管理、钱包、发票或部分退款为现行数据库契约
 - 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

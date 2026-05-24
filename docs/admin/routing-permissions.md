@@ -27,6 +27,7 @@
 | 实名管理 | `/web/real-names` | `page.real-name-management` |
 | 产品管理 | `/products` | `page.products` |
 | 订单管理 | `/orders` | `page.orders` |
+| 支付管理 | `/payments` | `page.payments` |
 | 实例管理 | `/instances` | `page.instances` |
 | 异步任务 | `/async-tasks` | `page.async-tasks` |
 | 工单管理 | `/tickets` | `page.tickets` |
@@ -55,6 +56,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 - 工单管理页面内操作权限包括 `ticket:reply`、`ticket:close`、`ticket:assign`、`ticket:collaborate`、`ticket:note`、`ticket:priority`、`ticket:tag`、`ticket:tag-manage`，均由 `ticket:*` 覆盖。
 - 实例管理页面内操作权限包括 `instance:provision`、`instance:operate`、`instance:release`、`instance:sync`、`instance:renew`，均由 `instance:*` 覆盖；`page.instances` 控制实例页面和交付映射主数据读取。
 - 异步任务页面内操作权限包括 `async-task:retry`，由 `async-task:*` 覆盖；`page.async-tasks` 控制任务页面读取。
+- 支付管理页面内操作权限包括 `payment:view`、`payment:refund`、`payment:sync`、`payment:retry-provision`，均由 `payment:*` 覆盖；`page.payments` 控制支付管理页面和支付/退款主数据读取。
 
 ## 新增页面流程
 

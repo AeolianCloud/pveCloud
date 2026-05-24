@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AnalyticsOutline,
+  CardOutline,
   ChatbubblesOutline,
   CompassOutline,
   CubeOutline,
@@ -28,6 +29,7 @@ const route = useRoute()
 
 const iconMap: Record<string, any> = {
   Box: CubeOutline,
+  Card: CardOutline,
   Compass: CompassOutline,
   DataAnalysis: AnalyticsOutline,
   FolderOpened: FolderOpenOutline,

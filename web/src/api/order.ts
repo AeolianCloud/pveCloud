@@ -11,8 +11,8 @@ export interface PageResponse<T> {
 export interface OrderItem {
   order_no: string
   order_type: 'purchase' | 'renewal'
-  payment_status: 'unpaid' | 'paid' | 'manual_confirmed'
-  status: 'pending' | 'provisioning' | 'fulfilled' | 'cancelled' | 'closed'
+  payment_status: 'unpaid' | 'paid' | 'manual_confirmed' | 'refunded'
+  status: 'pending' | 'provisioning' | 'fulfilled' | 'error' | 'cancelled' | 'closed'
   related_instance_no: string | null
   product_name: string
   plan_name: string

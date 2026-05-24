@@ -18,11 +18,12 @@ const (
 	OperationStatusSucceeded = "succeeded"
 	OperationStatusFailed    = "failed"
 
-	TaskTypeOperationSync  = "instance_operation_sync"
-	TaskTypeExpiryNotice   = "instance_expiry_notice"
-	TaskTypeExpiryRelease  = "instance_expiry_release"
-	TaskTypeEmailSend      = "notification_email_send"
-	TaskTypeSMSPlaceholder = "notification_sms_placeholder"
+	TaskTypeOperationSync    = "instance_operation_sync"
+	TaskTypeExpiryNotice     = "instance_expiry_notice"
+	TaskTypeExpiryRelease    = "instance_expiry_release"
+	TaskTypePaymentProvision = "payment_order_provision"
+	TaskTypeEmailSend        = "notification_email_send"
+	TaskTypeSMSPlaceholder   = "notification_sms_placeholder"
 
 	TaskStatusPending   = "pending"
 	TaskStatusRunning   = "running"
@@ -81,7 +82,7 @@ func IsKnownTaskStatus(status string) bool {
 
 func IsKnownTaskType(taskType string) bool {
 	switch taskType {
-	case "", TaskTypeOperationSync, TaskTypeExpiryNotice, TaskTypeExpiryRelease, TaskTypeEmailSend, TaskTypeSMSPlaceholder:
+	case "", TaskTypeOperationSync, TaskTypeExpiryNotice, TaskTypeExpiryRelease, TaskTypePaymentProvision, TaskTypeEmailSend, TaskTypeSMSPlaceholder:
 		return true
 	default:
 		return false

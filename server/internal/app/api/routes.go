@@ -15,6 +15,7 @@ import (
 	adminlogshttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/logs"
 	adminmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/middleware"
 	adminorderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/order"
+	adminpaymenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/payment"
 	productcataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/productcatalog"
 	adminrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/realname"
 	"github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/system"
@@ -27,6 +28,7 @@ import (
 	webinstancehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/instance"
 	webmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/middleware"
 	weborderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/order"
+	webpaymenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/payment"
 	webrealnamehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/realname"
 	siteconfighttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/siteconfig"
 	webtickethttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/ticket"
@@ -45,15 +47,18 @@ import (
 	admininstanceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/instance"
 	logsusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/logs"
 	adminorderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/order"
+	adminpaymentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/payment"
 	productcatalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/productcatalog"
 	adminrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/realname"
 	systemconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/systemconfig"
 	adminticketusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/ticket"
 	webuserusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/webuser"
+	"github.com/AeolianCloud/pveCloud/server/internal/usecase/paymentalert"
 	webauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/auth"
 	catalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/catalog"
 	webinstanceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/instance"
 	weborderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/order"
+	webpaymentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/payment"
 	webrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/realname"
 	siteconfigusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/siteconfig"
 	webticketusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/ticket"
@@ -74,6 +79,7 @@ type AdminRouteSet struct {
 	RealName       *adminrealnamehttp.RealNameHandler
 	Logs           *adminlogshttp.Handler
 	Order          *adminorderhttp.Handler
+	Payment        *adminpaymenthttp.Handler
 	Instance       *admininstancehttp.Handler
 	AsyncTask      *asynctaskhttp.Handler
 	Ticket         *admintickethttp.Handler
@@ -89,6 +95,7 @@ type WebRouteSet struct {
 	ProductCatalog *cataloghttp.Handler
 	RealName       *webrealnamehttp.RealNameHandler
 	Order          *weborderhttp.Handler
+	Payment        *webpaymenthttp.Handler
 	Instance       *webinstancehttp.Handler
 	Ticket         *webtickethttp.Handler
 	ClientLogs     *clientlogshttp.Handler
@@ -110,6 +117,8 @@ func NewRouteSets(app *App) RouteSets {
 	fileRepository := mysqlfile.NewRepository(app.DB)
 	productCatalogRepository := mysqlcatalog.NewRepository(app.DB)
 	webRealNameService := webrealnameusecase.NewRealNameService(app.DB, app.Redis)
+	paymentAlertRecorder := paymentalert.New(app.DB, app.Logger)
+	webPaymentService := webpaymentusecase.NewService(app.DB, app.Config.InstanceLifecycle).SetAlertRecorder(paymentAlertRecorder)
 
 	return RouteSets{
 		Admin: AdminRouteSet{
@@ -126,6 +135,7 @@ func NewRouteSets(app *App) RouteSets {
 			RealName:       adminrealnamehttp.NewRealNameHandler(adminrealnameusecase.NewRealNameService(app.DB, app.Redis, auditService)),
 			Logs:           adminlogshttp.NewHandler(logsService),
 			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService, app.Config.InstanceLifecycle)),
+			Payment:        adminpaymenthttp.NewHandler(adminpaymentusecase.NewService(app.DB, webPaymentService, auditService).SetAlertRecorder(paymentAlertRecorder)),
 			Instance:       admininstancehttp.NewHandler(admininstanceusecase.NewService(app.DB, app.MCPPVE, auditService, app.Config.InstanceLifecycle)),
 			AsyncTask:      asynctaskhttp.NewHandler(asynctaskusecase.NewService(app.DB, auditService)),
 			Ticket:         admintickethttp.NewHandler(adminticketusecase.NewService(app.DB, auditService, app.Config.Storage)),
@@ -140,6 +150,7 @@ func NewRouteSets(app *App) RouteSets {
 			ProductCatalog: cataloghttp.NewHandler(catalogusecase.NewServerCatalogService(productCatalogRepository)),
 			RealName:       webrealnamehttp.NewRealNameHandler(webRealNameService),
 			Order:          weborderhttp.NewHandler(weborderusecase.NewService(app.DB, webRealNameService)),
+			Payment:        webpaymenthttp.NewHandler(webPaymentService),
 			Instance:       webinstancehttp.NewHandler(webinstanceusecase.NewService(app.DB, app.MCPPVE)),
 			Ticket:         webtickethttp.NewHandler(webticketusecase.NewService(app.DB, app.Config.Storage)),
 			ClientLogs:     clientlogshttp.NewHandler("web", app.Redis, app.LogRecorder),

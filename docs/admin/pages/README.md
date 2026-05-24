@@ -15,6 +15,7 @@
 - `Real Name Management`：`docs/admin/pages/real-name-management.md`
 - `Product Management`：`docs/admin/pages/product-management.md`
 - `Order Management`：`docs/admin/pages/order-management.md`
+- `Payment Management`：`docs/admin/pages/payment-management.md`
 - `Instance Management`：`docs/admin/pages/instance-management.md`
 - `Async Tasks`：`docs/admin/pages/async-tasks.md`
 - `Ticket Management`：`docs/admin/pages/ticket-management.md`
@@ -24,7 +25,6 @@
 
 以下后端能力或接口可以存在，但当前管理端前端不提供独立页面、菜单入口或受保护路由：
 
-- 支付
 - 其它用户端业务流
 
 重新开放上述页面前，必须先更新：

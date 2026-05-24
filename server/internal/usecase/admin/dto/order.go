@@ -5,7 +5,7 @@ import "time"
 type OrderListQuery struct {
 	Page        int    `form:"page" validate:"omitempty,min=1"`
 	PerPage     int    `form:"per_page" validate:"omitempty,min=1,max=100"`
-	Status      string `form:"status" validate:"omitempty,oneof=pending provisioning fulfilled cancelled closed"`
+	Status      string `form:"status" validate:"omitempty,oneof=pending provisioning fulfilled error cancelled closed"`
 	OrderType   string `form:"order_type" validate:"omitempty,oneof=purchase renewal"`
 	OrderNo     string `form:"order_no" validate:"omitempty,max=64"`
 	UserKeyword string `form:"user_keyword" validate:"omitempty,max=128"`

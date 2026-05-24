@@ -95,6 +95,15 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/user/payments/:paymentNo',
+    name: 'payment',
+    component: () => import('../views/payments/detail.vue'),
+    meta: {
+      title: '订单支付',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/user/instances',
     name: 'instances',
     component: () => import('../views/instances/index.vue'),

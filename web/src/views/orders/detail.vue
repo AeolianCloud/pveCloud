@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { cancelOrder, getOrderDetail, type OrderDetail } from '../../api/order'
+import { createPayment, type PaymentMethod, type PaymentProvider } from '../../api/payment'
 import { getApiErrorMessage } from '../../api/request'
 import { useConfirm } from '../../composables/useConfirm'
 import { useToast } from '../../composables/useToast'
@@ -11,11 +12,12 @@ const router = useRouter()
 const confirmDialog = useConfirm()
 const toast = useToast()
 const loading = ref(false)
+const paying = ref('')
 const errorMessage = ref('')
 const order = ref<OrderDetail | null>(null)
-const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', error: '交付异常', cancelled: '已取消', closed: '已关闭' }
 const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
-const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认', refunded: '已退款' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 const formatMemory = (mb: number) => mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`
@@ -51,6 +53,24 @@ async function cancel() {
   }
 }
 
+async function startPayment(provider: PaymentProvider, method: PaymentMethod) {
+  if (!order.value) return
+  const key = `${provider}:${method}`
+  paying.value = key
+  try {
+    const payment = await createPayment(order.value.order_no, {
+      provider,
+      method,
+      client_token: `pay-${order.value.order_no}-${provider}-${method}-${Date.now()}`,
+    })
+    await router.push(`/user/payments/${payment.payment_no}`)
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, '创建支付失败'))
+  } finally {
+    paying.value = ''
+  }
+}
+
 onMounted(loadDetail)
 </script>
 
@@ -77,6 +97,15 @@ onMounted(loadDetail)
         </dl>
         <section class="mt-6"><h2 class="text-base font-black">配置快照</h2><div class="mt-3 grid gap-2 text-sm md:grid-cols-4"><div class="rounded-xl border p-3">{{ order.cpu_cores }} 核 CPU</div><div class="rounded-xl border p-3">{{ formatMemory(order.memory_mb) }} 内存</div><div class="rounded-xl border p-3">{{ order.system_disk_gb + order.data_disk_gb }}GB 磁盘</div><div class="rounded-xl border p-3">{{ order.bandwidth_mbps }}M 带宽</div></div></section>
         <section v-if="order.user_note" class="mt-6"><h2 class="text-base font-black">用户备注</h2><p class="mt-2 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">{{ order.user_note }}</p></section>
+        <section v-if="order.status === 'pending' && order.payment_status === 'unpaid'" class="mt-6 rounded-xl border border-neutral-200 p-4">
+          <h2 class="text-base font-black">选择支付方式</h2>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <button type="button" class="action-pill border border-neutral-950 px-4 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white disabled:opacity-50" :disabled="!!paying" @click="startPayment('alipay', 'alipay_page')">{{ paying === 'alipay:alipay_page' ? '创建中...' : '支付宝网页' }}</button>
+            <button type="button" class="action-pill border border-neutral-950 px-4 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white disabled:opacity-50" :disabled="!!paying" @click="startPayment('wechat', 'wechat_native')">{{ paying === 'wechat:wechat_native' ? '创建中...' : '微信扫码' }}</button>
+            <button type="button" class="action-pill border border-neutral-300 px-4 py-2 text-sm font-black hover:bg-neutral-100 disabled:opacity-50" :disabled="!!paying" @click="startPayment('alipay', 'alipay_wap')">{{ paying === 'alipay:alipay_wap' ? '创建中...' : '支付宝手机网页' }}</button>
+            <button type="button" class="action-pill border border-neutral-300 px-4 py-2 text-sm font-black hover:bg-neutral-100 disabled:opacity-50" :disabled="!!paying" @click="startPayment('wechat', 'wechat_h5')">{{ paying === 'wechat:wechat_h5' ? '创建中...' : '微信 H5' }}</button>
+          </div>
+        </section>
         <div class="mt-6 flex flex-wrap gap-3"><button v-if="order.status === 'pending'" type="button" class="action-pill border border-red-300 px-5 py-2 text-sm font-black text-red-700 hover:bg-red-50" @click="cancel">取消订单</button><RouterLink to="/user/orders" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">返回订单列表</RouterLink></div>
       </article>
     </div>

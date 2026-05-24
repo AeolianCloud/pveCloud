@@ -20,7 +20,7 @@
 | Validation | `github.com/go-playground/validator/v10` |
 | Logging | `log/slog` JSON logs |
 | DI | 手写构造和 provider 装配，不引入反射式 DI 容器 |
-| Tests | `github.com/stretchr/testify`；数据库集成测试可引入 `testcontainers-go` |
+| Tests | `github.com/stretchr/testify`；数据库和接口集成测试使用本地 Docker MariaDB 测试库与 `PVECLOUD_TEST_MYSQL_DSN` |
 | Observability | `log/slog`、request ID；后续跨服务追踪再引入 OpenTelemetry |
 | Dev reload | Air |
 
@@ -204,13 +204,16 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 - `go mod tidy`
 - `gofmt -w .`
 - `go test ./...`
+- 启动 `compose.test-db.yml`，设置 `PVECLOUD_TEST_MYSQL_DSN` 后运行受影响后端接口和集成测试
 - API 能成功启动
 - `/healthz`、`/admin-api/ping` 可访问
 - Redis 不可用时，API 必须启动失败并输出明确错误
 
 ## 测试基线
 
-新增或重构以下能力时，必须补对应单元测试或数据库集成测试：
+新增或重构后端能力时，必须补对应长期回归测试；新增或修改任一后端接口时，必须补接口层测试。测试必须能在本地 Docker MariaDB 测试库下重复执行，失败后先修复代码或测试初始化，再重新运行同一组命令直到通过。
+
+以下能力必须补单元测试、handler 测试、service 测试或数据库集成测试：
 
 - 管理端认证、验证码、登录限流、会话刷新和吊销
 - RBAC 权限匹配、通配权限和路由鉴权
@@ -224,7 +227,7 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 
 ### API 测试要求
 
-只要新增或修改 API 行为，不能只跑 `go test ./...` 后人工点页面结束；必须至少补一层长期回归测试：
+只要新增或修改 API 行为，不能只跑 `go test ./...` 后人工点页面结束；必须补长期回归测试，并按本地 Docker MariaDB 测试库执行验证：
 
 - handler 测试覆盖请求解析、鉴权入口、HTTP 状态码、统一响应包裹、错误码、公开/受保护路由边界和请求体大小限制。
 - service 测试覆盖状态机、权限裁决、资源归属、幂等、事务、副作用编排、审计写入成功和失败分支。
@@ -232,7 +235,11 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 - repository 或数据库集成测试覆盖唯一索引、并发冲突、软删除、分页排序、空值兼容和迁移新增字段。
 - DTO 或响应测试覆盖敏感字段不返回、字段命名不漂移、分页结构和公开配置白名单。
 
-若某个 API 暂时无法补完整 handler 测试，必须在同一次变更中至少补 service 或 adapter 测试，并在回复或 PR 中说明缺口、原因和后续风险；不能把“后面再补测试”作为默认交付状态。
+后端接口测试范围包括 `/admin-api/*`、`/api/*`、公开回调和 `/healthz`。测试命令必须显式使用 `PVECLOUD_TEST_MYSQL_DSN` 指向测试库；不得把 `server/config.yaml`、开发库或生产库作为自动化测试数据源。
+
+确有外部供应商、SMTP、MCP PVE 等不可在本地真实调用的依赖时，handler 和 service 测试应使用可控 fake 或 mock 覆盖本地裁决、请求构造、错误映射和失败恢复；不得因为外部依赖不可用而跳过接口回归。
+
+若现有接口尚未补齐测试，修改该接口时必须顺带补上对应测试；不能把“后面再补测试”作为默认交付状态。
 
 ### 实名供应商回归测试矩阵
 
@@ -245,7 +252,18 @@ go run ./cmd/setup-admin -config config.yaml -username admin -email admin@exampl
 - 管理端同步：成功和失败都必须有 `admin_audit_logs` 锚点，审计详情不得包含证件号码明文、供应商完整响应或密钥。
 - 并发冲突：两个申请同时收到供应商通过时，唯一约束冲突方必须落入明确拒绝或冲突失败状态，不得长期悬挂 `pending`。
 
-数据库集成测试应使用可重复初始化的测试库或事务回滚策略，不能依赖开发机已有脏数据。
+数据库集成测试应使用 `compose.test-db.yml` 提供的可重复初始化测试库，不能依赖开发机已有脏数据。
+
+### 支付供应商回归测试矩阵
+
+支付相关能力属于资金和公开回调敏感路径，必须至少覆盖：
+
+- adapter：支付宝下单、通知验签、主动查询、退款请求和退款结果映射；微信 Native/H5 下单、通知签名校验与解密、主动查询、退款请求和退款结果映射。
+- service：支付创建幂等、配置不完整拒绝创建、重复回调、金额不一致、订单非法状态、续费成功写生效记录、新购成功投递自动交付、退款渠道失败不回滚服务期。
+- handler：用户只能查询自己的支付；支付回调不要求 Bearer Token 但验签失败必须拒绝；管理端低权限不能退款、同步或重试自动交付。
+- repository/migration：支付交易唯一键、退款唯一键、支付生效记录唯一键、微信平台公钥 ID 配置项和订单 `error`/`refunded` 状态兼容。
+
+支付测试不得连接真实支付宝或微信生产环境；需要通过 SDK fake、httptest 服务或 mock adapter 固定签名材料和响应。
 
 ## 测试文件管理
 

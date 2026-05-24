@@ -197,6 +197,17 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.payments,
+    name: ADMIN_ROUTE_NAME.payments,
+    component: () => import('../views/payments/index.vue'),
+    meta: {
+      title: '支付管理',
+      icon: 'Card',
+      requiresAuth: true,
+      permission: ['page.payments'],
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.instances,
     name: ADMIN_ROUTE_NAME.instances,
     component: () => import('../views/instances/index.vue'),

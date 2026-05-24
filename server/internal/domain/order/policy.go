@@ -4,6 +4,7 @@ const (
 	StatusPending      = "pending"
 	StatusProvisioning = "provisioning"
 	StatusFulfilled    = "fulfilled"
+	StatusError        = "error"
 	StatusCancelled    = "cancelled"
 	StatusClosed       = "closed"
 
@@ -13,6 +14,7 @@ const (
 	PaymentStatusUnpaid          = "unpaid"
 	PaymentStatusPaid            = "paid"
 	PaymentStatusManualConfirmed = "manual_confirmed"
+	PaymentStatusRefunded        = "refunded"
 )
 
 func CanCancel(status string) bool {
@@ -33,7 +35,7 @@ func CanConfirmRenewal(status string, orderType string) bool {
 
 func IsKnownStatus(status string) bool {
 	switch status {
-	case "", StatusPending, StatusProvisioning, StatusFulfilled, StatusCancelled, StatusClosed:
+	case "", StatusPending, StatusProvisioning, StatusFulfilled, StatusError, StatusCancelled, StatusClosed:
 		return true
 	default:
 		return false

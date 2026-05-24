@@ -1,0 +1,25 @@
+services:
+  pvecloud-test-mariadb:
+    image: docker.m.daocloud.io/library/mariadb:11.4
+    container_name: pvecloud-test-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: pvecloud_test_root
+      MARIADB_DATABASE: pvecloud_test_seed
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3307:3306"
+    volumes:
+      - pvecloud-test-mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -uroot -p$$MARIADB_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  pvecloud-test-mariadb-data:

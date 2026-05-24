@@ -43,6 +43,8 @@
 - Web 用户认证验证码开关在后台系统配置中按中文分组“用户认证”展示。
 - 用户实名业务开关、可选供应商、供应商启用状态、支付宝/微信侧接入参数、密钥、回调地址和证件摘要密钥在后台系统配置中按中文分组“实名设置”展示。
 - 支付宝、微信/腾讯云密钥和证件摘要密钥使用 `is_secret=1`；页面不得回显明文，只展示是否已配置，并允许通过重新填写覆盖。
+- 支付业务开关、支付订单过期时间、支付宝支付和微信支付商户参数在后台系统配置中按中文分组“支付设置”展示。
+- 支付宝支付私钥、公钥、微信支付 API v3 key、商户私钥或平台公钥等密钥类配置使用 `is_secret=1`；页面不得回显明文，只展示是否已配置，并允许通过重新填写覆盖。
 - `value_type=bool` 的配置项必须使用明确布尔编辑控件，不使用自由文本输入。
 - 保存布尔配置时始终提交字符串 `true` / `false`。
 - 保存 `is_secret=1` 配置时，空值表示保留旧值，非空值表示覆盖旧值。
@@ -81,6 +83,29 @@
 - `real_name.wechat.rule_id`
 - `real_name.wechat.redirect_url`
 
+当前阶段系统配置至少包含以下支付配置：
+
+- `payment.enabled`
+- `payment.default_expire_minutes`
+- `payment.callback_base_url`
+- `payment.alipay.enabled`
+- `payment.alipay.app_id`
+- `payment.alipay.gateway_url`
+- `payment.alipay.app_private_key`
+- `payment.alipay.alipay_public_key`
+- `payment.alipay.notify_url`
+- `payment.alipay.return_url`
+- `payment.wechat.enabled`
+- `payment.wechat.app_id`
+- `payment.wechat.mch_id`
+- `payment.wechat.api_v3_key`
+- `payment.wechat.mch_private_key`
+- `payment.wechat.mch_certificate_serial_no`
+- `payment.wechat.platform_public_key_id`
+- `payment.wechat.platform_public_key`
+- `payment.wechat.notify_url`
+- `payment.wechat.h5_scene_info`
+
 供应商启用约束：
 
 - `real_name.allowed_providers` 只控制用户端可选列表，具体供应商还必须满足对应 `real_name.<provider>.enabled=true`。
@@ -88,6 +113,11 @@
 - 启用微信侧实名前，必须填写腾讯云 SecretId、SecretKey、地域、端点、规则 ID 和返回地址；当前微信/腾讯云结果通过服务端同步查询确认，不开放异步回调。
 - `real_name.manual_review_enabled=true` 时，支付宝/微信侧实名不可用后用户端默认进入人工审核。
 - `real_name.identity_digest_secret` 只作为外部供应商实名和证件摘要重复校验配置；缺失时外部供应商不可用，但不影响人工审核实名入口。已有当前 HMAC 版本实名申请后，页面不允许通过普通系统设置直接修改该密钥。
+- 启用支付总开关前，至少需要启用并配置完整一个支付供应商。
+- 启用支付宝支付前，必须填写应用 ID、网关、应用私钥、支付宝公钥、异步通知地址和同步返回地址。
+- 启用微信支付前，必须填写应用 ID、商户号、API v3 key、商户私钥、商户证书序列号、平台公钥或平台证书、异步通知地址；使用平台公钥模式时还必须填写平台公钥 ID；微信 H5 还必须填写 H5 场景信息。
+- 微信支付平台公钥、平台公钥 ID 或平台证书轮换时，页面只支持覆盖写入，不展示明文；服务端应允许新旧签名材料在有效期内短期并存，过期后由维护者清理旧配置。
+- 支付密钥配置只用于服务端渠道调用和回调验签，不进入用户端公开配置、前端环境变量、审计详情或运行日志。
 
 权限建议：
 

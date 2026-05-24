@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	domainsystemconfig "github.com/AeolianCloud/pveCloud/server/internal/domain/systemconfig"
+	integrationpayment "github.com/AeolianCloud/pveCloud/server/internal/integration/payment"
 	mysqlsystemconfig "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/systemconfig"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
@@ -93,6 +94,9 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 		if err := s.validateRealNameConfigUpdate(ctx, tx, current, value); err != nil {
 			return err
 		}
+		if err := s.validatePaymentConfigUpdate(ctx, tx, current, value); err != nil {
+			return err
+		}
 		if domainsystemconfig.PreserveSecretWhenBlank(current.IsSecret, value) {
 			updated = current
 		} else {
@@ -119,6 +123,34 @@ func (s *SystemConfigService) Update(ctx context.Context, operatorID uint64, id 
 		return admindto.SystemConfigItem{}, err
 	}
 	return systemConfigItem(updated), nil
+}
+
+func (s *SystemConfigService) validatePaymentConfigUpdate(ctx context.Context, tx *gorm.DB, current mysqlsystemconfig.SystemConfig, value string) error {
+	key := strings.TrimSpace(current.ConfigKey)
+	trimmedValue := strings.TrimSpace(value)
+	if current.IsSecret && trimmedValue == "" {
+		return nil
+	}
+	if key != "payment.alipay.enabled" && key != "payment.wechat.enabled" {
+		return nil
+	}
+	if trimmedValue != "true" {
+		return nil
+	}
+	configs, err := s.paymentConfigValueMap(ctx, tx, current, value)
+	if err != nil {
+		return err
+	}
+	provider := integrationpayment.ProviderAlipay
+	method := integrationpayment.MethodAlipayPage
+	if key == "payment.wechat.enabled" {
+		provider = integrationpayment.ProviderWechat
+		method = integrationpayment.MethodWechatH5
+	}
+	if err := integrationpayment.ValidateProductionConfig(integrationpayment.Config{Provider: provider, Values: configs}, method); err != nil {
+		return apperrors.ErrValidation.WithMessage("启用支付渠道前必须补齐商户号、密钥、公钥、回调地址和支付场景配置")
+	}
+	return nil
 }
 
 func validateConfigValue(valueType string, value string) error {
@@ -191,6 +223,25 @@ func (s *SystemConfigService) ensureIdentityDigestSecretMutable(ctx context.Cont
 
 func (s *SystemConfigService) systemConfigValueMap(ctx context.Context, tx *gorm.DB, current mysqlsystemconfig.SystemConfig, nextValue string) (map[string]string, error) {
 	configs, err := s.configs.RealNameConfigRows(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(configs))
+	for _, config := range configs {
+		value := ""
+		if config.ConfigValue != nil {
+			value = strings.TrimSpace(*config.ConfigValue)
+		}
+		if config.ID == current.ID {
+			value = strings.TrimSpace(nextValue)
+		}
+		result[config.ConfigKey] = value
+	}
+	return result, nil
+}
+
+func (s *SystemConfigService) paymentConfigValueMap(ctx context.Context, tx *gorm.DB, current mysqlsystemconfig.SystemConfig, nextValue string) (map[string]string, error) {
+	configs, err := s.configs.ConfigRowsByPrefix(ctx, tx, "payment.")
 	if err != nil {
 		return nil, err
 	}

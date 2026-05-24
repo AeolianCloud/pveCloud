@@ -94,6 +94,27 @@ panic 会被 recovery 中间件捕获，写入 error 级别日志，并返回统
 
 `backend_runtime_logs` 保存结构化运行日志摘要，供管理端查看访问、panic 和关键错误的可查询记录。它不替代 stdout 运行日志输出。
 
+## 支付告警事件日志
+
+真实支付一期的告警先复用运行时日志和 `backend_runtime_logs`，不新增独立告警通道、Webhook、短信或邮件配置。生产环境由日志采集系统或人工巡检基于固定字段触发外部告警。
+
+支付告警事件必须同时写 stdout 结构化日志和 `backend_runtime_logs`：
+
+- `level` 固定为 `error`。
+- `category` 固定为 `runtime`。
+- `message` 使用 `payment_alert`。
+- `module` 固定为 `payment`。
+- `event` 只允许 `payment_create_failed`、`payment_callback_signature_failed`、`refund_pending`、`refund_failed`。
+- 必须包含可排查业务锚点：`payment_no`、`refund_no`、`order_no`、`provider`、`method`、`status` 中能够确定的字段。
+- 错误详情只保存本地错误码或 500 字以内的脱敏摘要，不保存商户密钥、签名串、完整回调 payload、完整上游响应或用户敏感明文。
+
+事件触发口径：
+
+- 支付创建调用渠道失败并将本地支付交易更新为 `failed` 时，写 `payment_create_failed`。
+- 支付回调供应商验签失败时，写 `payment_callback_signature_failed`；该事件可能缺少 `payment_no`，但必须包含 `provider` 和请求链路 ID。
+- 退款调用渠道失败并将本地退款更新为 `failed` 时，写 `refund_failed`。
+- 退款创建后渠道未同步确认成功、仍保持 `pending` 时，写 `refund_pending`；后续若补充 Worker 周期扫描，只能对超过运维文档确认阈值的 `pending` 退款重复写同类事件，且不得改变退款本地状态。
+
 ## 日志导出与清理
 
 `log_export_records` 保存日志导出锚点。导出、清理和留存策略应作为单独受控能力处理，并写入管理端审计。
@@ -111,6 +132,6 @@ panic 会被 recovery 中间件捕获，写入 error 级别日志，并返回统
 当前日志系统不包含以下能力：
 
 - OpenTelemetry 或跨服务追踪
-- 日志文件轮转、远程采集配置或告警规则
+- 日志文件轮转、远程采集配置或外部告警发送通道
 
 新增这些能力前必须先更新对应 owner docs 或机器契约，并按文档先行流程确认。

@@ -14,9 +14,9 @@ const orders = ref<OrderItem[]>([])
 const total = ref(0)
 const query = reactive({ page: 1, per_page: 15, status: '' })
 
-const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', error: '交付异常', cancelled: '已取消', closed: '已关闭' }
 const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
-const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认', refunded: '已退款' }
 const cycleText: Record<string, string> = { monthly: '月付', quarterly: '季付', semi_yearly: '半年付', yearly: '年付' }
 const formatMoney = (cents: number) => `¥${(cents / 100).toFixed(2)}`
 
@@ -63,7 +63,7 @@ onMounted(loadOrders)
         <RouterLink to="/products" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">继续选择套餐</RouterLink>
       </div>
       <div class="mb-6 flex flex-wrap gap-3">
-        <button v-for="item in [{ label: '全部', value: '' }, { label: '待处理', value: 'pending' }, { label: '交付中', value: 'provisioning' }, { label: '已交付', value: 'fulfilled' }, { label: '已取消', value: 'cancelled' }, { label: '已关闭', value: 'closed' }]" :key="item.value || 'all'" type="button" :class="['action-pill border px-4 py-2 text-xs font-black', query.status === item.value ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700 hover:border-neutral-950']" @click="query.status = item.value; query.page = 1; loadOrders()">{{ item.label }}</button>
+        <button v-for="item in [{ label: '全部', value: '' }, { label: '待处理', value: 'pending' }, { label: '交付中', value: 'provisioning' }, { label: '已交付', value: 'fulfilled' }, { label: '交付异常', value: 'error' }, { label: '已取消', value: 'cancelled' }, { label: '已关闭', value: 'closed' }]" :key="item.value || 'all'" type="button" :class="['action-pill border px-4 py-2 text-xs font-black', query.status === item.value ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700 hover:border-neutral-950']" @click="query.status = item.value; query.page = 1; loadOrders()">{{ item.label }}</button>
       </div>
       <div v-if="loading" class="space-y-3">
         <div v-for="item in 4" :key="item" class="rounded-2xl border border-neutral-200 bg-white p-5">
@@ -100,6 +100,7 @@ onMounted(loadOrders)
             </div>
             <div class="flex flex-wrap gap-2 lg:justify-end">
               <RouterLink :to="`/user/orders/${order.order_no}`" class="action-pill border border-neutral-950 px-3 py-1.5 text-xs font-black hover:bg-neutral-950 hover:text-white">查看详情</RouterLink>
+              <RouterLink v-if="order.status === 'pending' && order.payment_status === 'unpaid'" :to="`/user/orders/${order.order_no}`" class="action-pill border border-emerald-500 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50">去支付</RouterLink>
               <button v-if="order.status === 'pending'" type="button" class="action-pill border border-red-300 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-50" @click="cancel(order)">取消</button>
             </div>
           </div>

@@ -48,9 +48,9 @@ const canUpdate = computed(() => hasPermissionCode(permissionStore.permissionCod
 const canCancel = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'order:cancel'))
 const canProvision = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'instance:provision'))
 
-const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', cancelled: '已取消', closed: '已关闭' }
+const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', error: '交付异常', cancelled: '已取消', closed: '已关闭' }
 const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
-const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认' }
+const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认', refunded: '已退款' }
 const cycleText: Record<string, string> = {
   monthly: '月付',
   quarterly: '季付',
@@ -62,6 +62,7 @@ const statusOptions = [
   { label: '待处理', value: 'pending' },
   { label: '交付中', value: 'provisioning' },
   { label: '已交付', value: 'fulfilled' },
+  { label: '交付异常', value: 'error' },
   { label: '已取消', value: 'cancelled' },
   { label: '已关闭', value: 'closed' },
 ]

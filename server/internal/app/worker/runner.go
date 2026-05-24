@@ -12,10 +12,12 @@ import (
 	"gorm.io/gorm"
 
 	domaininstance "github.com/AeolianCloud/pveCloud/server/internal/domain/instance"
+	domainorder "github.com/AeolianCloud/pveCloud/server/internal/domain/order"
 	"github.com/AeolianCloud/pveCloud/server/internal/integration/mail"
 	"github.com/AeolianCloud/pveCloud/server/internal/integration/mcppve"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
 	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
+	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
 	admininstance "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/instance"
 )
@@ -24,6 +26,7 @@ type Runner struct {
 	db           *gorm.DB
 	log          *slog.Logger
 	tasks        *mysqlinstance.Repository
+	orders       *mysqlorder.Repository
 	instanceSvc  *admininstance.Service
 	mail         *mail.Sender
 	workerCfg    config.WorkerConfig
@@ -37,11 +40,14 @@ type taskPayload struct {
 	NotificationNo string `json:"notification_no,omitempty"`
 }
 
+var errPaymentProvisionSkipped = errors.New("payment provision task skipped")
+
 func NewRunner(db *gorm.DB, log *slog.Logger, mcp *mcppve.Client, mailSender *mail.Sender, workerCfg config.WorkerConfig, lifecycleCfg config.InstanceLifecycleConfig, notifyCfg config.NotificationConfig) *Runner {
 	return &Runner{
 		db:           db,
 		log:          log,
 		tasks:        mysqlinstance.NewRepository(db),
+		orders:       mysqlorder.NewRepository(db),
 		instanceSvc:  admininstance.NewService(db, mcp, nil, lifecycleCfg),
 		mail:         mailSender,
 		workerCfg:    workerCfg,
@@ -120,6 +126,8 @@ func (r *Runner) execute(ctx context.Context, task mysqlinstance.Task) error {
 		return r.expiryNotice(ctx, task)
 	case domaininstance.TaskTypeExpiryRelease:
 		return r.expiryRelease(ctx, task)
+	case domaininstance.TaskTypePaymentProvision:
+		return r.paymentOrderProvision(ctx, task)
 	case domaininstance.TaskTypeEmailSend:
 		return r.notificationEmailSend(ctx, task)
 	case domaininstance.TaskTypeSMSPlaceholder:
@@ -127,6 +135,57 @@ func (r *Runner) execute(ctx context.Context, task mysqlinstance.Task) error {
 	default:
 		return fmt.Errorf("不支持的任务类型：%s", task.TaskType)
 	}
+}
+
+func (r *Runner) paymentOrderProvision(ctx context.Context, task mysqlinstance.Task) error {
+	orderNo := strings.TrimSpace(pointerValue(task.ObjectNo))
+	if orderNo == "" {
+		return errors.New("支付自动交付任务缺少订单编号")
+	}
+	if err := r.preparePaymentProvisionOrder(ctx, orderNo); err != nil {
+		if errors.Is(err, errPaymentProvisionSkipped) {
+			return nil
+		}
+		return err
+	}
+	// 自动交付复用管理端交付规则；worker 不持有管理员身份，因此审计中的 admin_id 使用 0 表示系统触发。
+	_, err := r.instanceSvc.Provision(ctx, 0, orderNo)
+	return err
+}
+
+func (r *Runner) preparePaymentProvisionOrder(ctx context.Context, orderNo string) error {
+	orders := r.orders
+	if orders == nil {
+		orders = mysqlorder.NewRepository(r.db)
+	}
+	tasks := r.tasks
+	if tasks == nil {
+		tasks = mysqlinstance.NewRepository(r.db)
+	}
+	return mysqltx.NewManager(r.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		order, err := orders.OrderForUpdate(ctx, tx, orderNo)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errPaymentProvisionSkipped
+		}
+		if err != nil {
+			return err
+		}
+		if order.OrderType != domainorder.TypePurchase || order.PaymentStatus != domainorder.PaymentStatusPaid {
+			return errPaymentProvisionSkipped
+		}
+		if order.Status != domainorder.StatusPending && order.Status != domainorder.StatusError {
+			return errPaymentProvisionSkipped
+		}
+		if _, err := tasks.InstanceByOrderID(ctx, order.ID); err == nil {
+			return errPaymentProvisionSkipped
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if order.Status == domainorder.StatusError {
+			return orders.Update(ctx, tx, order.ID, map[string]any{"status": domainorder.StatusPending})
+		}
+		return nil
+	})
 }
 
 func (r *Runner) expiryNotice(ctx context.Context, task mysqlinstance.Task) error {
@@ -315,11 +374,43 @@ func (r *Runner) markFailedOrRetry(ctx context.Context, task mysqlinstance.Task,
 		now := time.Now()
 		updates["status"] = domaininstance.TaskStatusFailed
 		updates["completed_at"] = now
+		if task.TaskType == domaininstance.TaskTypePaymentProvision {
+			if updateErr := r.markPaymentProvisionError(ctx, task); updateErr != nil {
+				return updateErr
+			}
+		}
 	} else {
 		updates["status"] = domaininstance.TaskStatusPending
 		updates["scheduled_at"] = time.Now().Add(retryDelay(task.Attempts))
 	}
 	return r.tasks.UpdateTask(ctx, nil, task.ID, updates)
+}
+
+func (r *Runner) markPaymentProvisionError(ctx context.Context, task mysqlinstance.Task) error {
+	orderNo := strings.TrimSpace(pointerValue(task.ObjectNo))
+	if orderNo == "" {
+		return nil
+	}
+	orders := r.orders
+	if orders == nil {
+		orders = mysqlorder.NewRepository(r.db)
+	}
+	return mysqltx.NewManager(r.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		order, err := orders.OrderForUpdate(ctx, tx, orderNo)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if order.OrderType != domainorder.TypePurchase || order.PaymentStatus != domainorder.PaymentStatusPaid {
+			return nil
+		}
+		if order.Status != domainorder.StatusPending && order.Status != domainorder.StatusProvisioning {
+			return nil
+		}
+		return orders.Update(ctx, tx, order.ID, map[string]any{"status": domainorder.StatusError})
+	})
 }
 
 func (r *Runner) pollInterval() time.Duration {
