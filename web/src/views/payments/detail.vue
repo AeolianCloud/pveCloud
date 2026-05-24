@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import { getPayment, type PaymentStatus } from '../../api/payment'
 import { getApiErrorMessage } from '../../api/request'
+import QrCodeImage from '../../components/QrCodeImage.vue'
 
 const route = useRoute()
 const loading = ref(false)
@@ -24,6 +25,7 @@ const methodText: Record<string, string> = {
   alipay_wap: '支付宝手机网页',
   wechat_native: '微信扫码',
   wechat_h5: '微信 H5',
+  wallet_balance: '钱包余额',
 }
 
 const terminal = computed(() => {
@@ -96,7 +98,8 @@ onBeforeUnmount(stopPolling)
         <section v-if="payment.status === 'pending'" class="mt-6">
           <div v-if="payment.qr_code_url" class="rounded-xl border border-neutral-200 p-4">
             <div class="text-sm font-black text-neutral-700">微信扫码支付</div>
-            <div class="mt-3 break-all rounded-lg bg-neutral-950 p-4 text-sm font-bold text-white">{{ payment.qr_code_url }}</div>
+            <QrCodeImage class="mt-3" :value="payment.qr_code_url" alt="微信支付二维码" />
+            <div class="mt-3 break-all rounded-lg bg-neutral-50 p-3 text-xs font-bold text-neutral-600">{{ payment.qr_code_url }}</div>
           </div>
           <a v-if="payment.redirect_url" :href="payment.redirect_url" class="action-pill mt-4 inline-flex border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">打开支付页面</a>
           <p class="mt-4 text-sm text-neutral-500">页面会自动刷新支付状态。</p>

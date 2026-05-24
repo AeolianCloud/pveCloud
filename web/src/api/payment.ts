@@ -1,7 +1,7 @@
 import { request, type WebApiEnvelope } from './request'
 
-export type PaymentProvider = 'alipay' | 'wechat'
-export type PaymentMethod = 'alipay_page' | 'alipay_wap' | 'wechat_native' | 'wechat_h5'
+export type PaymentProvider = 'alipay' | 'wechat' | 'wallet'
+export type PaymentMethod = 'alipay_page' | 'alipay_wap' | 'wechat_native' | 'wechat_h5' | 'wallet_balance'
 export type PaymentStatusValue = 'pending' | 'paid' | 'closed' | 'failed' | 'refunded'
 
 export interface PaymentStatus {

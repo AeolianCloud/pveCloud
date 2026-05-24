@@ -3,8 +3,8 @@ package dto
 import "time"
 
 type PaymentCreateRequest struct {
-	Provider    string `json:"provider" validate:"required,oneof=alipay wechat"`
-	Method      string `json:"method" validate:"required,oneof=alipay_page alipay_wap wechat_native wechat_h5"`
+	Provider    string `json:"provider" validate:"required,oneof=alipay wechat wallet"`
+	Method      string `json:"method" validate:"required,oneof=alipay_page alipay_wap wechat_native wechat_h5 wallet_balance"`
 	ClientToken string `json:"client_token" validate:"required,max=128"`
 }
 

@@ -136,6 +136,53 @@ func TestCreateRefundFailureWritesAlertEvent(t *testing.T) {
 	}
 }
 
+func TestCreateRefundForWalletPaymentCreditsWallet(t *testing.T) {
+	db := mysqltest.Open(t)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentWalletAccountsSchema, adminPaymentWalletLedgerSchema)
+	seedAdminPaymentOrder(t, db, 66, "ORD-wallet-refund-1", domainorder.TypePurchase, nil, domainorder.StatusFulfilled, domainorder.PaymentStatusPaid)
+	seedAdminPaymentWithChannel(t, db, 66, "PAY-wallet-refund-1", "ORD-wallet-refund-1", domainpayment.ProviderWallet, domainpayment.MethodWalletBalance, domainpayment.StatusPaid)
+	seedAdminWalletAccount(t, db, 6601, "WAL-refund-1", 66, 1200)
+
+	service := NewService(db, nil, nil)
+	refund, err := service.CreateRefund(context.Background(), 99, "PAY-wallet-refund-1", admindto.RefundCreateRequest{Reason: "余额支付退款"})
+	if err != nil {
+		t.Fatalf("create wallet refund: %v", err)
+	}
+	if refund.Status != domainpayment.RefundStatusSucceeded {
+		t.Fatalf("wallet refund should complete locally, got %#v", refund)
+	}
+
+	var account struct {
+		Balance  uint64 `gorm:"column:available_balance_cents"`
+		Refunded uint64 `gorm:"column:total_refunded_cents"`
+	}
+	if err := db.Table("wallet_accounts").Select("available_balance_cents, total_refunded_cents").Where("wallet_no = ?", "WAL-refund-1").Take(&account).Error; err != nil {
+		t.Fatalf("load wallet: %v", err)
+	}
+	if account.Balance != 4200 || account.Refunded != 3000 {
+		t.Fatalf("wallet refund should credit amount once, got balance=%d refunded=%d", account.Balance, account.Refunded)
+	}
+
+	var ledgerCount int64
+	if err := db.Table("wallet_ledger_entries").Where("wallet_no = ? AND entry_type = ? AND related_no = ?", "WAL-refund-1", "refund", refund.RefundNo).Count(&ledgerCount).Error; err != nil {
+		t.Fatalf("count refund ledger: %v", err)
+	}
+	if ledgerCount != 1 {
+		t.Fatalf("wallet refund should write one credit ledger, got %d", ledgerCount)
+	}
+
+	var order struct {
+		Status        string
+		PaymentStatus string `gorm:"column:payment_status"`
+	}
+	if err := db.Table("orders").Select("status, payment_status").Where("order_no = ?", "ORD-wallet-refund-1").Take(&order).Error; err != nil {
+		t.Fatalf("load order: %v", err)
+	}
+	if order.Status != domainorder.StatusClosed || order.PaymentStatus != domainorder.PaymentStatusRefunded {
+		t.Fatalf("wallet refund should close and refund order, got %#v", order)
+	}
+}
+
 func seedAdminPaymentConfigs(t *testing.T, db *gorm.DB) {
 	if err := db.Exec(`INSERT INTO system_configs (config_key, config_value, value_type, group_name, is_secret) VALUES
 ('payment.alipay.app_id', 'app-test', 'string', '支付设置', 0),
@@ -198,13 +245,24 @@ external_node, external_vmid, expires_at
 }
 
 func seedAdminPayment(t *testing.T, db *gorm.DB, userID uint64, paymentNo, orderNo, status string) {
+	seedAdminPaymentWithChannel(t, db, userID, paymentNo, orderNo, domainpayment.ProviderAlipay, domainpayment.MethodAlipayPage, status)
+}
+
+func seedAdminPaymentWithChannel(t *testing.T, db *gorm.DB, userID uint64, paymentNo, orderNo string, provider string, method string, status string) {
 	if err := db.Exec(`INSERT INTO payment_transactions (
 id, payment_no, order_id, order_no, user_id, provider, method, status, client_token,
 amount_cents, currency, upstream_trade_no, expires_at, paid_at
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		userID+3000, paymentNo, userID+1000, orderNo, userID, domainpayment.ProviderAlipay, domainpayment.MethodAlipayPage, status, "pay-"+paymentNo, 3000, "CNY", "ALI-"+paymentNo, time.Now().Add(30*time.Minute), time.Now(),
+		userID+3000, paymentNo, userID+1000, orderNo, userID, provider, method, status, "pay-"+paymentNo, 3000, "CNY", "UP-"+paymentNo, time.Now().Add(30*time.Minute), time.Now(),
 	).Error; err != nil {
 		t.Fatalf("seed payment: %v", err)
+	}
+}
+
+func seedAdminWalletAccount(t *testing.T, db *gorm.DB, id uint64, walletNo string, userID uint64, balance uint64) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO wallet_accounts (id, wallet_no, user_id, currency, status, available_balance_cents) VALUES (?, ?, ?, 'CNY', 'active', ?)`, id, walletNo, userID, balance).Error; err != nil {
+		t.Fatalf("seed wallet account: %v", err)
 	}
 }
 
@@ -418,6 +476,45 @@ CREATE TABLE backend_runtime_logs (
   message VARCHAR(500) NOT NULL,
   detail TEXT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const adminPaymentWalletAccountsSchema = `
+CREATE TABLE wallet_accounts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  wallet_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  currency VARCHAR(16) NOT NULL DEFAULT 'CNY',
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  available_balance_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_recharged_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_spent_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_refunded_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_wallet_accounts_wallet_no (wallet_no),
+  UNIQUE KEY uk_wallet_accounts_user_currency (user_id, currency)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const adminPaymentWalletLedgerSchema = `
+CREATE TABLE wallet_ledger_entries (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  entry_no VARCHAR(64) NOT NULL,
+  wallet_id BIGINT UNSIGNED NOT NULL,
+  wallet_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  direction VARCHAR(16) NOT NULL,
+  entry_type VARCHAR(32) NOT NULL,
+  amount_cents BIGINT UNSIGNED NOT NULL,
+  balance_before_cents BIGINT UNSIGNED NOT NULL,
+  balance_after_cents BIGINT UNSIGNED NOT NULL,
+  currency VARCHAR(16) NOT NULL DEFAULT 'CNY',
+  related_type VARCHAR(32) NOT NULL,
+  related_no VARCHAR(64) NOT NULL,
+  idempotency_key VARCHAR(160) NOT NULL,
+  summary JSON NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_wallet_ledger_entries_entry_no (entry_no),
+  UNIQUE KEY uk_wallet_ledger_entries_idempotency (wallet_id, idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 func testAdminPaymentAlertRecorder(db *gorm.DB) *paymentalert.Recorder {

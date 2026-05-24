@@ -40,6 +40,7 @@ const statusText = computed(() => authStore.user?.status === 'active' ? '正常'
           <div class="mt-5 space-y-3">
             <RouterLink to="/user/profile" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">账号资料</RouterLink>
             <RouterLink to="/user/real-name" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">实名认证</RouterLink>
+            <RouterLink to="/user/wallet" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">我的钱包</RouterLink>
             <RouterLink to="/user/orders" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">订单管理</RouterLink>
             <RouterLink to="/user/instances" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">实例管理</RouterLink>
             <RouterLink to="/user/tickets" class="soft-lift block rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-black hover:border-neutral-950">工单支持</RouterLink>

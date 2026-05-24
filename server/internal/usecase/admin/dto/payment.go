@@ -5,8 +5,8 @@ import "time"
 type PaymentListQuery struct {
 	Page        int    `form:"page" validate:"omitempty,min=1"`
 	PerPage     int    `form:"per_page" validate:"omitempty,min=1,max=100"`
-	Provider    string `form:"provider" validate:"omitempty,oneof=alipay wechat"`
-	Method      string `form:"method" validate:"omitempty,oneof=alipay_page alipay_wap wechat_native wechat_h5"`
+	Provider    string `form:"provider" validate:"omitempty,oneof=alipay wechat wallet"`
+	Method      string `form:"method" validate:"omitempty,oneof=alipay_page alipay_wap wechat_native wechat_h5 wallet_balance"`
 	Status      string `form:"status" validate:"omitempty,oneof=pending paid closed failed refunded"`
 	OrderNo     string `form:"order_no" validate:"omitempty,max=64"`
 	PaymentNo   string `form:"payment_no" validate:"omitempty,max=64"`
@@ -18,7 +18,7 @@ type PaymentListQuery struct {
 type RefundListQuery struct {
 	Page      int    `form:"page" validate:"omitempty,min=1"`
 	PerPage   int    `form:"per_page" validate:"omitempty,min=1,max=100"`
-	Provider  string `form:"provider" validate:"omitempty,oneof=alipay wechat"`
+	Provider  string `form:"provider" validate:"omitempty,oneof=alipay wechat wallet"`
 	Status    string `form:"status" validate:"omitempty,oneof=pending succeeded failed"`
 	OrderNo   string `form:"order_no" validate:"omitempty,max=64"`
 	PaymentNo string `form:"payment_no" validate:"omitempty,max=64"`

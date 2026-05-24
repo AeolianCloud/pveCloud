@@ -7,7 +7,7 @@
 - API：提供管理端 HTTP 接口、Web 公开站点配置接口、用户账号自助接口、支付宝/微信侧用户实名接口、服务器产品目录展示接口、订单接口、支付接口、实例接口、工单接口、管理端异步任务接口和健康检查
 - Worker：领取并执行通用异步任务，负责实例 operation 同步、实例到期提醒、到期释放和通知发送
 
-当前契约重新开放用户账号自助、用户实名、服务器产品目录、订单、支付、续费订单、实例、通用异步任务、通知和工单。支付一期只开放中国大陆商户的微信 Native 扫码、微信 H5、支付宝电脑网页支付和支付宝手机网页支付；钱包、发票、JSAPI/openid、小程序支付和部分退款仍不纳入当前阶段交付范围。实例交付和到期释放通过后端内部 MCP PVE client API 调用上游 PVE 适配服务，不向前端暴露 PVE 节点、存储、磁盘来源或 VMID。
+当前契约重新开放用户账号自助、用户实名、服务器产品目录、订单、支付、钱包、续费订单、实例、通用异步任务、通知和工单。支付一期只开放中国大陆商户的微信 Native 扫码、微信 H5、支付宝电脑网页支付、支付宝手机网页支付和钱包余额支付；发票、JSAPI/openid、小程序支付和部分退款仍不纳入当前阶段交付范围。实例交付和到期释放通过后端内部 MCP PVE client API 调用上游 PVE 适配服务，不向前端暴露 PVE 节点、存储、磁盘来源或 VMID。
 
 ## 路由边界
 
@@ -317,7 +317,7 @@ all layers -> shared
 - 审计写入
 - 文件管理
 
-用户账号自助、支付宝/微信侧用户实名、服务器产品目录、订单、支付、续费订单、实例、通用异步任务、通知和工单已经重新纳入当前阶段契约。钱包、发票、部分退款、JSAPI/openid、小程序支付和其它用户端业务流仍从当前阶段契约中收口。实例只覆盖 MCP PVE client API 当前具备的创建、查询、启动、停止、删除和异步操作查询能力。
+用户账号自助、支付宝/微信侧用户实名、服务器产品目录、订单、支付、钱包、续费订单、实例、通用异步任务、通知和工单已经重新纳入当前阶段契约。发票、部分退款、JSAPI/openid、小程序支付和其它用户端业务流仍从当前阶段契约中收口。实例只覆盖 MCP PVE client API 当前具备的创建、查询、启动、停止、删除和异步操作查询能力。
 
 ## 鉴权与权限
 
@@ -367,7 +367,7 @@ all layers -> shared
 
 `System Settings` 当前包含系统配置、管理员账号、管理员组权限和管理员会话。
 `System Settings` 下同时开放操作日志页面，用于查看普通后台操作日志。
-当前重新开放服务器产品目录、用户实名、订单、支付、实例、工单、通用异步任务和实例生命周期相关数据库契约；实名供应商集成只覆盖支付宝/微信侧实名核验，支付供应商集成只覆盖微信支付和支付宝支付的一期网页/扫码交易能力。实例集成只覆盖 MCP PVE client API 已提供能力，不开放通用 PVE 运维管理。
+当前重新开放服务器产品目录、用户实名、订单、支付、钱包、实例、工单、通用异步任务和实例生命周期相关数据库契约；实名供应商集成只覆盖支付宝/微信侧实名核验，支付供应商集成只覆盖微信支付、支付宝支付的一期网页/扫码交易能力和钱包余额支付。实例集成只覆盖 MCP PVE client API 已提供能力，不开放通用 PVE 运维管理。
 
 ## 订单与实例交付
 
@@ -388,9 +388,10 @@ all layers -> shared
 
 ## 支付与退款
 
-- 用户端支付只挂载 `/api/orders/{order_no}/payments` 和 `/api/payments/{payment_no}`；公开回调只挂载 `/api/payment-callbacks/alipay` 和 `/api/payment-callbacks/wechat`。
+- 用户端支付只挂载 `/api/orders/{order_no}/payments` 和 `/api/payments/{payment_no}`；用户端钱包只挂载 `/api/wallet/*`；公开回调只挂载 `/api/payment-callbacks/alipay` 和 `/api/payment-callbacks/wechat`。
 - 管理端支付只挂载 `/admin-api/payments/*` 和 `/admin-api/refunds/*`，并通过独立支付管理菜单开放。
-- 支付供应商允许值为 `alipay` 和 `wechat`；支付方式允许值为 `alipay_page`、`alipay_wap`、`wechat_native`、`wechat_h5`。
+- 管理端钱包只挂载 `/admin-api/wallets/*`、`/admin-api/wallet-ledger` 和 `/admin-api/wallet-recharges`，并通过只读钱包管理菜单开放。
+- 支付供应商允许值为 `alipay`、`wechat` 和 `wallet`；支付方式允许值为 `alipay_page`、`alipay_wap`、`wechat_native`、`wechat_h5` 和 `wallet_balance`。
 - 支付宝适配使用成熟 Go SDK `github.com/smartwalle/alipay/v3`；微信支付适配使用微信支付 API v3 官方 Go SDK `github.com/wechatpay-apiv3/wechatpay-go`。生产路径不得使用 mock adapter，自研签名和验签只允许出现在测试辅助中。
 - 支付交易状态包含 `pending`、`paid`、`closed`、`failed`、`refunded`；退款状态包含 `pending`、`succeeded`、`failed`。
 - 用户只能为自己的 `pending` 且 `payment_status=unpaid` 订单创建支付；支付金额必须等于订单应付金额，币种一期固定为 `CNY`。
@@ -401,8 +402,19 @@ all layers -> shared
 - 支付成功后在本地事务中锁定订单和支付交易：订单支付摘要更新为 `payment_status=paid`、`paid_at`、`payment_provider` 和 `payment_trade_no`；真实流水和回调摘要只写入支付表。
 - 新购支付成功后投递自动交付任务；续费支付成功后延长实例服务期并写入支付生效记录，记录续费前后 `expires_at`。
 - 一期只支持全额退款。新购已交付订单必须先释放实例后才能退款；续费退款必须先校验支付生效记录仍可扣回。
-- 退款采用“渠道成功后本地回滚”：先创建 `pending` 退款并调用渠道退款；渠道退款成功或查询确认后，再同事务扣回续费时间、更新退款/支付/订单状态和写审计。渠道失败不得扣用户服务期。
+- 支付宝/微信退款采用“渠道成功后本地回滚”：先创建 `pending` 退款并调用渠道退款；渠道退款成功或查询确认后，再同事务扣回续费时间、更新退款/支付/订单状态和写审计。渠道失败不得扣用户服务期。
+- 钱包余额支付的退款不调用外部渠道，必须同事务锁定钱包账户、退款、支付、订单和必要的实例/生效记录，把支付金额退回钱包余额并写入钱包流水；真实支付订单不允许退款到钱包余额。
 - 支付、退款、配置变更、渠道同步和自动交付失败重试必须写后台审计；任务 payload/result、审计和日志只保存摘要，不保存商户密钥、签名串、完整回调 payload 或完整上游响应。
+
+## 钱包
+
+- 钱包 v1 只支持用户充值、余额支付订单、余额支付退款退回钱包和管理端只读查看。
+- 钱包币种固定为 `CNY`，金额使用分为单位，不使用浮点数；钱包账户按用户和币种唯一，首次读取、充值或余额支付时懒创建。
+- 钱包当前余额以 `wallet_accounts.available_balance_cents` 为最终事实，`wallet_ledger_entries` 是追加式账本，不更新、不删除，用于审计和排查。
+- 用户充值通过支付宝/微信现有支付 adapter 创建上游交易；充值成功回调必须锁定充值记录和钱包账户，只允许 `pending -> paid` 入账一次，重复回调幂等跳过。
+- 余额支付必须锁定订单和钱包账户，校验订单 `pending`、`payment_status=unpaid`、钱包 `active` 且余额足够；扣款、写入 `payment_transactions`、写钱包流水和推进订单生效必须在同一事务内完成。
+- 余额支付成功的新购订单仍投递 `payment_order_provision`，续费订单仍复用当前续费生效规则并写支付生效记录。
+- 管理端钱包 v1 只读，不支持人工加款、扣款、冻结、提现、退款入钱包或余额转账。
 
 ## 实例
 
@@ -469,4 +481,4 @@ all layers -> shared
 
 - 通用 PVE 运维管理
 - 真实短信供应商集成
-- 钱包、余额、发票、JSAPI/openid、小程序支付、部分退款和自动对账批处理
+- 发票、JSAPI/openid、小程序支付、部分退款、提现、人工调账、余额转账和自动对账批处理

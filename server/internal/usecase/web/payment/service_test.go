@@ -141,6 +141,86 @@ func TestCallbackInvalidSignatureWritesAlertEvent(t *testing.T) {
 	}
 }
 
+func TestWalletBalancePaymentDebitsWalletAndMarksOrderPaid(t *testing.T) {
+	db := mysqltest.Open(t)
+	mysqltest.Exec(t, db, paymentSystemConfigsSchema, paymentOrdersSchema, paymentTransactionsSchema, paymentInstancesSchema, paymentAsyncTasksSchema, paymentEffectsSchema, paymentWalletAccountsSchema, paymentWalletLedgerSchema)
+	seedPaymentConfigs(t, db)
+	seedWalletPaymentConfig(t, db, true)
+	seedOrder(t, db, 66, "ORD-wallet-pay-1", domainorder.TypePurchase, nil, domainorder.StatusPending, domainorder.PaymentStatusUnpaid)
+	seedWalletPaymentAccount(t, db, 6601, "WAL-pay-1", 66, 5000)
+
+	service := NewService(db, config.InstanceLifecycleConfig{}, fakePaymentRegistry())
+	result, err := service.Create(context.Background(), 66, "ORD-wallet-pay-1", webdto.PaymentCreateRequest{Provider: domainpayment.ProviderWallet, Method: domainpayment.MethodWalletBalance, ClientToken: "wallet-pay-token"})
+	if err != nil {
+		t.Fatalf("create wallet payment: %v", err)
+	}
+	if result.Provider != domainpayment.ProviderWallet || result.Method != domainpayment.MethodWalletBalance || result.Status != domainpayment.StatusPaid {
+		t.Fatalf("wallet payment should return paid wallet transaction, got %#v", result)
+	}
+
+	var account struct {
+		Balance uint64 `gorm:"column:available_balance_cents"`
+		Spent   uint64 `gorm:"column:total_spent_cents"`
+	}
+	if err := db.Table("wallet_accounts").Select("available_balance_cents, total_spent_cents").Where("wallet_no = ?", "WAL-pay-1").Take(&account).Error; err != nil {
+		t.Fatalf("load wallet: %v", err)
+	}
+	if account.Balance != 2000 || account.Spent != 3000 {
+		t.Fatalf("wallet payment should debit once, got balance=%d spent=%d", account.Balance, account.Spent)
+	}
+
+	var order struct {
+		PaymentStatus string  `gorm:"column:payment_status"`
+		Provider      *string `gorm:"column:payment_provider"`
+	}
+	if err := db.Table("orders").Select("payment_status, payment_provider").Where("order_no = ?", "ORD-wallet-pay-1").Take(&order).Error; err != nil {
+		t.Fatalf("load order: %v", err)
+	}
+	if order.PaymentStatus != domainorder.PaymentStatusPaid || order.Provider == nil || *order.Provider != domainpayment.ProviderWallet {
+		t.Fatalf("wallet payment should mark order paid by wallet, got %#v", order)
+	}
+
+	var ledgerCount int64
+	if err := db.Table("wallet_ledger_entries").Where("wallet_no = ? AND entry_type = ?", "WAL-pay-1", "payment").Count(&ledgerCount).Error; err != nil {
+		t.Fatalf("count wallet ledger: %v", err)
+	}
+	if ledgerCount != 1 {
+		t.Fatalf("wallet payment should write one debit ledger, got %d", ledgerCount)
+	}
+}
+
+func TestWalletBalancePaymentRejectsInsufficientBalance(t *testing.T) {
+	db := mysqltest.Open(t)
+	mysqltest.Exec(t, db, paymentSystemConfigsSchema, paymentOrdersSchema, paymentTransactionsSchema, paymentInstancesSchema, paymentAsyncTasksSchema, paymentEffectsSchema, paymentWalletAccountsSchema, paymentWalletLedgerSchema)
+	seedPaymentConfigs(t, db)
+	seedWalletPaymentConfig(t, db, true)
+	seedOrder(t, db, 77, "ORD-wallet-insufficient-1", domainorder.TypePurchase, nil, domainorder.StatusPending, domainorder.PaymentStatusUnpaid)
+	seedWalletPaymentAccount(t, db, 7701, "WAL-insufficient-1", 77, 2999)
+
+	service := NewService(db, config.InstanceLifecycleConfig{}, fakePaymentRegistry())
+	_, err := service.Create(context.Background(), 77, "ORD-wallet-insufficient-1", webdto.PaymentCreateRequest{Provider: domainpayment.ProviderWallet, Method: domainpayment.MethodWalletBalance, ClientToken: "wallet-insufficient-token"})
+	if err == nil || !strings.Contains(err.Error(), "钱包余额不足") {
+		t.Fatalf("insufficient wallet balance should fail with conflict message, got %v", err)
+	}
+	var paymentCount int64
+	if err := db.Table("payment_transactions").Count(&paymentCount).Error; err != nil {
+		t.Fatalf("count payments: %v", err)
+	}
+	if paymentCount != 0 {
+		t.Fatalf("failed wallet payment should not create payment, got %d", paymentCount)
+	}
+	var account struct {
+		Balance uint64 `gorm:"column:available_balance_cents"`
+		Spent   uint64 `gorm:"column:total_spent_cents"`
+	}
+	if err := db.Table("wallet_accounts").Select("available_balance_cents, total_spent_cents").Where("wallet_no = ?", "WAL-insufficient-1").Take(&account).Error; err != nil {
+		t.Fatalf("load wallet: %v", err)
+	}
+	if account.Balance != 2999 || account.Spent != 0 {
+		t.Fatalf("failed wallet payment should not change balance, got balance=%d spent=%d", account.Balance, account.Spent)
+	}
+}
+
 func seedPaymentConfigs(t *testing.T, db *gorm.DB) {
 	if err := db.Exec(`INSERT INTO system_configs (config_key, config_value, value_type, group_name, is_secret) VALUES
 ('payment.enabled', 'true', 'bool', '支付设置', 0),
@@ -163,6 +243,24 @@ func seedPaymentConfigs(t *testing.T, db *gorm.DB) {
 ('payment.wechat.notify_url', 'https://example.com/api/payment-callbacks/wechat', 'string', '支付设置', 0),
 ('payment.wechat.h5_scene_info', '{"type":"Wap","app_name":"pveCloud","app_url":"https://example.com"}', 'string', '支付设置', 0)`).Error; err != nil {
 		t.Fatalf("seed payment configs: %v", err)
+	}
+}
+
+func seedWalletPaymentConfig(t *testing.T, db *gorm.DB, enabled bool) {
+	t.Helper()
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	if err := db.Exec(`INSERT INTO system_configs (config_key, config_value, value_type, group_name, is_secret) VALUES ('wallet.enabled', ?, 'bool', '钱包设置', 0)`, value).Error; err != nil {
+		t.Fatalf("seed wallet config: %v", err)
+	}
+}
+
+func seedWalletPaymentAccount(t *testing.T, db *gorm.DB, id uint64, walletNo string, userID uint64, balance uint64) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO wallet_accounts (id, wallet_no, user_id, currency, status, available_balance_cents) VALUES (?, ?, ?, 'CNY', 'active', ?)`, id, walletNo, userID, balance).Error; err != nil {
+		t.Fatalf("seed wallet account: %v", err)
 	}
 }
 
@@ -424,6 +522,45 @@ CREATE TABLE backend_runtime_logs (
   message VARCHAR(500) NOT NULL,
   detail TEXT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const paymentWalletAccountsSchema = `
+CREATE TABLE wallet_accounts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  wallet_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  currency VARCHAR(16) NOT NULL DEFAULT 'CNY',
+  status VARCHAR(32) NOT NULL DEFAULT 'active',
+  available_balance_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_recharged_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_spent_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  total_refunded_cents BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_wallet_accounts_wallet_no (wallet_no),
+  UNIQUE KEY uk_wallet_accounts_user_currency (user_id, currency)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const paymentWalletLedgerSchema = `
+CREATE TABLE wallet_ledger_entries (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  entry_no VARCHAR(64) NOT NULL,
+  wallet_id BIGINT UNSIGNED NOT NULL,
+  wallet_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  direction VARCHAR(16) NOT NULL,
+  entry_type VARCHAR(32) NOT NULL,
+  amount_cents BIGINT UNSIGNED NOT NULL,
+  balance_before_cents BIGINT UNSIGNED NOT NULL,
+  balance_after_cents BIGINT UNSIGNED NOT NULL,
+  currency VARCHAR(16) NOT NULL DEFAULT 'CNY',
+  related_type VARCHAR(32) NOT NULL,
+  related_no VARCHAR(64) NOT NULL,
+  idempotency_key VARCHAR(160) NOT NULL,
+  summary JSON NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_wallet_ledger_entries_entry_no (entry_no),
+  UNIQUE KEY uk_wallet_ledger_entries_idempotency (wallet_id, idempotency_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 func testPaymentAlertRecorder(db *gorm.DB) *paymentalert.Recorder {

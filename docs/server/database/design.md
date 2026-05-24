@@ -59,7 +59,7 @@ user_sessions
 user_password_reset_tokens
 ```
 
-`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、支付、续费订单、实例和工单，不开放钱包、发票或其它业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、支付、钱包、续费订单、实例和工单，不开放发票或其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
 
@@ -209,7 +209,7 @@ refund_transactions
 payment_effects
 ```
 
-`payment_transactions` 保存用户端为订单创建的真实支付交易。支付编号使用 `payment_no` 对外展示，不直接暴露自增 ID。供应商允许 `alipay` 和 `wechat`；方式允许 `alipay_page`、`alipay_wap`、`wechat_native`、`wechat_h5`。状态允许 `pending`、`paid`、`closed`、`failed`、`refunded`。金额字段使用分为单位，币种一期固定为 `CNY`。
+`payment_transactions` 保存用户端为订单创建的支付交易。支付编号使用 `payment_no` 对外展示，不直接暴露自增 ID。供应商允许 `alipay`、`wechat` 和 `wallet`；方式允许 `alipay_page`、`alipay_wap`、`wechat_native`、`wechat_h5` 和 `wallet_balance`。状态允许 `pending`、`paid`、`closed`、`failed`、`refunded`。金额字段使用分为单位，币种一期固定为 `CNY`。
 
 同一订单、供应商、方式和用户端 `client_token` 必须唯一，用于支付创建幂等。供应商交易号按 `provider + upstream_trade_no` 唯一；为空时允许多条未完成交易。支付记录可保存二维码 URL、跳转 URL、过期时间、支付完成时间、关闭时间、失败时间、渠道查询摘要和回调摘要；不得保存商户私钥、API v3 key、签名串、完整回调 payload 或完整上游响应。
 
@@ -217,7 +217,23 @@ payment_effects
 
 `payment_effects` 保存支付成功后的业务生效记录。新购支付记录关联后续交付出的实例编号；续费支付记录保存续费前 `before_expires_at` 和续费后 `after_expires_at`，用于审计和退款回滚。状态允许 `active` 和 `reverted`。同一支付最多一条生效记录；退款成功回滚后记录退款编号和 `reverted_at`。
 
-支付相关写入必须明确事务边界：本地支付状态、订单摘要、支付生效记录和任务投递使用本地事务；渠道下单、退款、主动查询和异步通知处理不得在长事务中保存完整上游响应。回调处理必须锁定支付和订单记录，按本地状态幂等推进。
+支付相关写入必须明确事务边界：本地支付状态、订单摘要、支付生效记录和任务投递使用本地事务；渠道下单、退款、主动查询和异步通知处理不得在长事务中保存完整上游响应。回调处理必须锁定支付和订单记录，按本地状态幂等推进。钱包余额支付不调用外部渠道，必须同事务锁定订单和钱包账户完成扣款、支付交易、生效记录和钱包流水写入。
+
+### 钱包
+
+```text
+wallet_accounts
+wallet_ledger_entries
+wallet_recharges
+```
+
+`wallet_accounts` 保存用户钱包账户当前余额。钱包编号使用 `wallet_no` 对外展示，不直接暴露自增 ID。钱包按 `user_id + currency` 唯一，v1 币种固定为 `CNY`，状态允许 `active` 和 `disabled`。当前余额使用 `available_balance_cents`，累计充值、消费和退回钱包金额分别保存在统计字段中，全部使用分为单位。
+
+`wallet_ledger_entries` 保存钱包余额变动流水。流水是追加式账本，不更新、不删除。方向允许 `credit` 和 `debit`，类型允许 `recharge`、`payment` 和 `refund`。每条流水必须保存变动金额、变动前余额、变动后余额、关联对象类型/编号和幂等键；同一钱包下同一幂等键只能写入一次，防止重复回调、重复余额支付或重复退款导致余额重复变化。
+
+`wallet_recharges` 保存钱包充值记录。充值编号使用 `recharge_no` 对外展示。充值只允许通过 `alipay` 或 `wechat` 创建上游交易，方式允许 `alipay_page`、`alipay_wap`、`wechat_native` 和 `wechat_h5`。状态允许 `pending`、`paid`、`closed`、`failed`。同一钱包、供应商、方式和用户端 `client_token` 必须唯一；供应商交易号按 `provider + upstream_trade_no` 唯一。
+
+钱包充值回调必须锁定充值记录和钱包账户，只有 `pending` 充值可以推进为 `paid` 并入账；重复回调不得重复写流水或重复增加余额。余额支付必须锁定订单和钱包账户，只有订单 `status=pending` 且 `payment_status=unpaid`、钱包 `status=active` 且余额充足时才能扣款。余额支付退款必须锁定退款、支付、订单、钱包账户和必要的支付生效记录，退回钱包余额后写入 `refund` 类型流水。
 
 ### 实例交付
 
@@ -384,7 +400,7 @@ ticket_events
 
 ## 当前阶段说明
 
-当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单、续费订单、实例、异步任务、通知和工单阶段。
+当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单、支付、钱包、续费订单、实例、异步任务、通知和工单阶段。
 数据库契约保留以下管理域：
 
 - 认证
@@ -396,6 +412,8 @@ ticket_events
 - 用户实名
 - 服务器产品目录
 - 订单
+- 支付
+- 钱包
 - 实例
 - 异步任务
 - 通知
@@ -403,7 +421,7 @@ ticket_events
 
 以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
 
-- 支付与钱包
+- 发票
 
 ## 关键唯一约束示例
 
@@ -522,5 +540,5 @@ Web 用户管理需要新增以下管理端权限目录：
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放、真实支付一期和异步任务为现行数据库契约，不以通用 PVE 运维管理、钱包、发票或部分退款为现行数据库契约
+- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放、真实支付一期、钱包 v1 和异步任务为现行数据库契约，不以通用 PVE 运维管理、发票、提现、人工调账、余额转账或部分退款为现行数据库契约
 - 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

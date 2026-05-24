@@ -4,11 +4,13 @@ package payment
 const (
 	ProviderAlipay = "alipay"
 	ProviderWechat = "wechat"
+	ProviderWallet = "wallet"
 
-	MethodAlipayPage   = "alipay_page"
-	MethodAlipayWap    = "alipay_wap"
-	MethodWechatNative = "wechat_native"
-	MethodWechatH5     = "wechat_h5"
+	MethodAlipayPage    = "alipay_page"
+	MethodAlipayWap     = "alipay_wap"
+	MethodWechatNative  = "wechat_native"
+	MethodWechatH5      = "wechat_h5"
+	MethodWalletBalance = "wallet_balance"
 
 	StatusPending  = "pending"
 	StatusPaid     = "paid"
@@ -29,7 +31,7 @@ const (
 
 func IsKnownProvider(provider string) bool {
 	switch provider {
-	case ProviderAlipay, ProviderWechat:
+	case ProviderAlipay, ProviderWechat, ProviderWallet:
 		return true
 	default:
 		return false
@@ -38,7 +40,7 @@ func IsKnownProvider(provider string) bool {
 
 func IsKnownMethod(method string) bool {
 	switch method {
-	case MethodAlipayPage, MethodAlipayWap, MethodWechatNative, MethodWechatH5:
+	case MethodAlipayPage, MethodAlipayWap, MethodWechatNative, MethodWechatH5, MethodWalletBalance:
 		return true
 	default:
 		return false
@@ -51,6 +53,8 @@ func ProviderSupportsMethod(provider, method string) bool {
 		return method == MethodAlipayPage || method == MethodAlipayWap
 	case ProviderWechat:
 		return method == MethodWechatNative || method == MethodWechatH5
+	case ProviderWallet:
+		return method == MethodWalletBalance
 	default:
 		return false
 	}

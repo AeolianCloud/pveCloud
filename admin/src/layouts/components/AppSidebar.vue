@@ -14,6 +14,7 @@ import {
   SettingsOutline,
   ShieldCheckmarkOutline,
   SpeedometerOutline,
+  WalletOutline,
 } from '@vicons/ionicons5'
 import { NIcon, NMenu, type MenuOption } from 'naive-ui'
 import { computed, h } from 'vue'
@@ -41,6 +42,7 @@ const iconMap: Record<string, any> = {
   Checked: ShieldCheckmarkOutline,
   Chatbubbles: ChatbubblesOutline,
   Tickets: ReceiptOutline,
+  Wallet: WalletOutline,
   Server: ServerOutline,
   Document: DocumentTextOutline,
   DocumentText: DocumentTextOutline,

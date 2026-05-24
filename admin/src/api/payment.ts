@@ -2,8 +2,8 @@ import { http, type ApiEnvelope } from '../utils/request'
 import type { PaginatedData } from './admin-user'
 import type { OrderUserSummary } from './order'
 
-export type PaymentProvider = 'alipay' | 'wechat'
-export type PaymentMethod = 'alipay_page' | 'alipay_wap' | 'wechat_native' | 'wechat_h5'
+export type PaymentProvider = 'alipay' | 'wechat' | 'wallet'
+export type PaymentMethod = 'alipay_page' | 'alipay_wap' | 'wechat_native' | 'wechat_h5' | 'wallet_balance'
 export type PaymentStatus = 'pending' | 'paid' | 'closed' | 'failed' | 'refunded'
 export type RefundStatus = 'pending' | 'succeeded' | 'failed'
 

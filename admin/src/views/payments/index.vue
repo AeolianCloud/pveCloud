@@ -81,6 +81,7 @@ const canRetryProvision = computed(() => hasPermissionCode(permissionStore.permi
 const providerOptions = [
   { label: '支付宝', value: 'alipay' },
   { label: '微信支付', value: 'wechat' },
+  { label: '钱包余额', value: 'wallet' },
 ]
 
 const methodOptions = [
@@ -88,6 +89,7 @@ const methodOptions = [
   { label: '支付宝手机网页', value: 'alipay_wap' },
   { label: '微信 Native 扫码', value: 'wechat_native' },
   { label: '微信 H5', value: 'wechat_h5' },
+  { label: '钱包余额', value: 'wallet_balance' },
 ]
 
 const paymentStatusOptions = [
@@ -104,12 +106,13 @@ const refundStatusOptions = [
   { label: '失败', value: 'failed' },
 ]
 
-const providerText: Record<string, string> = { alipay: '支付宝', wechat: '微信支付' }
+const providerText: Record<string, string> = { alipay: '支付宝', wechat: '微信支付', wallet: '钱包余额' }
 const methodText: Record<string, string> = {
   alipay_page: '支付宝电脑网页',
   alipay_wap: '支付宝手机网页',
   wechat_native: '微信 Native 扫码',
   wechat_h5: '微信 H5',
+  wallet_balance: '钱包余额',
 }
 const paymentStatusText: Record<string, string> = { pending: '待支付', paid: '已支付', closed: '已关闭', failed: '失败', refunded: '已退款' }
 const refundStatusText: Record<string, string> = { pending: '处理中', succeeded: '已成功', failed: '失败' }

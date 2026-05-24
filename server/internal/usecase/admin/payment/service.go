@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,11 +13,13 @@ import (
 	domaininstance "github.com/AeolianCloud/pveCloud/server/internal/domain/instance"
 	domainorder "github.com/AeolianCloud/pveCloud/server/internal/domain/order"
 	domainpayment "github.com/AeolianCloud/pveCloud/server/internal/domain/payment"
+	domainwallet "github.com/AeolianCloud/pveCloud/server/internal/domain/wallet"
 	integrationpayment "github.com/AeolianCloud/pveCloud/server/internal/integration/payment"
 	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
 	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqlpayment "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/payment"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
+	mysqlwallet "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/wallet"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	adminaudit "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/audit"
 	admindto "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/dto"
@@ -32,6 +35,7 @@ type Service struct {
 	db        *gorm.DB
 	orders    *mysqlorder.Repository
 	payments  *mysqlpayment.Repository
+	wallets   *mysqlwallet.Repository
 	instances *mysqlinstance.Repository
 	web       *webpayment.Service
 	audit     *AdminAuditService
@@ -47,7 +51,7 @@ func NewService(db *gorm.DB, web *webpayment.Service, audit *AdminAuditService, 
 	if len(registries) > 0 && registries[0] != nil {
 		registry = registries[0]
 	}
-	return &Service{db: db, orders: mysqlorder.NewRepository(db), payments: mysqlpayment.NewRepository(db), instances: mysqlinstance.NewRepository(db), web: web, audit: audit, adapters: registry}
+	return &Service{db: db, orders: mysqlorder.NewRepository(db), payments: mysqlpayment.NewRepository(db), wallets: mysqlwallet.NewRepository(db), instances: mysqlinstance.NewRepository(db), web: web, audit: audit, adapters: registry}
 }
 
 func (s *Service) SetAlertRecorder(alerts *paymentalert.Recorder) *Service {
@@ -151,11 +155,29 @@ func (s *Service) CreateRefund(ctx context.Context, operatorID uint64, paymentNo
 		if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: "payment.refund.create", ObjectType: "refund", ObjectID: refund.RefundNo, AfterData: map[string]any{"payment_no": payment.PaymentNo, "order_no": payment.OrderNo, "amount_cents": payment.AmountCents}, Remark: req.Reason}); err != nil {
 			return err
 		}
+		if payment.Provider == domainpayment.ProviderWallet {
+			if err := s.creditWalletRefund(ctx, tx, payment, refund); err != nil {
+				return err
+			}
+			if err := s.completeRefund(ctx, tx, order, payment, refund); err != nil {
+				return err
+			}
+			if err := s.audit.Record(ctx, tx, AdminAuditWriteInput{AdminID: &operatorID, Action: "payment.refund.succeeded", ObjectType: "refund", ObjectID: refund.RefundNo, AfterData: map[string]any{"payment_no": payment.PaymentNo, "order_no": payment.OrderNo, "amount_cents": payment.AmountCents}, Remark: req.Reason}); err != nil {
+				return err
+			}
+			now := time.Now().Truncate(time.Millisecond)
+			refund.Status = domainpayment.RefundStatusSucceeded
+			refund.ChannelConfirmedAt = &now
+			refund.CompletedAt = &now
+		}
 		created = refund
 		return nil
 	})
 	if err != nil {
 		return admindto.RefundItem{}, err
+	}
+	if created.Provider == domainpayment.ProviderWallet {
+		return refundItem(mysqlpayment.RefundRow{RefundTransaction: created}), nil
 	}
 	result, err := s.createChannelRefund(ctx, created)
 	if err != nil {
@@ -274,6 +296,27 @@ func (s *Service) completeRefund(ctx context.Context, tx *gorm.DB, order mysqlor
 	return s.orders.Update(ctx, tx, order.ID, map[string]any{"status": domainorder.StatusClosed, "payment_status": domainorder.PaymentStatusRefunded, "closed_at": now})
 }
 
+func (s *Service) creditWalletRefund(ctx context.Context, tx *gorm.DB, payment mysqlpayment.PaymentTransaction, refund mysqlpayment.RefundTransaction) error {
+	account, err := s.wallets.AccountByUserCurrencyForUpdate(ctx, tx, payment.UserID, domainwallet.CurrencyCNY)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return apperrors.ErrConflict.WithMessage("钱包账户不存在，无法完成余额退款")
+	}
+	if err != nil {
+		return err
+	}
+	if account.Status != domainwallet.AccountStatusActive {
+		return apperrors.ErrConflict.WithMessage("钱包不可用，无法完成余额退款")
+	}
+	before := account.AvailableBalanceCents
+	after := before + refund.AmountCents
+	if err := s.wallets.UpdateAccount(ctx, tx, account.ID, map[string]any{"available_balance_cents": after, "total_refunded_cents": account.TotalRefundedCents + refund.AmountCents}); err != nil {
+		return err
+	}
+	summary := walletLedgerSummary(map[string]any{"payment_no": payment.PaymentNo, "refund_no": refund.RefundNo, "order_no": payment.OrderNo})
+	entry := mysqlwallet.LedgerEntry{EntryNo: fmt.Sprintf("WLE-%d", time.Now().UnixNano()), WalletID: account.ID, WalletNo: account.WalletNo, UserID: payment.UserID, Direction: domainwallet.DirectionCredit, EntryType: domainwallet.EntryTypeRefund, AmountCents: refund.AmountCents, BalanceBeforeCents: before, BalanceAfterCents: after, Currency: account.Currency, RelatedType: domainwallet.RelatedTypeRefund, RelatedNo: refund.RefundNo, IdempotencyKey: "refund:" + refund.RefundNo, Summary: &summary}
+	return s.wallets.CreateLedgerEntry(ctx, tx, &entry)
+}
+
 func paymentItem(row mysqlpayment.PaymentRow) admindto.PaymentItem {
 	return admindto.PaymentItem{PaymentNo: row.PaymentNo, OrderNo: row.OrderNo, User: admindto.OrderUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Provider: row.Provider, Method: row.Method, Status: row.Status, AmountCents: row.AmountCents, Currency: row.Currency, ExpiresAt: row.ExpiresAt, PaidAt: row.PaidAt, CreatedAt: row.CreatedAt, OrderStatus: row.OrderStatus, OrderType: row.OrderType}
 }
@@ -334,6 +377,11 @@ func truncateString(value string, max int) string {
 		return value
 	}
 	return value[:max]
+}
+
+func walletLedgerSummary(values map[string]any) string {
+	data, _ := json.Marshal(values)
+	return string(data)
 }
 
 func (s *Service) recordAlert(ctx context.Context, event paymentalert.Event) {

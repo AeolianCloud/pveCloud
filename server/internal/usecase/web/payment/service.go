@@ -10,30 +10,36 @@ import (
 	"strings"
 	"time"
 
+	mysqlerr "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	domaininstance "github.com/AeolianCloud/pveCloud/server/internal/domain/instance"
 	domainorder "github.com/AeolianCloud/pveCloud/server/internal/domain/order"
 	domainpayment "github.com/AeolianCloud/pveCloud/server/internal/domain/payment"
+	domainwallet "github.com/AeolianCloud/pveCloud/server/internal/domain/wallet"
 	integrationpayment "github.com/AeolianCloud/pveCloud/server/internal/integration/payment"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
 	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
 	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqlpayment "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/payment"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
+	mysqlwallet "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/wallet"
 	apperrors "github.com/AeolianCloud/pveCloud/server/internal/shared/errors"
 	"github.com/AeolianCloud/pveCloud/server/internal/usecase/paymentalert"
 	webdto "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/dto"
+	webwallet "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/wallet"
 )
 
 type Service struct {
 	db        *gorm.DB
 	orders    *mysqlorder.Repository
 	payments  *mysqlpayment.Repository
+	wallets   *mysqlwallet.Repository
 	instances *mysqlinstance.Repository
 	lifecycle config.InstanceLifecycleConfig
 	adapters  integrationpayment.Registry
 	alerts    *paymentalert.Recorder
+	wallet    *webwallet.Service
 }
 
 func NewService(db *gorm.DB, lifecycle config.InstanceLifecycleConfig, registries ...integrationpayment.Registry) *Service {
@@ -41,11 +47,16 @@ func NewService(db *gorm.DB, lifecycle config.InstanceLifecycleConfig, registrie
 	if len(registries) > 0 && registries[0] != nil {
 		registry = registries[0]
 	}
-	return &Service{db: db, orders: mysqlorder.NewRepository(db), payments: mysqlpayment.NewRepository(db), instances: mysqlinstance.NewRepository(db), lifecycle: lifecycle, adapters: registry}
+	return &Service{db: db, orders: mysqlorder.NewRepository(db), payments: mysqlpayment.NewRepository(db), wallets: mysqlwallet.NewRepository(db), instances: mysqlinstance.NewRepository(db), lifecycle: lifecycle, adapters: registry}
 }
 
 func (s *Service) SetAlertRecorder(alerts *paymentalert.Recorder) *Service {
 	s.alerts = alerts
+	return s
+}
+
+func (s *Service) SetWalletService(wallet *webwallet.Service) *Service {
+	s.wallet = wallet
 	return s
 }
 
@@ -55,6 +66,9 @@ func (s *Service) Create(ctx context.Context, userID uint64, orderNo string, req
 	clientToken := strings.TrimSpace(req.ClientToken)
 	if !domainpayment.ProviderSupportsMethod(provider, method) {
 		return webdto.PaymentStatus{}, apperrors.ErrValidation.WithMessage("支付方式与供应商不匹配")
+	}
+	if provider == domainpayment.ProviderWallet {
+		return s.createWalletPayment(ctx, userID, orderNo, provider, method, clientToken)
 	}
 	paymentConfig, err := s.paymentConfig(ctx)
 	if err != nil {
@@ -174,6 +188,9 @@ func (s *Service) HandleCallback(ctx context.Context, provider string, httpReq *
 	return mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
 		payment, err := s.callbackPayment(ctx, tx, provider, req)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if s.wallet != nil {
+				return s.wallet.ApplyRechargeNotification(ctx, tx, req)
+			}
 			return apperrors.ErrNotFound.WithMessage("支付不存在")
 		}
 		if err != nil {
@@ -193,6 +210,86 @@ func (s *Service) HandleCallback(ctx context.Context, provider string, httpReq *
 		}
 		return s.applyPaid(ctx, tx, payment, req)
 	})
+}
+
+func (s *Service) createWalletPayment(ctx context.Context, userID uint64, orderNo string, provider string, method string, clientToken string) (webdto.PaymentStatus, error) {
+	if method != domainpayment.MethodWalletBalance {
+		return webdto.PaymentStatus{}, apperrors.ErrValidation.WithMessage("支付方式与供应商不匹配")
+	}
+	if !s.walletEnabled(ctx) {
+		return webdto.PaymentStatus{}, apperrors.ErrConflict.WithMessage("钱包未启用")
+	}
+	order, err := s.orders.UserOrder(ctx, userID, strings.TrimSpace(orderNo))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return webdto.PaymentStatus{}, apperrors.ErrNotFound.WithMessage("订单不存在")
+	}
+	if err != nil {
+		return webdto.PaymentStatus{}, err
+	}
+	if existing, err := s.payments.PaymentByIdempotency(ctx, order.ID, provider, method, clientToken); err == nil {
+		return s.statusFromPayment(ctx, existing)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return webdto.PaymentStatus{}, err
+	}
+	var created mysqlpayment.PaymentTransaction
+	err = mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
+		lockedOrder, err := s.orders.OrderForUpdate(ctx, tx, order.OrderNo)
+		if err != nil {
+			return err
+		}
+		if lockedOrder.UserID != userID {
+			return apperrors.ErrNotFound.WithMessage("订单不存在")
+		}
+		if existing, err := s.payments.PaymentByIdempotency(ctx, lockedOrder.ID, provider, method, clientToken); err == nil {
+			created = existing
+			return nil
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if lockedOrder.Status != domainorder.StatusPending || lockedOrder.PaymentStatus != domainorder.PaymentStatusUnpaid {
+			return apperrors.ErrConflict.WithMessage("当前订单不可支付")
+		}
+		account, err := s.ensureWalletAccountForUpdate(ctx, tx, userID)
+		if err != nil {
+			return err
+		}
+		if account.Status != domainwallet.AccountStatusActive {
+			return apperrors.ErrConflict.WithMessage("钱包不可用")
+		}
+		if account.AvailableBalanceCents < lockedOrder.TotalAmountCents {
+			return apperrors.ErrConflict.WithMessage("钱包余额不足")
+		}
+		now := time.Now().Truncate(time.Millisecond)
+		payment := mysqlpayment.PaymentTransaction{PaymentNo: fmt.Sprintf("PAY-%d", time.Now().UnixNano()), OrderID: lockedOrder.ID, OrderNo: lockedOrder.OrderNo, UserID: userID, Provider: provider, Method: method, Status: domainpayment.StatusPending, ClientToken: clientToken, AmountCents: lockedOrder.TotalAmountCents, Currency: lockedOrder.Currency, ExpiresAt: now, PaidAt: &now}
+		if err := s.payments.CreatePayment(ctx, tx, &payment); err != nil {
+			return err
+		}
+		before := account.AvailableBalanceCents
+		after := before - lockedOrder.TotalAmountCents
+		if err := s.wallets.UpdateAccount(ctx, tx, account.ID, map[string]any{"available_balance_cents": after, "total_spent_cents": account.TotalSpentCents + lockedOrder.TotalAmountCents}); err != nil {
+			return err
+		}
+		summary := walletLedgerSummary(map[string]any{"payment_no": payment.PaymentNo, "order_no": lockedOrder.OrderNo})
+		entry := mysqlwallet.LedgerEntry{EntryNo: fmt.Sprintf("WLE-%d", time.Now().UnixNano()), WalletID: account.ID, WalletNo: account.WalletNo, UserID: userID, Direction: domainwallet.DirectionDebit, EntryType: domainwallet.EntryTypePayment, AmountCents: lockedOrder.TotalAmountCents, BalanceBeforeCents: before, BalanceAfterCents: after, Currency: account.Currency, RelatedType: domainwallet.RelatedTypePayment, RelatedNo: payment.PaymentNo, IdempotencyKey: "payment:" + payment.PaymentNo, Summary: &summary}
+		if err := s.wallets.CreateLedgerEntry(ctx, tx, &entry); err != nil {
+			return err
+		}
+		// 钱包余额支付没有外部回调，扣款、支付状态和订单生效必须在同一事务里原子推进。
+		if err := s.applyPaid(ctx, tx, payment, webdto.PaymentCallbackRequest{PaymentNo: payment.PaymentNo, Provider: provider, AmountCents: payment.AmountCents, Status: domainpayment.StatusPaid, Summary: summary}); err != nil {
+			return err
+		}
+		payment.Status = domainpayment.StatusPaid
+		payment.PaidAt = &now
+		created = payment
+		return nil
+	})
+	if err != nil {
+		if existing, findErr := s.payments.PaymentByIdempotency(ctx, order.ID, provider, method, clientToken); findErr == nil {
+			return s.statusFromPayment(ctx, existing)
+		}
+		return webdto.PaymentStatus{}, err
+	}
+	return s.statusFromPayment(ctx, created)
 }
 
 func (s *Service) ApplyPaidForAdmin(ctx context.Context, paymentNo string) error {
@@ -379,6 +476,41 @@ func (s *Service) paymentConfig(ctx context.Context) (configSnapshot, error) {
 	return configSnapshot{enabled: values["payment.enabled"] == "true", expireMinutes: expireMinutes, alipayEnabled: values["payment.alipay.enabled"] == "true", wechatEnabled: values["payment.wechat.enabled"] == "true", values: values}, nil
 }
 
+func (s *Service) walletEnabled(ctx context.Context) bool {
+	var row struct {
+		ConfigValue *string `gorm:"column:config_value"`
+	}
+	if err := s.db.WithContext(ctx).Table("system_configs").Select("config_value").Where("config_key = ?", "wallet.enabled").Take(&row).Error; err != nil {
+		return false
+	}
+	return valueOf(row.ConfigValue) == "true"
+}
+
+func (s *Service) ensureWalletAccountForUpdate(ctx context.Context, tx *gorm.DB, userID uint64) (mysqlwallet.Account, error) {
+	account, err := s.wallets.AccountByUserCurrencyForUpdate(ctx, tx, userID, domainwallet.CurrencyCNY)
+	if err == nil {
+		return account, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return mysqlwallet.Account{}, err
+	}
+	account = mysqlwallet.Account{WalletNo: fmt.Sprintf("WAL-%d", time.Now().UnixNano()), UserID: userID, Currency: domainwallet.CurrencyCNY, Status: domainwallet.AccountStatusActive}
+	if err := s.wallets.CreateAccount(ctx, tx, &account); err != nil {
+		// 钱包账户按 user_id+currency 唯一。并发首次余额支付时，另一个事务可能已先创建账户；
+		// 这里回查并继续加锁，避免把可恢复的唯一键冲突暴露成支付失败。
+		if isDuplicate(err) {
+			return s.wallets.AccountByUserCurrencyForUpdate(ctx, tx, userID, domainwallet.CurrencyCNY)
+		}
+		return mysqlwallet.Account{}, err
+	}
+	return account, nil
+}
+
+func walletLedgerSummary(values map[string]any) string {
+	data, _ := json.Marshal(values)
+	return string(data)
+}
+
 func callbackSummary(req webdto.PaymentCallbackRequest) string {
 	if strings.TrimSpace(req.Summary) != "" {
 		return req.Summary
@@ -467,4 +599,9 @@ func (s *Service) recordAlert(ctx context.Context, event paymentalert.Event) {
 	if s.alerts != nil {
 		s.alerts.Record(ctx, event)
 	}
+}
+
+func isDuplicate(err error) bool {
+	var mysqlErr *mysqlerr.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }

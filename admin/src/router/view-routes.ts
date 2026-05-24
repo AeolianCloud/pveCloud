@@ -208,6 +208,17 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.wallets,
+    name: ADMIN_ROUTE_NAME.wallets,
+    component: () => import('../views/wallets/index.vue'),
+    meta: {
+      title: '钱包管理',
+      icon: 'Wallet',
+      requiresAuth: true,
+      permission: ['page.wallets'],
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.instances,
     name: ADMIN_ROUTE_NAME.instances,
     component: () => import('../views/instances/index.vue'),
