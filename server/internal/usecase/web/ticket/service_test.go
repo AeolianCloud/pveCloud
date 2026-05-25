@@ -57,6 +57,148 @@ func TestReplyRejectsClosedTicketWithoutWritingMessage(t *testing.T) {
 	}
 }
 
+func TestCreateLinksOwnOrderWithoutInstance(t *testing.T) {
+	db := openWebTicketDB(t)
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	seedWebTicketOrder(t, db, 200, 11, "ORD-USER-ONLY")
+
+	service := NewService(db, storageConfigForTicketTest(t))
+	detail, err := service.Create(context.Background(), 11, webdto.TicketCreateRequest{
+		Title:    "Order question",
+		Category: "order",
+		Priority: "normal",
+		Content:  "Please help check this order.",
+		OrderNo:  "ORD-USER-ONLY",
+	}, nil)
+	if err != nil {
+		t.Fatalf("create order-linked ticket: %v", err)
+	}
+	if detail.OrderNo == nil || *detail.OrderNo != "ORD-USER-ONLY" || detail.InstanceNo != nil {
+		t.Fatalf("ticket should keep order-only link, got order=%v instance=%v", detail.OrderNo, detail.InstanceNo)
+	}
+
+	var row struct {
+		OrderID    *uint64
+		InstanceID *uint64
+	}
+	if err := db.Table("tickets").Select("order_id, instance_id").Where("ticket_no = ?", detail.TicketNo).Take(&row).Error; err != nil {
+		t.Fatalf("load order-linked ticket: %v", err)
+	}
+	if row.OrderID == nil || *row.OrderID != 200 || row.InstanceID != nil {
+		t.Fatalf("ticket should persist only order id, got %#v", row)
+	}
+}
+
+func TestCreateLinksOwnInstanceAndBackfillsOrder(t *testing.T) {
+	db := openWebTicketDB(t)
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	seedWebTicketOrder(t, db, 201, 11, "ORD-USER-1")
+	seedWebTicketInstance(t, db, 301, 11, 201, "ORD-USER-1", "INS-USER-1")
+
+	service := NewService(db, storageConfigForTicketTest(t))
+	detail, err := service.Create(context.Background(), 11, webdto.TicketCreateRequest{
+		Title:      "Instance unreachable",
+		Category:   "technical",
+		Priority:   "normal",
+		Content:    "Please help check my instance.",
+		InstanceNo: "INS-USER-1",
+	}, nil)
+	if err != nil {
+		t.Fatalf("create linked ticket: %v", err)
+	}
+	if detail.OrderNo == nil || *detail.OrderNo != "ORD-USER-1" || detail.InstanceNo == nil || *detail.InstanceNo != "INS-USER-1" {
+		t.Fatalf("ticket should expose linked order and instance, got order=%v instance=%v", detail.OrderNo, detail.InstanceNo)
+	}
+
+	var row struct {
+		OrderID    *uint64
+		OrderNo    *string
+		InstanceID *uint64
+		InstanceNo *string
+	}
+	if err := db.Table("tickets").Select("order_id, order_no, instance_id, instance_no").Where("ticket_no = ?", detail.TicketNo).Take(&row).Error; err != nil {
+		t.Fatalf("load created ticket link: %v", err)
+	}
+	if row.OrderID == nil || *row.OrderID != 201 || row.InstanceID == nil || *row.InstanceID != 301 {
+		t.Fatalf("ticket should persist server-resolved link ids, got %#v", row)
+	}
+}
+
+func TestCreateRejectsOtherUserInstance(t *testing.T) {
+	db := openWebTicketDB(t)
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	seedWebTicketUser(t, db, 12, "other-user", "other@example.com")
+	seedWebTicketOrder(t, db, 202, 12, "ORD-OTHER-1")
+	seedWebTicketInstance(t, db, 302, 12, 202, "ORD-OTHER-1", "INS-OTHER-1")
+
+	service := NewService(db, storageConfigForTicketTest(t))
+	_, err := service.Create(context.Background(), 11, webdto.TicketCreateRequest{
+		Title:      "Cross user instance",
+		Category:   "technical",
+		Priority:   "normal",
+		Content:    "This should be rejected.",
+		InstanceNo: "INS-OTHER-1",
+	}, nil)
+	if apperrors.From(err).Code != apperrors.ErrNotFound.Code {
+		t.Fatalf("cross-user instance should be hidden as not found, got %v", err)
+	}
+
+	var ticketCount int64
+	if err := db.Table("tickets").Count(&ticketCount).Error; err != nil {
+		t.Fatalf("count tickets: %v", err)
+	}
+	if ticketCount != 0 {
+		t.Fatalf("rejected ticket creation must not write tickets, got %d", ticketCount)
+	}
+}
+
+func TestCreateRejectsMismatchedOrderAndInstance(t *testing.T) {
+	db := openWebTicketDB(t)
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	seedWebTicketOrder(t, db, 203, 11, "ORD-USER-1")
+	seedWebTicketOrder(t, db, 204, 11, "ORD-USER-2")
+	seedWebTicketInstance(t, db, 303, 11, 204, "ORD-USER-2", "INS-USER-2")
+
+	service := NewService(db, storageConfigForTicketTest(t))
+	_, err := service.Create(context.Background(), 11, webdto.TicketCreateRequest{
+		Title:      "Mismatched link",
+		Category:   "technical",
+		Priority:   "normal",
+		Content:    "Order and instance do not match.",
+		OrderNo:    "ORD-USER-1",
+		InstanceNo: "INS-USER-2",
+	}, nil)
+	if apperrors.From(err).Code != apperrors.ErrValidation.Code {
+		t.Fatalf("mismatched order and instance should be validation error, got %v", err)
+	}
+}
+
+func TestListFiltersByInstanceNo(t *testing.T) {
+	db := openWebTicketDB(t)
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	instanceNo := "INS-FILTER-1"
+	if err := db.Exec(`
+INSERT INTO tickets (
+  id, ticket_no, user_id, category, priority, title, status, instance_no,
+  last_message_at, last_user_message_at
+) VALUES
+  (401, 'TIC-MATCH', 11, 'technical', 'normal', 'Match', ?, ?, CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3)),
+  (402, 'TIC-OTHER', 11, 'technical', 'normal', 'Other', ?, 'INS-FILTER-2', CURRENT_TIMESTAMP(3), CURRENT_TIMESTAMP(3))`,
+		domainticket.StatusWaitingAdmin, instanceNo, domainticket.StatusWaitingAdmin,
+	).Error; err != nil {
+		t.Fatalf("insert filtered tickets: %v", err)
+	}
+
+	service := NewService(db, storageConfigForTicketTest(t))
+	page, err := service.List(context.Background(), 11, webdto.TicketListQuery{InstanceNo: instanceNo})
+	if err != nil {
+		t.Fatalf("list tickets by instance: %v", err)
+	}
+	if page.Total != 1 || len(page.List) != 1 || page.List[0].TicketNo != "TIC-MATCH" || page.List[0].InstanceNo == nil || *page.List[0].InstanceNo != instanceNo {
+		t.Fatalf("unexpected filtered result: %#v", page)
+	}
+}
+
 func storageConfigForTicketTest(t *testing.T) config.StorageConfig {
 	t.Helper()
 	return config.StorageConfig{Driver: "local", LocalPath: t.TempDir(), MaxSize: 1024 * 1024, AllowedTypes: []string{"text/plain"}}
@@ -68,6 +210,8 @@ func openWebTicketDB(t *testing.T) *gorm.DB {
 	mysqltest.Exec(t, db,
 		webTicketUsersSchema,
 		webTicketAdminUsersSchema,
+		webTicketOrdersSchema,
+		webTicketInstancesSchema,
 		webTicketTicketsSchema,
 		webTicketMessagesSchema,
 		webTicketFileAttachmentsSchema,
@@ -81,12 +225,8 @@ func openWebTicketDB(t *testing.T) *gorm.DB {
 
 func seedWebTicket(t *testing.T, db *gorm.DB, status string) {
 	t.Helper()
-	if err := db.Exec(`INSERT INTO users (id, username, email, password_hash, status) VALUES (?, ?, ?, ?, ?)`, 11, "ticket-user", "ticket@example.com", "hash", "active").Error; err != nil {
-		t.Fatalf("insert user: %v", err)
-	}
-	if err := db.Exec(`INSERT INTO users (id, username, email, password_hash, status) VALUES (?, ?, ?, ?, ?)`, 12, "other-user", "other@example.com", "hash", "active").Error; err != nil {
-		t.Fatalf("insert other user: %v", err)
-	}
+	seedWebTicketUser(t, db, 11, "ticket-user", "ticket@example.com")
+	seedWebTicketUser(t, db, 12, "other-user", "other@example.com")
 	if err := db.Exec(`INSERT INTO admin_users (id, username, email, display_name, password_hash, status) VALUES (?, ?, ?, ?, ?, ?)`, 21, "admin", "admin@example.com", "Admin", "hash", "active").Error; err != nil {
 		t.Fatalf("insert admin user: %v", err)
 	}
@@ -105,6 +245,27 @@ INSERT INTO tickets (
 	}
 	if err := db.Exec(`INSERT INTO ticket_tag_bindings (ticket_id, tag_id) VALUES (100, 300), (100, 301)`).Error; err != nil {
 		t.Fatalf("insert ticket tag bindings: %v", err)
+	}
+}
+
+func seedWebTicketUser(t *testing.T, db *gorm.DB, id uint64, username string, email string) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO users (id, username, email, password_hash, status) VALUES (?, ?, ?, ?, ?)`, id, username, email, "hash", "active").Error; err != nil {
+		t.Fatalf("insert user %d: %v", id, err)
+	}
+}
+
+func seedWebTicketOrder(t *testing.T, db *gorm.DB, id uint64, userID uint64, orderNo string) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO orders (id, order_no, user_id) VALUES (?, ?, ?)`, id, orderNo, userID).Error; err != nil {
+		t.Fatalf("insert order %s: %v", orderNo, err)
+	}
+}
+
+func seedWebTicketInstance(t *testing.T, db *gorm.DB, id uint64, userID uint64, orderID uint64, orderNo string, instanceNo string) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO instances (id, instance_no, user_id, order_id, order_no) VALUES (?, ?, ?, ?, ?)`, id, instanceNo, userID, orderID, orderNo).Error; err != nil {
+		t.Fatalf("insert instance %s: %v", instanceNo, err)
 	}
 }
 
@@ -132,6 +293,28 @@ CREATE TABLE admin_users (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
+const webTicketOrdersSchema = `
+CREATE TABLE orders (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_orders_order_no (order_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const webTicketInstancesSchema = `
+CREATE TABLE instances (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  instance_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  order_id BIGINT UNSIGNED NOT NULL,
+  order_no VARCHAR(64) NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_instances_instance_no (instance_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
 const webTicketTicketsSchema = `
 CREATE TABLE tickets (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -139,6 +322,8 @@ CREATE TABLE tickets (
   user_id BIGINT UNSIGNED NOT NULL,
   order_id BIGINT UNSIGNED NULL,
   order_no VARCHAR(64) NULL,
+  instance_id BIGINT UNSIGNED NULL,
+  instance_no VARCHAR(64) NULL,
   category VARCHAR(32) NOT NULL,
   priority VARCHAR(32) NOT NULL,
   title VARCHAR(160) NOT NULL,

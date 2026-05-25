@@ -20,6 +20,7 @@ import {
   NTabs,
 } from 'naive-ui'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 import {
   createInstanceMapping,
@@ -60,6 +61,7 @@ import {
 } from './types'
 
 const permissionStore = usePermissionStore()
+const route = useRoute()
 
 const activeTab = ref<InstanceTabKey>('instances')
 const instanceLoading = ref(false)
@@ -99,6 +101,10 @@ const mappingStatusOptions = [
 ]
 
 const memoryText = (mb: number) => (mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`)
+
+function routeInstanceNo() {
+  return typeof route.query.instance_no === 'string' ? route.query.instance_no.trim() : ''
+}
 
 async function loadInstances() {
   instanceLoading.value = true
@@ -317,8 +323,16 @@ async function loadPveVMs() {
   }
 }
 
-onMounted(() => {
-  void loadInstances()
+onMounted(async () => {
+  const instanceNo = routeInstanceNo()
+  if (instanceNo) {
+    activeTab.value = 'instances'
+    instanceQuery.instance_no = instanceNo
+  }
+  await loadInstances()
+  if (instanceNo) {
+    void openDetail(instanceNo)
+  }
   void loadMappings()
 })
 </script>

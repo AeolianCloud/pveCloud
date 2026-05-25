@@ -18,6 +18,7 @@ type ListFilters struct {
 	Priority        string
 	TicketNo        string
 	OrderNo         string
+	InstanceNo      string
 	UserKeyword     string
 	DateFrom        string
 	DateTo          string
@@ -309,6 +310,9 @@ func (r *Repository) applyFilters(db *gorm.DB, filters ListFilters) *gorm.DB {
 	}
 	if strings.TrimSpace(filters.OrderNo) != "" {
 		db = db.Where("tickets.order_no = ?", strings.TrimSpace(filters.OrderNo))
+	}
+	if strings.TrimSpace(filters.InstanceNo) != "" {
+		db = db.Where("tickets.instance_no = ?", strings.TrimSpace(filters.InstanceNo))
 	}
 	if keyword := strings.TrimSpace(filters.UserKeyword); keyword != "" {
 		like := "%" + keyword + "%"

@@ -24,6 +24,13 @@ const (
 	alertMessage = "payment_alert"
 )
 
+var knownAlertEvents = map[string]struct{}{
+	EventPaymentCreateFailed:            {},
+	EventPaymentCallbackSignatureFailed: {},
+	EventRefundPending:                  {},
+	EventRefundFailed:                   {},
+}
+
 type Recorder struct {
 	log  *slog.Logger
 	logs *mysqllogs.Repository
@@ -58,6 +65,9 @@ func (r *Recorder) Record(ctx context.Context, event Event) {
 		return
 	}
 	detail := event.detail()
+	if !isKnownAlertEvent(detail.Event) {
+		return
+	}
 	attrs := []any{
 		"module", alertModule,
 		"event", detail.Event,
@@ -128,6 +138,11 @@ func sanitize(value string) string {
 		value = pattern.ReplaceAllString(value, "${1}[已脱敏]")
 	}
 	return value
+}
+
+func isKnownAlertEvent(event string) bool {
+	_, ok := knownAlertEvents[strings.TrimSpace(event)]
+	return ok
 }
 
 func stringPtr(value string) *string {

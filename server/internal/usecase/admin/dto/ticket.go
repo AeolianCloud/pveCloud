@@ -10,6 +10,7 @@ type TicketListQuery struct {
 	Priority        string `form:"priority" validate:"omitempty,oneof=low normal high urgent"`
 	TicketNo        string `form:"ticket_no" validate:"omitempty,max=64"`
 	OrderNo         string `form:"order_no" validate:"omitempty,max=64"`
+	InstanceNo      string `form:"instance_no" validate:"omitempty,max=64"`
 	UserKeyword     string `form:"user_keyword" validate:"omitempty,max=128"`
 	DateFrom        string `form:"date_from" validate:"omitempty,max=32"`
 	DateTo          string `form:"date_to" validate:"omitempty,max=32"`
@@ -123,6 +124,7 @@ type AdminTicketItem struct {
 	Tags          []TicketTagItem     `json:"tags"`
 	SLA           TicketSLAInfo       `json:"sla"`
 	OrderNo       *string             `json:"order_no"`
+	InstanceNo    *string             `json:"instance_no"`
 	LastMessageAt time.Time           `json:"last_message_at"`
 	CreatedAt     time.Time           `json:"created_at"`
 	ClosedAt      *time.Time          `json:"closed_at"`

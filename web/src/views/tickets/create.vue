@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { getInstances, type InstanceItem } from '../../api/instance'
 import { getOrders, type OrderItem } from '../../api/order'
 import { getApiErrorMessage } from '../../api/request'
 import { createTicket } from '../../api/ticket'
@@ -8,12 +9,15 @@ import AppSelect, { type AppSelectOption } from '../../components/AppSelect.vue'
 import { useToast } from '../../composables/useToast'
 
 const router = useRouter()
+const route = useRoute()
 const toast = useToast()
 const submitting = ref(false)
 const ordersLoading = ref(false)
+const instancesLoading = ref(false)
 const attachmentInput = ref<HTMLInputElement | null>(null)
 const orders = ref<OrderItem[]>([])
-const form = reactive({ title: '', category: 'other', priority: 'normal', order_no: '', content: '' })
+const instances = ref<InstanceItem[]>([])
+const form = reactive({ title: '', category: 'other', priority: 'normal', order_no: '', instance_no: '', content: '' })
 const pendingAttachments = ref<PendingAttachment[]>([])
 let attachmentSeq = 0
 
@@ -39,6 +43,7 @@ const priorities: AppSelectOption[] = [
 ]
 
 const selectedOrder = computed(() => orders.value.find((order) => order.order_no === form.order_no) || null)
+const selectedInstance = computed(() => instances.value.find((instance) => instance.instance_no === form.instance_no) || null)
 const files = computed(() => pendingAttachments.value.map((item) => item.file))
 const statusText: Record<string, string> = { pending: '待处理', cancelled: '已取消', closed: '已关闭' }
 const statusClass: Record<string, string> = {
@@ -56,6 +61,22 @@ async function loadOrders() {
     toast.error(getApiErrorMessage(err, '订单加载失败'))
   } finally {
     ordersLoading.value = false
+  }
+}
+
+async function loadInstances() {
+  instancesLoading.value = true
+  try {
+    const data = await getInstances({ page: 1, per_page: 100 })
+    instances.value = data.list
+    const matched = selectedInstance.value
+    if (matched && !form.order_no) {
+      form.order_no = matched.order_no
+    }
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, '实例加载失败'))
+  } finally {
+    instancesLoading.value = false
   }
 }
 
@@ -103,6 +124,14 @@ function selectOrder(orderNo: string) {
   form.order_no = orderNo
 }
 
+function selectInstance(instanceNo: string) {
+  form.instance_no = instanceNo
+  const matched = instances.value.find((instance) => instance.instance_no === instanceNo)
+  if (matched) {
+    form.order_no = matched.order_no
+  }
+}
+
 async function submit() {
   if (!form.title.trim() || !form.content.trim()) {
     toast.error('请填写标题和问题描述')
@@ -110,7 +139,12 @@ async function submit() {
   }
   submitting.value = true
   try {
-    const ticket = await createTicket({ ...form, order_no: form.order_no.trim() || undefined, files: files.value })
+    const ticket = await createTicket({
+      ...form,
+      order_no: form.order_no.trim() || undefined,
+      instance_no: form.instance_no.trim() || undefined,
+      files: files.value,
+    })
     clearAttachments()
     toast.success('工单已提交')
     await router.push(`/user/tickets/${ticket.ticket_no}`)
@@ -121,7 +155,14 @@ async function submit() {
   }
 }
 
-onMounted(loadOrders)
+onMounted(() => {
+  const queryInstanceNo = typeof route.query.instance_no === 'string' ? route.query.instance_no : ''
+  const queryOrderNo = typeof route.query.order_no === 'string' ? route.query.order_no : ''
+  form.instance_no = queryInstanceNo.trim()
+  form.order_no = queryOrderNo.trim()
+  void loadOrders()
+  void loadInstances()
+})
 onBeforeUnmount(clearAttachments)
 </script>
 
@@ -160,6 +201,30 @@ onBeforeUnmount(clearAttachments)
             <div v-if="selectedOrder" class="min-w-0 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-600">
               已选择 <span class="font-black text-neutral-950">{{ selectedOrder.order_no }}</span>
               <span :class="['ml-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-black', statusClass[selectedOrder.status] || 'border-neutral-200 bg-white text-neutral-600']">{{ statusText[selectedOrder.status] || selectedOrder.status }}</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <span>关联实例（可选）</span>
+              <span v-if="instancesLoading" class="text-xs font-bold text-neutral-500">加载中...</span>
+            </div>
+            <div class="min-w-0 rounded-2xl border border-neutral-200 bg-neutral-50 p-2">
+              <button type="button" :class="['mb-2 flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm', !form.instance_no ? 'border-neutral-950 bg-white shadow-sm' : 'border-transparent bg-transparent hover:bg-white']" @click="selectInstance('')">
+                <span class="min-w-0 truncate font-black text-neutral-950">不关联实例</span>
+                <span class="shrink-0 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-black text-neutral-500">默认</span>
+              </button>
+              <div v-if="instances.length" class="grid max-h-56 gap-2 overflow-y-auto pr-1">
+                <button v-for="item in instances" :key="item.instance_no" type="button" :class="['grid min-w-0 gap-1 rounded-xl border px-3 py-2 text-left', form.instance_no === item.instance_no ? 'border-neutral-950 bg-white shadow-sm' : 'border-transparent bg-white/70 hover:border-neutral-300 hover:bg-white']" @click="selectInstance(item.instance_no)">
+                  <div class="flex min-w-0 items-center justify-between gap-2">
+                    <span class="min-w-0 truncate text-xs font-black text-neutral-950">{{ item.instance_no }}</span>
+                    <span class="shrink-0 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-black text-neutral-500">{{ item.status }}</span>
+                  </div>
+                  <div class="min-w-0 truncate text-xs font-bold text-neutral-500">{{ item.product_name }} · {{ item.plan_name }} · {{ item.order_no }}</div>
+                </button>
+              </div>
+              <div v-else-if="!instancesLoading" class="rounded-xl border border-dashed border-neutral-300 bg-white px-3 py-4 text-center text-xs font-bold text-neutral-500">当前账号暂无可选实例</div>
+            </div>
+            <div v-if="selectedInstance" class="min-w-0 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-600">
+              已选择 <span class="font-black text-neutral-950">{{ selectedInstance.instance_no }}</span>
+              <span class="ml-2 text-neutral-500">来源订单 {{ selectedInstance.order_no }}</span>
             </div>
           </div>
           <label class="grid min-w-0 gap-2 text-sm font-black">分类<AppSelect v-model="form.category" :options="categories" placeholder="请选择工单分类" /></label>

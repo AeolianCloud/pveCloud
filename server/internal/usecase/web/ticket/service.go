@@ -22,6 +22,7 @@ import (
 	domainticket "github.com/AeolianCloud/pveCloud/server/internal/domain/ticket"
 	"github.com/AeolianCloud/pveCloud/server/internal/platform/config"
 	mysqlfile "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/file"
+	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
 	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqlticket "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/ticket"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
@@ -40,22 +41,24 @@ const (
 )
 
 type Service struct {
-	db      *gorm.DB
-	tickets *mysqlticket.Repository
-	files   *mysqlfile.Repository
-	orders  *mysqlorder.Repository
-	config  config.StorageConfig
-	logs    *weblogging.Recorder
+	db        *gorm.DB
+	tickets   *mysqlticket.Repository
+	files     *mysqlfile.Repository
+	instances *mysqlinstance.Repository
+	orders    *mysqlorder.Repository
+	config    config.StorageConfig
+	logs      *weblogging.Recorder
 }
 
 func NewService(db *gorm.DB, storage config.StorageConfig) *Service {
 	return &Service{
-		db:      db,
-		tickets: mysqlticket.NewRepository(db),
-		files:   mysqlfile.NewRepository(db),
-		orders:  mysqlorder.NewRepository(db),
-		config:  storage,
-		logs:    weblogging.NewRecorder(db),
+		db:        db,
+		tickets:   mysqlticket.NewRepository(db),
+		files:     mysqlfile.NewRepository(db),
+		instances: mysqlinstance.NewRepository(db),
+		orders:    mysqlorder.NewRepository(db),
+		config:    storage,
+		logs:      weblogging.NewRecorder(db),
 	}
 }
 
@@ -73,18 +76,9 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.TicketCr
 	if title == "" {
 		return webdto.TicketDetail{}, apperrors.ErrValidation.WithMessage("工单标题不能为空")
 	}
-	var orderID *uint64
-	var orderNo *string
-	if strings.TrimSpace(req.OrderNo) != "" {
-		order, err := s.orders.UserOrder(ctx, userID, strings.TrimSpace(req.OrderNo))
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return webdto.TicketDetail{}, apperrors.ErrValidation.WithMessage("关联订单不存在")
-		}
-		if err != nil {
-			return webdto.TicketDetail{}, err
-		}
-		orderID = &order.ID
-		orderNo = &order.OrderNo
+	link, err := s.resolveTicketLink(ctx, userID, req.OrderNo, req.InstanceNo)
+	if err != nil {
+		return webdto.TicketDetail{}, err
 	}
 	uploads, err := s.prepareUploads(userID, headers)
 	if err != nil {
@@ -94,7 +88,7 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.TicketCr
 
 	now := time.Now()
 	firstDue, resolutionDue := slaDeadlines(now, priority)
-	ticket := mysqlticket.Ticket{TicketNo: fmt.Sprintf("TIC-%d", now.UnixNano()), UserID: userID, OrderID: orderID, OrderNo: orderNo, Category: category, Priority: priority, Title: title, Status: domainticket.StatusWaitingAdmin, LastMessageAt: now, LastUserMessageAt: &now, FirstResponseDueAt: &firstDue, ResolutionDueAt: &resolutionDue}
+	ticket := mysqlticket.Ticket{TicketNo: fmt.Sprintf("TIC-%d", now.UnixNano()), UserID: userID, OrderID: link.OrderID, OrderNo: link.OrderNo, InstanceID: link.InstanceID, InstanceNo: link.InstanceNo, Category: category, Priority: priority, Title: title, Status: domainticket.StatusWaitingAdmin, LastMessageAt: now, LastUserMessageAt: &now, FirstResponseDueAt: &firstDue, ResolutionDueAt: &resolutionDue}
 	err = mysqltx.NewManager(s.db).WithinContext(ctx, func(tx *gorm.DB) error {
 		if err := s.tickets.CreateTicket(ctx, tx, &ticket); err != nil {
 			return err
@@ -116,7 +110,7 @@ func (s *Service) Create(ctx context.Context, userID uint64, req webdto.TicketCr
 
 func (s *Service) List(ctx context.Context, userID uint64, query webdto.TicketListQuery) (webdto.PageResponse[webdto.TicketItem], error) {
 	page, perPage := normalizePage(query.Page, query.PerPage)
-	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{UserID: userID, Status: query.Status, Category: query.Category, Priority: query.Priority, OrderNo: query.OrderNo}, perPage, (page-1)*perPage)
+	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{UserID: userID, Status: query.Status, Category: query.Category, Priority: query.Priority, OrderNo: query.OrderNo, InstanceNo: query.InstanceNo}, perPage, (page-1)*perPage)
 	if err != nil {
 		return webdto.PageResponse[webdto.TicketItem]{}, err
 	}
@@ -259,6 +253,65 @@ func (s *Service) detailFromRow(ctx context.Context, row mysqlticket.TicketRow) 
 		result.Messages = append(result.Messages, webdto.TicketMessage{ID: message.ID, SenderType: message.SenderType, SenderName: senderName(message), Content: message.Content, Attachments: byMessage[message.ID], CreatedAt: message.CreatedAt})
 	}
 	return result, nil
+}
+
+type ticketLink struct {
+	OrderID    *uint64
+	OrderNo    *string
+	InstanceID *uint64
+	InstanceNo *string
+}
+
+func (s *Service) resolveTicketLink(ctx context.Context, userID uint64, orderNoInput string, instanceNoInput string) (ticketLink, error) {
+	orderNoInput = strings.TrimSpace(orderNoInput)
+	instanceNoInput = strings.TrimSpace(instanceNoInput)
+	if orderNoInput == "" && instanceNoInput == "" {
+		return ticketLink{}, nil
+	}
+
+	var link ticketLink
+	var linkedOrder mysqlorder.Order
+	if orderNoInput != "" {
+		order, err := s.orders.UserOrder(ctx, userID, orderNoInput)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ticketLink{}, apperrors.ErrNotFound.WithMessage("关联订单不存在")
+		}
+		if err != nil {
+			return ticketLink{}, err
+		}
+		linkedOrder = order
+		orderID := order.ID
+		orderNo := order.OrderNo
+		link.OrderID = &orderID
+		link.OrderNo = &orderNo
+	}
+
+	if instanceNoInput == "" {
+		return link, nil
+	}
+	instance, err := s.instances.UserInstance(ctx, userID, instanceNoInput)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ticketLink{}, apperrors.ErrNotFound.WithMessage("关联实例不存在")
+	}
+	if err != nil {
+		return ticketLink{}, err
+	}
+	// 关联实例只用于排障定位。这里以服务端查出的归属和来源订单为准，
+	// 防止用户把自己的订单与另一台实例拼接成误导后台的排障上下文。
+	if orderNoInput != "" && (instance.OrderID != linkedOrder.ID || instance.OrderNo != linkedOrder.OrderNo) {
+		return ticketLink{}, apperrors.ErrValidation.WithMessage("关联实例不属于所选订单")
+	}
+	if link.OrderID == nil {
+		orderID := instance.OrderID
+		orderNo := instance.OrderNo
+		link.OrderID = &orderID
+		link.OrderNo = &orderNo
+	}
+	instanceID := instance.ID
+	instanceNo := instance.InstanceNo
+	link.InstanceID = &instanceID
+	link.InstanceNo = &instanceNo
+	return link, nil
 }
 
 func (s *Service) persistUploads(ctx context.Context, tx *gorm.DB, ticket mysqlticket.Ticket, message mysqlticket.TicketMessage, uploads []storedUpload) error {
@@ -508,7 +561,7 @@ func generateUUID() (string, error) {
 }
 
 func webTicketItem(ticket mysqlticket.Ticket, tags []mysqlticket.TicketTag) webdto.TicketItem {
-	return webdto.TicketItem{TicketNo: ticket.TicketNo, Title: ticket.Title, Category: ticket.Category, Priority: ticket.Priority, Status: ticket.Status, Tags: webTagItems(tags), OrderNo: ticket.OrderNo, LastMessageAt: ticket.LastMessageAt, CreatedAt: ticket.CreatedAt, ClosedAt: ticket.ClosedAt}
+	return webdto.TicketItem{TicketNo: ticket.TicketNo, Title: ticket.Title, Category: ticket.Category, Priority: ticket.Priority, Status: ticket.Status, Tags: webTagItems(tags), OrderNo: ticket.OrderNo, InstanceNo: ticket.InstanceNo, LastMessageAt: ticket.LastMessageAt, CreatedAt: ticket.CreatedAt, ClosedAt: ticket.ClosedAt}
 }
 
 func webTagItems(tags []mysqlticket.TicketTag) []webdto.TicketTagItem {

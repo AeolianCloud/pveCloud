@@ -8,6 +8,8 @@ type Ticket struct {
 	UserID             uint64     `gorm:"column:user_id"`
 	OrderID            *uint64    `gorm:"column:order_id"`
 	OrderNo            *string    `gorm:"column:order_no"`
+	InstanceID         *uint64    `gorm:"column:instance_id"`
+	InstanceNo         *string    `gorm:"column:instance_no"`
 	Category           string     `gorm:"column:category"`
 	Priority           string     `gorm:"column:priority"`
 	Title              string     `gorm:"column:title"`

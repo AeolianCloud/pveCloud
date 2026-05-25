@@ -34,7 +34,8 @@
 
 当前进行中的阶段入口：
 
-- `docs/progress/worker-instance-lifecycle-code-start.md`
+- 当前暂无已确认的进行中代码阶段入口；工单关联实例排障入口已完成代码层验证，当前契约回到对应 owner docs 和迁移。
+- 最近阶段复盘入口：`docs/progress/worker-instance-lifecycle-code-start.md`
 
 阶段完成后：
 

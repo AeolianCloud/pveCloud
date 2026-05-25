@@ -191,7 +191,7 @@ web/src/
   - 支付：`POST /api/orders/{order_no}/payments`、`GET /api/payments/{payment_no}`
   - 钱包：`GET /api/wallet`、`GET /api/wallet/ledger`、`POST /api/wallet/recharges`、`GET /api/wallet/recharges/{recharge_no}`
   - 实例：`GET /api/instances`、`GET /api/instances/{instance_no}`、`POST /api/instances/{instance_no}/start`、`POST /api/instances/{instance_no}/stop`
-  - 工单：`GET /api/tickets`、`POST /api/tickets`、`GET /api/tickets/{ticket_no}`、`POST /api/tickets/{ticket_no}/messages`、`POST /api/tickets/{ticket_no}/close`、`GET /api/tickets/{ticket_no}/attachments/{file_id}/download`
+  - 工单：`GET /api/tickets`、`POST /api/tickets`、`GET /api/tickets/{ticket_no}`、`POST /api/tickets/{ticket_no}/messages`、`POST /api/tickets/{ticket_no}/close`、`GET /api/tickets/{ticket_no}/attachments/{file_id}/download`；工单可选关联当前用户自己的订单和实例
 - 后续接入真实业务接口时，必须先更新 `docs/server/api/` 和必要的数据库契约。
 
 ## 状态边界
@@ -298,7 +298,7 @@ token 刷新：
 
 - 用户中心展示工单入口。
 - `/user/tickets` 展示当前登录用户自己的工单列表。
-- `/user/tickets/new` 创建工单，支持选择分类、优先级、标题、内容、可选关联当前用户自己的订单和附件。
+- `/user/tickets/new` 创建工单，支持选择分类、优先级、标题、内容、可选关联当前用户自己的订单、可选关联当前用户自己的实例和附件。
 - `/user/tickets/:ticketNo` 展示当前登录用户自己的工单详情、消息时间线、附件、回复入口和关闭入口。
 - 用户可以回复自己的未关闭工单。
 - 用户可以关闭自己的未关闭工单。
@@ -314,7 +314,7 @@ token 刷新：
 - 用户端只能展示、回复、关闭当前登录用户自己的工单。
 - 工单附件只能通过工单附件接口下载或预览，不开放公网匿名下载。
 - 文件大小、允许类型和安全校验以后端为准，前端只做体验提示。
-- 不展示客服指派、内部 SLA、内部备注、协作者、支付状态、PVE 节点、资源池、库存扣减或自动开通进度。
+- 不展示客服指派、内部 SLA、内部备注、协作者、支付状态、PVE 节点、VMID、operation ID、资源池、库存扣减或自动开通进度。
 
 ## 契约原则
 
@@ -343,5 +343,5 @@ token 刷新：
 - 页面行为符合对应页面契约。
 - 登录态恢复、token 刷新、401/403 处理正确。
 - 产品目录展示符合契约限制。
-- 工单页面和附件访问符合当前用户资源归属边界。
+- 工单页面、订单关联、实例关联和附件访问符合当前用户资源归属边界。
 - `web` 构建通过。

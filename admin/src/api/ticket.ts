@@ -72,6 +72,7 @@ export interface AdminTicketItem {
   tags: TicketTagItem[]
   sla: TicketSlaInfo
   order_no: string | null
+  instance_no: string | null
   last_message_at: string
   created_at: string
   closed_at: string | null
@@ -110,6 +111,7 @@ export interface AdminTicketListQuery {
   priority?: string
   ticket_no?: string
   order_no?: string
+  instance_no?: string
   user_keyword?: string
   date_from?: string
   date_to?: string

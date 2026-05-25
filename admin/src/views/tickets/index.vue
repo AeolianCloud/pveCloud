@@ -38,6 +38,7 @@ import {
   type UploadFileInfo,
 } from 'naive-ui'
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   addTicketCollaborator,
@@ -70,6 +71,7 @@ import { message } from '../../utils/feedback'
 import { hasPermissionCode } from '../../utils/permission'
 
 const permissionStore = usePermissionStore()
+const router = useRouter()
 const loading = ref(false)
 const detailLoading = ref(false)
 const detailVisible = ref(false)
@@ -91,7 +93,7 @@ const internalNoteContent = ref('')
 const priorityForm = reactive<{ priority: TicketPriority | ''; reason: string }>({ priority: '', reason: '' })
 const selectedTagIds = ref<number[]>([])
 const tagForm = reactive<{ id: number | null; name: string; color: string; visibility: TicketTagVisibility; status: TicketTagStatus; sort_order: number }>({ id: null, name: '', color: '', visibility: 'internal', status: 'active', sort_order: 0 })
-const query = reactive({ page: 1, per_page: 15, status: '', category: '', priority: '', ticket_no: '', order_no: '', user_keyword: '', assignee_admin_id: null as number | null, tag_id: null as number | null, sla_status: '' })
+const query = reactive({ page: 1, per_page: 15, status: '', category: '', priority: '', ticket_no: '', order_no: '', instance_no: '', user_keyword: '', assignee_admin_id: null as number | null, tag_id: null as number | null, sla_status: '' })
 const attachmentPreviews = ref<Record<number, string>>({})
 const attachmentObjectUrls = ref<string[]>([])
 
@@ -103,6 +105,7 @@ const canNote = computed(() => hasPermissionCode(permissionStore.permissionCodes
 const canPriority = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'ticket:priority'))
 const canTag = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'ticket:tag'))
 const canTagManage = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'ticket:tag-manage'))
+const canViewInstances = computed(() => hasPermissionCode(permissionStore.permissionCodes, 'page.instances'))
 const selectedClosed = computed(() => detail.value?.status === 'closed')
 const detailStatusMeta = computed(() => {
   if (!detail.value) return { label: '-', type: 'default' as const, icon: CheckmarkDoneOutline }
@@ -118,6 +121,7 @@ const replyDisabled = computed(() => !replyContent.value.trim() || submitting.va
 const closeDisabled = computed(() => submitting.value || selectedClosed.value || !canClose.value)
 const detailUserLabel = computed(() => detail.value ? `${detail.value.user.username} / ${detail.value.user.email}` : '-')
 const detailOrderLabel = computed(() => detail.value?.order_no || '-')
+const detailInstanceLabel = computed(() => detail.value?.instance_no || '-')
 const detailClosedAtLabel = computed(() => formatDateTime(detail.value?.closed_at))
 const detailAssigneeLabel = computed(() => adminLabel(detail.value?.assignee))
 const detailSlaLabel = computed(() => detail.value ? slaStatusText[detail.value.sla.status] || detail.value.sla.status : '-')
@@ -261,7 +265,7 @@ async function submitClose() {
 }
 
 function resetQuery() {
-  Object.assign(query, { page: 1, per_page: 15, status: '', category: '', priority: '', ticket_no: '', order_no: '', user_keyword: '', assignee_admin_id: null, tag_id: null, sla_status: '' })
+  Object.assign(query, { page: 1, per_page: 15, status: '', category: '', priority: '', ticket_no: '', order_no: '', instance_no: '', user_keyword: '', assignee_admin_id: null, tag_id: null, sla_status: '' })
   loadTickets()
 }
 
@@ -486,6 +490,17 @@ function tagStyle(tag: TicketTagItem) {
   return tag.color ? { color: tag.color, borderColor: tag.color } : undefined
 }
 
+function ticketLinkSummary(row: AdminTicketItem) {
+  const links = []
+  links.push(row.order_no ? `订单 ${row.order_no}` : '未关联订单')
+  links.push(row.instance_no ? `实例 ${row.instance_no}` : '未关联实例')
+  return links.join(' · ')
+}
+
+function openInstanceFromTicket(instanceNo: string) {
+  void router.push({ path: '/instances', query: { instance_no: instanceNo } })
+}
+
 function priorityRank(priority: string) {
   return { low: 1, normal: 2, high: 3, urgent: 4 }[priority] || 0
 }
@@ -500,7 +515,7 @@ const columns = computed<DataTableColumns<AdminTicketItem>>(() => [
     key: 'title',
     title: '标题',
     minWidth: 220,
-    render: (row) => h('div', null, [h('div', { class: 'strong' }, row.title), h('div', { class: 'muted' }, row.order_no ? `订单 ${row.order_no}` : '未关联订单')]),
+    render: (row) => h('div', null, [h('div', { class: 'strong' }, row.title), h('div', { class: 'muted' }, ticketLinkSummary(row))]),
   },
   {
     key: 'user',
@@ -551,6 +566,7 @@ onBeforeUnmount(cleanupAttachmentPreviews)
         <NFormItem label="SLA"><NSelect v-model:value="query.sla_status" :options="slaStatusOptions" clearable placeholder="全部" style="width: 130px" /></NFormItem>
         <NFormItem label="工单号"><NInput v-model:value="query.ticket_no" clearable placeholder="TIC-" /></NFormItem>
         <NFormItem label="订单号"><NInput v-model:value="query.order_no" clearable placeholder="ORD-" /></NFormItem>
+        <NFormItem label="实例号"><NInput v-model:value="query.instance_no" clearable placeholder="INS-" /></NFormItem>
         <NFormItem label="用户"><NInput v-model:value="query.user_keyword" clearable placeholder="用户名/邮箱" /></NFormItem>
         <NFormItem :show-label="false">
           <NSpace><NButton type="primary" @click="query.page = 1; loadTickets()">查询</NButton><NButton @click="resetQuery">重置</NButton></NSpace>
@@ -646,6 +662,10 @@ onBeforeUnmount(cleanupAttachmentPreviews)
                 <NDescriptionsItem label="用户">{{ detail.user.username }}</NDescriptionsItem>
                 <NDescriptionsItem label="邮箱">{{ detail.user.email }}</NDescriptionsItem>
                 <NDescriptionsItem label="订单号">{{ detailOrderLabel }}</NDescriptionsItem>
+                <NDescriptionsItem label="实例编号">
+                  <NButton v-if="detail.instance_no && canViewInstances" text type="primary" @click="openInstanceFromTicket(detail.instance_no)">{{ detail.instance_no }}</NButton>
+                  <span v-else>{{ detailInstanceLabel }}</span>
+                </NDescriptionsItem>
                 <NDescriptionsItem label="处理人">{{ detailAssigneeLabel }}</NDescriptionsItem>
                 <NDescriptionsItem label="首响截止">{{ formatDateTime(detail.sla.first_response_due_at) }}</NDescriptionsItem>
                 <NDescriptionsItem label="解决截止">{{ formatDateTime(detail.sla.resolution_due_at) }}</NDescriptionsItem>

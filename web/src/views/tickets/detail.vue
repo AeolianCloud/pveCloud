@@ -172,6 +172,10 @@ function tagStyle(color: string | null) {
   return color ? { color, borderColor: color } : undefined
 }
 
+function linkLabel(label: string, value: string | null) {
+  return value ? `${label} ${value}` : `未关联${label}`
+}
+
 function cleanupObjectUrls() {
   attachmentObjectUrls.value.forEach((url) => URL.revokeObjectURL(url))
   attachmentObjectUrls.value = []
@@ -197,7 +201,7 @@ onBeforeUnmount(() => {
       <div v-else-if="errorMessage" class="rounded-[1.5rem] border border-red-200 bg-red-50 p-6 text-sm font-bold text-red-700">{{ errorMessage }}</div>
       <article v-else-if="ticket" class="rounded-[1.5rem] border border-neutral-200 bg-white p-5 shadow-[8px_8px_0_#111] sm:p-6">
         <div class="grid gap-4 border-b border-neutral-200 pb-5 md:grid-cols-[minmax(0,1fr)_9rem] md:items-start">
-          <div class="min-w-0"><p class="truncate text-xs font-black uppercase tracking-[0.16em] text-neutral-500">{{ ticket.ticket_no }}</p><h1 class="mt-2 text-2xl font-black text-neutral-950">{{ ticket.title }}</h1><p class="mt-2 text-sm text-neutral-500">{{ categoryText[ticket.category] }} · {{ priorityText[ticket.priority] }} · {{ ticket.order_no || '未关联订单' }}</p><div v-if="ticket.tags.length" class="mt-3 flex flex-wrap gap-2"><span v-for="tag in ticket.tags" :key="tag.id" class="rounded-full border border-neutral-300 px-3 py-1 text-xs font-black text-neutral-700" :style="tagStyle(tag.color)">{{ tag.name }}</span></div></div>
+          <div class="min-w-0"><p class="truncate text-xs font-black uppercase tracking-[0.16em] text-neutral-500">{{ ticket.ticket_no }}</p><h1 class="mt-2 text-2xl font-black text-neutral-950">{{ ticket.title }}</h1><p class="mt-2 text-sm text-neutral-500">{{ categoryText[ticket.category] }} · {{ priorityText[ticket.priority] }} · {{ linkLabel('订单', ticket.order_no) }} · {{ linkLabel('实例', ticket.instance_no) }}</p><div v-if="ticket.tags.length" class="mt-3 flex flex-wrap gap-2"><span v-for="tag in ticket.tags" :key="tag.id" class="rounded-full border border-neutral-300 px-3 py-1 text-xs font-black text-neutral-700" :style="tagStyle(tag.color)">{{ tag.name }}</span></div></div>
           <span class="inline-flex justify-center rounded-full border px-3 py-1 text-xs font-black">{{ statusText[ticket.status] }}</span>
         </div>
         <section class="mt-6 grid gap-4">

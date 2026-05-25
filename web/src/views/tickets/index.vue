@@ -25,7 +25,7 @@ const tickets = ref<TicketItem[]>([])
 const detail = ref<TicketDetail | null>(null)
 const detailVisible = ref(false)
 const total = ref(0)
-const query = reactive({ page: 1, per_page: 15, status: '' })
+const query = reactive({ page: 1, per_page: 15, status: '', order_no: '', instance_no: '' })
 const replyContent = ref('')
 const attachmentInput = ref<HTMLInputElement | null>(null)
 const pendingAttachments = ref<PendingAttachment[]>([])
@@ -79,6 +79,10 @@ function formatDateTime(value: string) {
 
 function tagStyle(color: string | null) {
   return color ? { color, borderColor: color } : undefined
+}
+
+function linkLabel(label: string, value: string | null) {
+  return value ? `${label} ${value}` : `未关联${label}`
 }
 
 async function openDetail(ticketNo: string) {
@@ -264,6 +268,9 @@ onBeforeUnmount(() => {
       </div>
       <div class="mb-6 flex flex-wrap gap-3">
         <button v-for="item in [{ label: '全部', value: '' }, { label: '等待客服处理', value: 'waiting_admin' }, { label: '等待用户反馈', value: 'waiting_user' }, { label: '已关闭', value: 'closed' }]" :key="item.value || 'all'" type="button" :class="['action-pill border px-4 py-2 text-xs font-black', query.status === item.value ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700 hover:border-neutral-950']" @click="query.status = item.value; query.page = 1; loadTickets()">{{ item.label }}</button>
+        <input v-model="query.order_no" class="min-w-0 rounded-full border border-neutral-300 px-4 py-2 text-xs font-black outline-none focus:border-neutral-950" placeholder="订单号" @keyup.enter="query.page = 1; loadTickets()" />
+        <input v-model="query.instance_no" class="min-w-0 rounded-full border border-neutral-300 px-4 py-2 text-xs font-black outline-none focus:border-neutral-950" placeholder="实例编号" @keyup.enter="query.page = 1; loadTickets()" />
+        <button type="button" class="action-pill border border-neutral-950 px-4 py-2 text-xs font-black hover:bg-neutral-950 hover:text-white" @click="query.page = 1; loadTickets()">筛选</button>
       </div>
       <div v-if="loading" class="space-y-3">
         <div v-for="item in 4" :key="item" class="rounded-2xl border border-neutral-200 bg-white p-5"><div class="skeleton-line h-3 w-36"></div><div class="skeleton-line mt-3 h-5 w-72 max-w-full"></div><div class="skeleton-line mt-3 h-3 w-96 max-w-full"></div></div>
@@ -283,7 +290,8 @@ onBeforeUnmount(() => {
               <h2 class="mt-2 line-clamp-2 text-base font-black leading-6 text-neutral-950 sm:text-lg">{{ ticket.title }}</h2>
               <div class="mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-neutral-500 sm:text-sm">
                 <span>{{ categoryText[ticket.category] }}</span>
-                <span class="min-w-0 truncate">{{ ticket.order_no ? `订单 ${ticket.order_no}` : '未关联订单' }}</span>
+                <span class="min-w-0 truncate">{{ linkLabel('订单', ticket.order_no) }}</span>
+                <span class="min-w-0 truncate">{{ linkLabel('实例', ticket.instance_no) }}</span>
               </div>
             </div>
             <div class="grid gap-2 lg:justify-items-end">
@@ -310,7 +318,7 @@ onBeforeUnmount(() => {
             <div class="min-w-0">
               <p class="truncate text-xs font-black uppercase tracking-[0.16em] text-neutral-500">{{ detail?.ticket_no || 'Ticket Detail' }}</p>
               <h2 class="mt-2 line-clamp-2 text-2xl font-black text-neutral-950">{{ detail?.title || '工单详情' }}</h2>
-              <p v-if="detail" class="mt-2 text-sm text-neutral-500">{{ categoryText[detail.category] }} · {{ priorityText[detail.priority] }} · {{ detail.order_no || '未关联订单' }}</p>
+              <p v-if="detail" class="mt-2 text-sm text-neutral-500">{{ categoryText[detail.category] }} · {{ priorityText[detail.priority] }} · {{ linkLabel('订单', detail.order_no) }} · {{ linkLabel('实例', detail.instance_no) }}</p>
             </div>
             <button type="button" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-300 text-lg font-black hover:border-neutral-950" @click="closeDetail">×</button>
           </div>

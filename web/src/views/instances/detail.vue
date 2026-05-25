@@ -168,6 +168,7 @@ onMounted(loadDetail)
           <button v-if="instance.status === 'stopped'" type="button" class="action-pill border border-emerald-300 px-5 py-2 text-sm font-black text-emerald-700 hover:bg-emerald-50 disabled:opacity-50" :disabled="operating" @click="operate('start')">启动实例</button>
           <button v-if="instance.status === 'running'" type="button" class="action-pill border border-amber-300 px-5 py-2 text-sm font-black text-amber-700 hover:bg-amber-50 disabled:opacity-50" :disabled="operating" @click="operate('stop')">停止实例</button>
           <button v-if="instance.renewal_available" type="button" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white disabled:opacity-50" :disabled="renewing" @click="openRenewDialog">创建续费订单</button>
+          <RouterLink :to="{ path: '/user/tickets/new', query: { instance_no: instance.instance_no } }" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">提交工单</RouterLink>
           <RouterLink to="/user/instances" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">返回实例列表</RouterLink>
         </div>
       </article>

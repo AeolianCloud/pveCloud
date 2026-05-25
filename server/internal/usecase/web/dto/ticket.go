@@ -3,20 +3,22 @@ package dto
 import "time"
 
 type TicketListQuery struct {
-	Page     int    `form:"page" validate:"omitempty,min=1"`
-	PerPage  int    `form:"per_page" validate:"omitempty,min=1,max=100"`
-	Status   string `form:"status" validate:"omitempty,oneof=waiting_admin waiting_user closed"`
-	Category string `form:"category" validate:"omitempty,oneof=account order product technical billing other"`
-	Priority string `form:"priority" validate:"omitempty,oneof=low normal high urgent"`
-	OrderNo  string `form:"order_no" validate:"omitempty,max=64"`
+	Page       int    `form:"page" validate:"omitempty,min=1"`
+	PerPage    int    `form:"per_page" validate:"omitempty,min=1,max=100"`
+	Status     string `form:"status" validate:"omitempty,oneof=waiting_admin waiting_user closed"`
+	Category   string `form:"category" validate:"omitempty,oneof=account order product technical billing other"`
+	Priority   string `form:"priority" validate:"omitempty,oneof=low normal high urgent"`
+	OrderNo    string `form:"order_no" validate:"omitempty,max=64"`
+	InstanceNo string `form:"instance_no" validate:"omitempty,max=64"`
 }
 
 type TicketCreateRequest struct {
-	Title    string `validate:"required,max=160"`
-	Category string `validate:"required,oneof=account order product technical billing other"`
-	Priority string `validate:"omitempty,oneof=low normal high urgent"`
-	Content  string `validate:"required,max=5000"`
-	OrderNo  string `validate:"omitempty,max=64"`
+	Title      string `validate:"required,max=160"`
+	Category   string `validate:"required,oneof=account order product technical billing other"`
+	Priority   string `validate:"omitempty,oneof=low normal high urgent"`
+	Content    string `validate:"required,max=5000"`
+	OrderNo    string `validate:"omitempty,max=64"`
+	InstanceNo string `validate:"omitempty,max=64"`
 }
 
 type TicketMessageRequest struct {
@@ -35,6 +37,7 @@ type TicketItem struct {
 	Status        string          `json:"status"`
 	Tags          []TicketTagItem `json:"tags"`
 	OrderNo       *string         `json:"order_no"`
+	InstanceNo    *string         `json:"instance_no"`
 	LastMessageAt time.Time       `json:"last_message_at"`
 	CreatedAt     time.Time       `json:"created_at"`
 	ClosedAt      *time.Time      `json:"closed_at"`

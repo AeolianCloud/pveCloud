@@ -38,21 +38,28 @@
 
 ## 当前推进阶段
 
-MCP PVE 实例交付阶段已进入实现复盘状态；实例生命周期、续费订单和 Worker 异步任务已进入实现收尾状态；真实支付闭环一期已完成代码提交，待真实渠道端到端验收；钱包 v1 已进入文档/契约确认阶段。
+MCP PVE 实例交付阶段已进入实现复盘状态；实例生命周期、续费订单和 Worker 异步任务已进入实现收尾状态；真实支付闭环一期和钱包 v1 已完成代码提交，待真实渠道端到端验收与生产告警配置确认。
 
-当前已开放管理端交付映射、MCP 只读资源、订单触发交付、实例列表/详情/开机/关机/释放/同步；已开放用户端实例列表、详情、启动和停止。真实支付闭环一期已开放用户端支付发起/查询/回调、管理端支付管理、退款、支付成功自动交付和续费支付生效记录。钱包 v1 计划开放用户充值、余额支付、余额支付退款退回钱包和管理端只读钱包管理。
+当前已开放管理端交付映射、MCP 只读资源、订单触发交付、实例列表/详情/开机/关机/释放/同步；已开放用户端实例列表、详情、启动和停止。真实支付闭环一期已开放用户端支付发起/查询/回调、管理端支付管理、退款、支付成功自动交付和续费支付生效记录。钱包 v1 已开放用户充值、余额支付、余额支付退款退回钱包和管理端只读钱包管理。工单关联实例排障入口已开放用户端工单关联当前用户自己的业务实例编号、管理端工单按实例编号筛选和从工单跳转实例管理定位排障；不开放新增 PVE 运维能力。
 真实支付闭环一期上线前，需按运维文档完成支付宝沙箱、微信支付沙箱或小额真实商户号端到端验签、回调和退款闭环验证，并纳入支付创建失败、回调验签失败、退款 `pending`/`failed` 的告警口径。
 
 2026-05-24 本地技术验证记录：后端在 Docker MariaDB 测试库下执行 `PVECLOUD_TEST_MYSQL_DSN=... GOCACHE=/tmp/pvecloud-go-build go test -count=1 ./...` 通过；后端入口 `go build ./cmd/api ./cmd/worker ./cmd/setup-admin` 通过；`admin` 与 `web` 均执行 `bun run build` 通过。该记录只代表代码层、构建层和自动化测试层通过，不替代支付宝沙箱、微信支付沙箱或小额真实商户号的端到端验签、回调和退款闭环验收；生产日志采集系统仍需按 `payment_alert` 事件配置外部告警规则。
 
+2026-05-25 本地技术验证记录：工单关联实例排障入口完成代码层验证；后端执行 `GOCACHE=/tmp/pvecloud-go-build go test ./internal/usecase/web/ticket -v`、`PVECLOUD_TEST_MYSQL_DSN=... GOCACHE=/tmp/pvecloud-go-build go test ./...` 和 `GOCACHE=/tmp/pvecloud-go-build go build ./cmd/api ./cmd/worker ./cmd/setup-admin` 通过；`admin` 与 `web` 均执行 `bash -ic 'bun run build'` 通过。
+
+2026-05-25 支付告警稳定化记录：`payment_alert` recorder 已收敛为只记录 owner docs 允许的四类事件，避免误写未知事件导致外部监控规则无法识别；后端执行 `PVECLOUD_TEST_MYSQL_DSN=... GOCACHE=/tmp/pvecloud-go-build go test ./internal/usecase/paymentalert ./internal/usecase/web/payment ./internal/usecase/admin/payment -v`、`PVECLOUD_TEST_MYSQL_DSN=... GOCACHE=/tmp/pvecloud-go-build go test ./...` 和 `GOCACHE=/tmp/pvecloud-go-build go build ./cmd/api ./cmd/worker ./cmd/setup-admin` 通过。
+
 本阶段交接记录见 `docs/progress/mcp-pve-instance-handoff.md`。
-下一阶段代码开工入口见 `docs/progress/worker-instance-lifecycle-code-start.md`。
+Worker、实例生命周期和续费阶段复盘记录见 `docs/progress/worker-instance-lifecycle-code-start.md`。
+当前暂无已确认的新功能代码开工入口；下一阶段需维护者先确认功能范围，并按文档先行流程更新对应 owner docs 或机器契约。
 
 当前实例、支付和钱包阶段仍不包含：
 
 - 发票、JSAPI/openid、小程序支付、部分退款、提现、人工调账、余额转账和自动对账批处理
 - 重启、重装、重置密码、控制台、快照、备份、迁移、监控和防火墙
 - PVE 资源池、库存扣减和通用 PVE 运维管理
+
+工单关联实例排障入口已完成；后续如需继续增强工单或实例排障，只允许在确认 owner docs 后扩展，不得借工单页面开放新增 PVE 运维能力。
 
 ## 下一步维护原则
 
@@ -81,11 +88,11 @@ MCP PVE 实例交付阶段已进入实现复盘状态；实例生命周期、续
 
 ## 后续阶段入口
 
-后续若要开放真实支付网关、实例更多 MCP 运维能力等真实用户端业务，必须先补齐并确认：
+后续若要开放发票、JSAPI/openid、小程序支付、部分退款、提现、人工调账、余额转账、自动对账批处理、实例更多 MCP 运维能力等真实用户端业务，必须先补齐并确认：
 
-- 真实支付网关和实例新增能力相关用户端 `/api/*` 接口契约
-- 真实支付网关和实例新增能力所需数据库契约
-- 支付流程说明
-- 实例新增能力页面范围
+- 相关用户端 `/api/*` 和管理端 `/admin-api/*` 接口契约
+- 新增能力所需数据库契约、迁移和配置示例
+- 支付、退款、钱包、发票或实例新增能力的业务流程说明
+- 对应管理端和用户端页面范围
 - 用户端路由、权限和请求包装口径
-- 必要的管理端运营页面和权限口径
+- 必要的管理端运营页面、权限口径和运维告警口径

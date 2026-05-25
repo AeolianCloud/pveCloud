@@ -148,11 +148,12 @@ func bindMultipartCreate(c *gin.Context) (webdto.TicketCreateRequest, []*multipa
 		return webdto.TicketCreateRequest{}, nil, false
 	}
 	req := webdto.TicketCreateRequest{
-		Title:    c.PostForm("title"),
-		Category: c.PostForm("category"),
-		Priority: c.PostForm("priority"),
-		Content:  c.PostForm("content"),
-		OrderNo:  c.PostForm("order_no"),
+		Title:      c.PostForm("title"),
+		Category:   c.PostForm("category"),
+		Priority:   c.PostForm("priority"),
+		Content:    c.PostForm("content"),
+		OrderNo:    c.PostForm("order_no"),
+		InstanceNo: c.PostForm("instance_no"),
 	}
 	if err := validator.Struct(req); err != nil {
 		response.Error(c, apperrors.ErrValidation.WithMessage("请求参数校验失败"))

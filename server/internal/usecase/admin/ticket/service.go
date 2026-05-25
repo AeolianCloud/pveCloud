@@ -69,7 +69,7 @@ func (s *Service) List(ctx context.Context, query admindto.TicketListQuery) (adm
 		return admindto.PageResponse[admindto.AdminTicketItem]{}, apperrors.ErrValidation.WithMessage("工单筛选条件不支持")
 	}
 	page, perPage := adminsupport.NormalizePage(query.Page, query.PerPage)
-	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{Status: query.Status, Category: query.Category, Priority: query.Priority, TicketNo: query.TicketNo, OrderNo: query.OrderNo, UserKeyword: query.UserKeyword, DateFrom: query.DateFrom, DateTo: query.DateTo, AssigneeAdminID: query.AssigneeAdminID, TagID: query.TagID, SLAStatus: query.SLAStatus}, perPage, (page-1)*perPage)
+	rows, total, err := s.tickets.List(ctx, mysqlticket.ListFilters{Status: query.Status, Category: query.Category, Priority: query.Priority, TicketNo: query.TicketNo, OrderNo: query.OrderNo, InstanceNo: query.InstanceNo, UserKeyword: query.UserKeyword, DateFrom: query.DateFrom, DateTo: query.DateTo, AssigneeAdminID: query.AssigneeAdminID, TagID: query.TagID, SLAStatus: query.SLAStatus}, perPage, (page-1)*perPage)
 	if err != nil {
 		return admindto.PageResponse[admindto.AdminTicketItem]{}, err
 	}
@@ -802,7 +802,7 @@ func generateUUID() (string, error) {
 }
 
 func adminTicketItem(row mysqlticket.TicketRow, tags []mysqlticket.TicketTag) admindto.AdminTicketItem {
-	return admindto.AdminTicketItem{TicketNo: row.TicketNo, User: admindto.TicketUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Title: row.Title, Category: row.Category, Priority: row.Priority, Status: row.Status, Assignee: assigneeSummary(row), Tags: tagItems(tags), SLA: slaInfo(row.Ticket), OrderNo: row.OrderNo, LastMessageAt: row.LastMessageAt, CreatedAt: row.CreatedAt, ClosedAt: row.ClosedAt}
+	return admindto.AdminTicketItem{TicketNo: row.TicketNo, User: admindto.TicketUserSummary{ID: row.UserID, Username: row.Username, Email: row.Email, DisplayName: row.DisplayName}, Title: row.Title, Category: row.Category, Priority: row.Priority, Status: row.Status, Assignee: assigneeSummary(row), Tags: tagItems(tags), SLA: slaInfo(row.Ticket), OrderNo: row.OrderNo, InstanceNo: row.InstanceNo, LastMessageAt: row.LastMessageAt, CreatedAt: row.CreatedAt, ClosedAt: row.ClosedAt}
 }
 
 func assigneeSummary(row mysqlticket.TicketRow) *admindto.TicketAdminSummary {

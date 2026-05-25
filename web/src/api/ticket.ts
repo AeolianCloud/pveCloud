@@ -39,6 +39,7 @@ export interface TicketItem {
   status: TicketStatus
   tags: TicketTagItem[]
   order_no: string | null
+  instance_no: string | null
   last_message_at: string
   created_at: string
   closed_at: string | null
@@ -56,6 +57,7 @@ export interface TicketListQuery {
   category?: string
   priority?: string
   order_no?: string
+  instance_no?: string
 }
 
 export interface CreateTicketPayload {
@@ -64,6 +66,7 @@ export interface CreateTicketPayload {
   priority?: string
   content: string
   order_no?: string
+  instance_no?: string
   files?: File[]
 }
 
@@ -79,6 +82,7 @@ export async function createTicket(payload: CreateTicketPayload) {
   formData.append('priority', payload.priority || 'normal')
   formData.append('content', payload.content)
   if (payload.order_no) formData.append('order_no', payload.order_no)
+  if (payload.instance_no) formData.append('instance_no', payload.instance_no)
   payload.files?.forEach((file) => formData.append('attachments', file))
   const response = await request.post<WebApiEnvelope<TicketDetail>>('/tickets', formData)
   return response.data.data
