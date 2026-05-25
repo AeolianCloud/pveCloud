@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import {
   CalendarClearOutline,
+  CardOutline,
+  ChatbubblesOutline,
   CheckmarkCircleOutline,
+  DocumentTextOutline,
   GridOutline,
   KeyOutline,
   PersonCircleOutline,
+  ReceiptOutline,
   RefreshOutline,
+  ServerOutline,
   ShieldCheckmarkOutline,
   TimeOutline,
   WarningOutline,
@@ -16,7 +21,7 @@ import { RouterLink } from 'vue-router'
 
 import EmptyState from '../../components/EmptyState.vue'
 import QueryState from '../../components/QueryState.vue'
-import { getAdminDashboard, type DashboardMetric } from '../../api/dashboard'
+import { getAdminDashboard, type DashboardBusinessMetric, type DashboardMetric } from '../../api/dashboard'
 import { useAuthStore } from '../../store/modules/auth'
 import { usePermissionStore } from '../../store/modules/permission'
 import { formatDateTime } from '../../utils/datetime'
@@ -29,6 +34,7 @@ const permissionStore = usePermissionStore()
 const loading = ref(false)
 const errorMessage = ref('')
 const metrics = ref<DashboardMetric[]>([])
+const businessMetrics = ref<DashboardBusinessMetric[]>([])
 const lastLoadedAt = ref('')
 const canViewDashboard = computed(() => permissionStore.hasPermission('page.dashboard'))
 
@@ -36,7 +42,17 @@ const metricMeta: Record<string, { icon: Component }> = {
   active_admins: { icon: PersonCircleOutline },
   active_roles: { icon: CheckmarkCircleOutline },
   active_sessions: { icon: KeyOutline },
-  risk_logs_today: { icon: WarningOutline },
+  audit_logs_today: { icon: WarningOutline },
+}
+
+const businessMetricMeta: Record<string, { icon: Component }> = {
+  pending_orders: { icon: ReceiptOutline },
+  order_errors: { icon: WarningOutline },
+  instance_errors: { icon: ServerOutline },
+  failed_async_tasks: { icon: TimeOutline },
+  pending_tickets: { icon: ChatbubblesOutline },
+  invoice_todo: { icon: DocumentTextOutline },
+  payment_exceptions: { icon: CardOutline },
 }
 
 const metricCards = computed(() =>
@@ -45,6 +61,20 @@ const metricCards = computed(() =>
     title: metric.title,
     value: `${metric.value.toLocaleString()}${metric.unit ? ` ${metric.unit}` : ''}`,
     icon: metricMeta[metric.key]?.icon || PersonCircleOutline,
+  })),
+)
+
+const businessMetricCards = computed(() =>
+  businessMetrics.value.map((metric) => ({
+    key: metric.key,
+    title: metric.title,
+    value: `${metric.value.toLocaleString()}${metric.unit ? ` ${metric.unit}` : ''}`,
+    description: metric.description,
+    targetPath: metric.target_path,
+    canOpen: Boolean(metric.target_path && (!metric.target_permission || permissionStore.hasPermission(metric.target_permission))),
+    severity: metric.severity,
+    tagType: metric.severity === 'error' ? 'error' as const : metric.severity === 'warning' ? 'warning' as const : 'info' as const,
+    icon: businessMetricMeta[metric.key]?.icon || WarningOutline,
   })),
 )
 
@@ -93,6 +123,7 @@ function flattenMenus(items: SidebarMenuItem[]): SidebarMenuItem[] {
 async function loadDashboard() {
   if (!canViewDashboard.value) {
     metrics.value = []
+    businessMetrics.value = []
     errorMessage.value = ''
     return
   }
@@ -104,6 +135,7 @@ async function loadDashboard() {
     const result = await getAdminDashboard()
     authStore.applyDashboardPayload(result)
     metrics.value = result.metrics
+    businessMetrics.value = result.business_metrics || []
     lastLoadedAt.value = formatDateTime(new Date().toISOString())
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '数据加载失败，请稍后重试'
@@ -125,7 +157,7 @@ onMounted(() => {
       <div>
         <div class="dashboard-hero__eyebrow">PVE Cloud Admin</div>
         <h2>工作台</h2>
-        <p>集中查看基础后台运行状态、当前会话和可访问管理入口。</p>
+        <p>集中查看基础后台运行状态、业务待办异常、当前会话和可访问管理入口。</p>
       </div>
       <div class="dashboard-hero__actions">
         <div class="dashboard-hero__time">最近更新：{{ lastLoadedAt || '-' }}</div>
@@ -140,7 +172,7 @@ onMounted(() => {
         </NCard>
       </template>
 
-      <template v-else-if="metricCards.length === 0">
+      <template v-else-if="metricCards.length === 0 && businessMetricCards.length === 0">
         <NCard>
           <EmptyState title="暂无数据" description="当前没有可展示的指标。" />
         </NCard>
@@ -155,6 +187,38 @@ onMounted(() => {
 
         <div class="dashboard-page__content">
           <div class="dashboard-page__main">
+            <NCard title="业务待办与异常">
+              <div v-if="businessMetricCards.length > 0" class="business-metric-grid">
+                <RouterLink v-for="item in businessMetricCards.filter((metric) => metric.canOpen)" :key="item.key" :to="item.targetPath || '/dashboard'" class="business-metric-card business-metric-card--link">
+                  <div class="business-metric-card__icon" :class="`business-metric-card__icon--${item.severity}`">
+                    <NIcon :size="20"><component :is="item.icon" /></NIcon>
+                  </div>
+                  <div class="business-metric-card__body">
+                    <div class="business-metric-card__top">
+                      <span>{{ item.title }}</span>
+                      <NTag :type="item.tagType" size="small" round>{{ item.severity === 'error' ? '异常' : item.severity === 'warning' ? '待办' : '信息' }}</NTag>
+                    </div>
+                    <div class="business-metric-card__value">{{ item.value }}</div>
+                    <div class="business-metric-card__description">{{ item.description }}</div>
+                  </div>
+                </RouterLink>
+                <div v-for="item in businessMetricCards.filter((metric) => !metric.canOpen)" :key="item.key" class="business-metric-card business-metric-card--disabled">
+                  <div class="business-metric-card__icon" :class="`business-metric-card__icon--${item.severity}`">
+                    <NIcon :size="20"><component :is="item.icon" /></NIcon>
+                  </div>
+                  <div class="business-metric-card__body">
+                    <div class="business-metric-card__top">
+                      <span>{{ item.title }}</span>
+                      <NTag :type="item.tagType" size="small" round>{{ item.severity === 'error' ? '异常' : item.severity === 'warning' ? '待办' : '信息' }}</NTag>
+                    </div>
+                    <div class="business-metric-card__value">{{ item.value }}</div>
+                    <div class="business-metric-card__description">{{ item.description }}</div>
+                  </div>
+                </div>
+              </div>
+              <EmptyState v-else title="暂无业务指标" description="当前没有可展示的业务待办或异常。" />
+            </NCard>
+
             <NCard title="账号与会话">
               <NDescriptions bordered :column="2" label-placement="left" size="small">
                 <NDescriptionsItem label="账号">
@@ -218,7 +282,7 @@ onMounted(() => {
               <div class="hint-list">
                 <div class="hint-item">
                   <NIcon :size="18"><CalendarClearOutline /></NIcon>
-                  <span>首页指标仅展示当前已开放的基础后台数据。</span>
+                  <span>首页指标只读汇总当前已开放的基础后台和业务运营数据。</span>
                 </div>
                 <div class="hint-item">
                   <NIcon :size="18"><ShieldCheckmarkOutline /></NIcon>
@@ -227,6 +291,10 @@ onMounted(() => {
                 <div class="hint-item">
                   <NIcon :size="18"><TimeOutline /></NIcon>
                   <span>长时间停留后建议刷新数据，确保权限和会话信息同步。</span>
+                </div>
+                <div class="hint-item">
+                  <NIcon :size="18"><WarningOutline /></NIcon>
+                  <span>业务卡片只提供入口跳转，处理动作仍在对应页面按权限和状态执行。</span>
                 </div>
               </div>
             </NCard>
@@ -310,6 +378,96 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.business-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.business-metric-card {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.business-metric-card--link {
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.business-metric-card--link:hover {
+  border-color: rgba(37, 99, 235, 0.32);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.business-metric-card--disabled {
+  opacity: 0.78;
+}
+
+.business-metric-card__icon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+
+.business-metric-card__icon--info {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.business-metric-card__icon--warning {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.business-metric-card__icon--error {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.business-metric-card__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.business-metric-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.72);
+}
+
+.business-metric-card__value {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+.business-metric-card__description {
+  margin-top: 5px;
+  color: rgba(15, 23, 42, 0.54);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .quick-entry {
@@ -443,6 +601,10 @@ onMounted(() => {
   }
 
   .quick-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .business-metric-grid {
     grid-template-columns: 1fr;
   }
 }

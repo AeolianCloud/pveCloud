@@ -32,8 +32,8 @@ func NewDashboardHandler(dashboardService *dashboardusecase.AdminDashboardServic
  * Show 处理管理端首页数据查询。
  *
  * @route GET /admin-api/dashboard
- * @response 200 {"code":0,"message":"成功","data":{"admin":{"id":1,"username":"admin","display_name":"超级管理员","status":"active"},"role_ids":[1],"permission_codes":["dashboard:view"],"menus":[],"metrics":[]}}
- * @auth admin jwt, permission dashboard:view
+ * @response 200 {"code":0,"message":"成功","data":{"admin":{"id":1,"username":"admin","display_name":"超级管理员","status":"active"},"role_ids":[1],"permission_codes":["page.dashboard"],"menus":[],"metrics":[],"business_metrics":[]}}
+ * @auth admin jwt, permission page.dashboard
  */
 func (h *DashboardHandler) Show(c *gin.Context) {
 	adminID, ok := middleware.CurrentAdminID(c)

@@ -75,7 +75,7 @@
 
 - 鉴权：管理端 Bearer Token
 - 菜单权限：`page.dashboard`
-- 作用：获取当前基础后台首页数据
+- 作用：获取当前管理端 Dashboard 首页数据
 - 成功数据包含：
   - `admin`
   - `role_ids`
@@ -83,8 +83,49 @@
   - `menus`
   - `session`
   - `metrics`
+  - `business_metrics`
 
-当前阶段 Dashboard 只展示基础后台相关指标，不展示未开放业务模块数据。
+`metrics` 表示基础后台指标。每项包含：
+
+- `key`：指标唯一键
+- `title`：展示标题
+- `value`：整数值
+- `unit`：单位，可为空
+
+当前基础后台指标包括：
+
+- `active_admins`：启用管理员数量，来源 `admin_users.status = active AND deleted_at IS NULL`
+- `active_roles`：启用角色数量，来源 `admin_roles.status = active`
+- `active_sessions`：活跃会话数量，来源 `admin_sessions.status = active AND expires_at > NOW(3)`
+- `audit_logs_today`：今日操作日志数量，来源 `admin_audit_logs.created_at >= 当日 00:00:00`
+
+`business_metrics` 表示运营待办和异常指标。每项包含：
+
+- `key`：指标唯一键
+- `title`：展示标题
+- `value`：整数值
+- `unit`：单位，可为空
+- `description`：指标说明
+- `target_path`：目标管理端页面路径，可为空
+- `target_permission`：目标页面权限，可为空
+- `severity`：展示严重度，允许 `info`、`warning`、`error`
+
+当前业务指标包括：
+
+- `pending_orders`：待处理订单数量，来源 `orders.status = pending`，目标 `/orders`，权限 `page.orders`
+- `order_errors`：交付异常订单数量，来源 `orders.status = error`，目标 `/orders`，权限 `page.orders`
+- `instance_errors`：异常实例数量，来源 `instances.status = error`，目标 `/instances`，权限 `page.instances`
+- `failed_async_tasks`：失败异步任务数量，来源 `async_tasks.status = failed`，目标 `/async-tasks`，权限 `page.async-tasks`
+- `pending_tickets`：待后台处理工单数量，来源 `tickets.status = waiting_admin`，目标 `/tickets`，权限 `page.tickets`
+- `invoice_todo`：待处理发票数量，来源 `invoice_applications.status IN (pending, processing)`，目标 `/invoices`，权限 `page.invoices`
+- `payment_exceptions`：支付异常数量，来源 `payment_transactions.status = failed` 与 `refund_transactions.status IN (pending, failed)` 的合计，目标 `/payments`，权限 `page.payments`
+
+约束：
+
+- Dashboard 只读聚合当前已开放业务事实，不直接修改订单、支付、退款、实例、异步任务、工单或发票状态。
+- Dashboard 业务指标不得展示商户密钥、完整回调 payload、完整上游响应、PVE/MCP Bearer Token、PVE 节点、VMID、Worker payload/result 或其它敏感详情。
+- 前端可根据 `target_permission` 控制跳转入口可见性；目标业务页面和目标业务接口仍必须按各自菜单权限、操作权限和状态规则最终裁决。
+- Dashboard 不开放未纳入当前契约的专票、红冲、部分退款、提现、人工调账、余额转账、自动对账、实例控制台、重装、快照、备份或通用 PVE 运维能力。
 
 ## 管理员账号域
 

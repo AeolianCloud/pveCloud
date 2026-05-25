@@ -11,6 +11,20 @@ type DashboardMetric struct {
 }
 
 /**
+ * DashboardBusinessMetric 表示管理端首页业务待办和异常指标。
+ */
+type DashboardBusinessMetric struct {
+	Key              string  `json:"key"`
+	Title            string  `json:"title"`
+	Value            int64   `json:"value"`
+	Unit             *string `json:"unit"`
+	Description      string  `json:"description"`
+	TargetPath       *string `json:"target_path"`
+	TargetPermission *string `json:"target_permission"`
+	Severity         string  `json:"severity"`
+}
+
+/**
  * MenuItem 表示管理端可见菜单项。
  */
 type MenuItem struct {
@@ -27,5 +41,6 @@ type MenuItem struct {
  */
 type DashboardResponse struct {
 	AuthStateResponse
-	Metrics []DashboardMetric `json:"metrics"`
+	Metrics         []DashboardMetric         `json:"metrics"`
+	BusinessMetrics []DashboardBusinessMetric `json:"business_metrics"`
 }

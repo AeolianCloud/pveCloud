@@ -63,6 +63,10 @@ func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs
 	if err != nil {
 		return admindto.DashboardResponse{}, err
 	}
+	businessMetrics, err := s.businessMetrics(ctx)
+	if err != nil {
+		return admindto.DashboardResponse{}, err
+	}
 	menus, err := adminsupport.VisibleAdminMenus(ctx, s.db, permissionCodes)
 	if err != nil {
 		return admindto.DashboardResponse{}, err
@@ -82,7 +86,8 @@ func (s *AdminDashboardService) Get(ctx context.Context, adminID uint64, roleIDs
 			Menus:           menus,
 			Session:         session,
 		},
-		Metrics: metrics,
+		Metrics:         metrics,
+		BusinessMetrics: businessMetrics,
 	}, nil
 }
 
@@ -90,22 +95,26 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 	type metricQuery struct {
 		key   string
 		title string
-		table string
-		where string
 		unit  string
+		count func(context.Context) (int64, error)
 	}
 
-	today := time.Now().Format("2006-01-02")
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	queries := []metricQuery{
-		{key: "active_admins", title: "启用管理员", table: "admin_users", where: "status = 'active' AND deleted_at IS NULL", unit: "人"},
-		{key: "active_roles", title: "启用角色", table: "admin_roles", where: "status = 'active'", unit: "个"},
-		{key: "active_sessions", title: "活跃会话", table: "admin_sessions", where: "status = 'active' AND expires_at > NOW(3)", unit: "个"},
-		{key: "audit_logs_today", title: "今日操作日志", table: "admin_audit_logs", where: "created_at >= '" + today + "'", unit: "次"},
+		{key: "active_admins", title: "启用管理员", unit: "人", count: s.dashboard.CountActiveAdmins},
+		{key: "active_roles", title: "启用角色", unit: "个", count: s.dashboard.CountActiveRoles},
+		{key: "active_sessions", title: "活跃会话", unit: "个", count: func(ctx context.Context) (int64, error) {
+			return s.dashboard.CountActiveSessions(ctx, now)
+		}},
+		{key: "audit_logs_today", title: "今日操作日志", unit: "次", count: func(ctx context.Context) (int64, error) {
+			return s.dashboard.CountAuditLogsSince(ctx, todayStart)
+		}},
 	}
 
 	metrics := make([]admindto.DashboardMetric, 0, len(queries))
 	for _, query := range queries {
-		value, err := s.dashboard.Count(ctx, query.table, query.where)
+		value, err := query.count(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -115,6 +124,115 @@ func (s *AdminDashboardService) metrics(ctx context.Context) ([]admindto.Dashboa
 			Title: query.title,
 			Value: value,
 			Unit:  &unit,
+		})
+	}
+
+	return metrics, nil
+}
+
+func (s *AdminDashboardService) businessMetrics(ctx context.Context) ([]admindto.DashboardBusinessMetric, error) {
+	type businessMetricQuery struct {
+		key              string
+		title            string
+		unit             string
+		description      string
+		targetPath       string
+		targetPermission string
+		severity         string
+		count            func(context.Context) (int64, error)
+	}
+
+	queries := []businessMetricQuery{
+		{
+			key:              "pending_orders",
+			title:            "待处理订单",
+			unit:             "单",
+			description:      "等待运营处理、交付或人工确认的订单",
+			targetPath:       "/orders",
+			targetPermission: "page.orders",
+			severity:         "warning",
+			count:            s.dashboard.CountPendingOrders,
+		},
+		{
+			key:              "order_errors",
+			title:            "交付异常订单",
+			unit:             "单",
+			description:      "真实支付后自动交付失败、需要人工处理的订单",
+			targetPath:       "/orders",
+			targetPermission: "page.orders",
+			severity:         "error",
+			count:            s.dashboard.CountOrderErrors,
+		},
+		{
+			key:              "instance_errors",
+			title:            "异常实例",
+			unit:             "台",
+			description:      "最近一次创建、同步或操作失败的实例",
+			targetPath:       "/instances",
+			targetPermission: "page.instances",
+			severity:         "error",
+			count:            s.dashboard.CountInstanceErrors,
+		},
+		{
+			key:              "failed_async_tasks",
+			title:            "失败异步任务",
+			unit:             "个",
+			description:      "Worker 已达到失败状态、可由管理端排查或重试的任务",
+			targetPath:       "/async-tasks",
+			targetPermission: "page.async-tasks",
+			severity:         "error",
+			count:            s.dashboard.CountFailedAsyncTasks,
+		},
+		{
+			key:              "pending_tickets",
+			title:            "待处理工单",
+			unit:             "张",
+			description:      "用户提交或回复后等待后台处理的工单",
+			targetPath:       "/tickets",
+			targetPermission: "page.tickets",
+			severity:         "warning",
+			count:            s.dashboard.CountPendingTickets,
+		},
+		{
+			key:              "invoice_todo",
+			title:            "待处理发票",
+			unit:             "张",
+			description:      "用户已提交或运营处理中、尚未完成开票的申请",
+			targetPath:       "/invoices",
+			targetPermission: "page.invoices",
+			severity:         "warning",
+			count:            s.dashboard.CountInvoiceTodo,
+		},
+		{
+			key:              "payment_exceptions",
+			title:            "支付异常",
+			unit:             "笔",
+			description:      "失败支付和处理中或失败退款的合计",
+			targetPath:       "/payments",
+			targetPermission: "page.payments",
+			severity:         "error",
+			count:            s.dashboard.CountPaymentExceptions,
+		},
+	}
+
+	metrics := make([]admindto.DashboardBusinessMetric, 0, len(queries))
+	for _, query := range queries {
+		value, err := query.count(ctx)
+		if err != nil {
+			return nil, err
+		}
+		unit := query.unit
+		targetPath := query.targetPath
+		targetPermission := query.targetPermission
+		metrics = append(metrics, admindto.DashboardBusinessMetric{
+			Key:              query.key,
+			Title:            query.title,
+			Value:            value,
+			Unit:             &unit,
+			Description:      query.description,
+			TargetPath:       &targetPath,
+			TargetPermission: &targetPermission,
+			Severity:         query.severity,
 		})
 	}
 
