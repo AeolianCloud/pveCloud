@@ -1,6 +1,6 @@
 # 用户实名设计
 
-本文档定义用户实名能力的当前业务口径。接口字段以 `docs/server/api/endpoints.md` 为准，表结构和后台配置种子以 `server/migrations/` 为准。
+本文档定义用户实名能力的当前业务口径。用户端实名接口字段以 `docs/server/api/web-auth-realname.md` 为准，管理端实名审核接口字段以 `docs/server/api/admin-users-logs-files.md` 为准，表结构和后台配置种子以 `server/migrations/` 为准。
 
 ## 功能范围
 

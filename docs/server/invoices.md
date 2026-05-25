@@ -1,7 +1,7 @@
 # 发票业务流程
 
 本文档描述发票 v1 的业务流程、状态机、事务边界、幂等和安全口径。
-接口字段以 `docs/server/api/endpoints.md` 为准，数据库结构以 `server/migrations/041_invoice_v1.sql` 和 `docs/server/database/design.md` 为准。
+发票接口字段以 `docs/server/api/invoices.md` 为准，退款联动接口以 `docs/server/api/orders-payments-wallet.md` 为准，数据库结构以 `server/migrations/041_invoice_v1.sql` 和 `docs/server/database/design.md` 为准。
 
 ## 业务范围
 

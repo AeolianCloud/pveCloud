@@ -85,7 +85,7 @@ admin/src/views/tickets/
 - `POST /admin-api/ticket-tags`
 - `PATCH /admin-api/ticket-tags/{id}`
 
-具体字段、响应和错误码以 `docs/server/api/` 为准。
+具体字段、响应和错误码以 `docs/server/api/tickets.md` 为准。
 
 ## 验收重点
 

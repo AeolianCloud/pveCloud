@@ -78,7 +78,7 @@ admin/src/views/products/
 
 ## 关联接口
 
-接口字段和响应结构以 `docs/server/api/endpoints.md` 为准。
+接口字段和响应结构以 `docs/server/api/product-catalog.md` 为准。
 
 - `GET /admin-api/products`
 - `POST /admin-api/products`

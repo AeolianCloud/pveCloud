@@ -50,7 +50,7 @@ admin/src/views/payments/
 
 ## 关联接口
 
-接口字段和响应结构以 `docs/server/api/endpoints.md` 为准。
+接口字段和响应结构以 `docs/server/api/orders-payments-wallet.md` 为准。
 
 - `GET /admin-api/payments`
 - `GET /admin-api/payments/{payment_no}`

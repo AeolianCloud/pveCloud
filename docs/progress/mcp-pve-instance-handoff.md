@@ -21,7 +21,7 @@
 
 新增或更新的主要契约：
 
-- `docs/server/api/endpoints.md`
+- `docs/server/api/instances-tasks.md`
   - 新增管理端交付映射、MCP 只读资源、实例、订单交付接口。
   - 新增用户端实例列表、详情、启动、停止接口。
 - `docs/server/database/design.md`
@@ -219,7 +219,8 @@ git diff --check
 1. 先读 `AGENTS.md` 和 `.codex/skills/pvecloud-document-first/SKILL.md`。
 2. 读本文件恢复上下文。
 3. 对照权威契约：
-   - `docs/server/api/endpoints.md`
+   - `docs/server/api/README.md`
+   - `docs/server/api/instances-tasks.md`
    - `docs/server/database/design.md`
    - `server/migrations/036_instance_mcp_pve.sql`
    - `server/config.example.yaml`

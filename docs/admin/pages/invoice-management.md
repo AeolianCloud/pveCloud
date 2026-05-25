@@ -48,7 +48,7 @@ admin/src/views/invoices/
 
 ## 关联接口
 
-接口字段和响应结构以 `docs/server/api/endpoints.md` 为准。
+发票接口字段和响应结构以 `docs/server/api/invoices.md` 为准；文件上传接口以 `docs/server/api/admin-users-logs-files.md` 为准。
 
 - `GET /admin-api/invoices`
 - `GET /admin-api/invoices/{invoice_no}`

@@ -1,6 +1,6 @@
 # 工单系统 MVP 计划
 
-> 历史说明：本文记录工单 MVP 的初始开放范围。当前工单已进入增强阶段，管理端内部指派、转派、协作者、内部备注、内部 SLA、标签和优先级升级的现行契约以 `docs/admin/pages/ticket-management.md`、`docs/server/api/endpoints.md`、`docs/server/database/design.md` 和 `server/migrations/033_ticket_enhancement.sql` 为准。
+> 历史说明：本文记录工单 MVP 的初始开放范围。当前工单已进入增强阶段，管理端内部指派、转派、协作者、内部备注、内部 SLA、标签和优先级升级的现行契约以 `docs/admin/pages/ticket-management.md`、`docs/server/api/tickets.md`、`docs/server/database/design.md` 和 `server/migrations/033_ticket_enhancement.sql` 为准。
 
 ## 目标
 

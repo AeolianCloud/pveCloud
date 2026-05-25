@@ -1,6 +1,6 @@
 # API 通用约定
 
-本文档只描述跨接口共用的约定。具体接口字段、请求参数和响应数据请看 `docs/server/api/endpoints.md`。
+本文档只描述跨接口共用的约定。具体接口字段、请求参数和响应数据请先看 `docs/server/api/README.md`，再进入对应领域接口文件。
 
 ## 文档职责
 
@@ -11,7 +11,7 @@
 - 鉴权与权限约定
 - 幂等与限流原则
 
-通用安全基线见 `docs/security.md`。本文档只记录 API 层共用约定；具体接口安全要求写入 `docs/server/api/endpoints.md` 的对应接口段落。
+通用安全基线见 `docs/security.md`。本文档只记录 API 层共用约定；具体接口安全要求写入 `docs/server/api/README.md` 索引到的对应领域接口段落。
 
 ## 路由边界
 

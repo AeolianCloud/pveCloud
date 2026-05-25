@@ -81,7 +81,7 @@
 - `POST /api/tickets/{ticket_no}/close`
 - `GET /api/tickets/{ticket_no}/attachments/{file_id}/download`
 
-具体字段、响应和错误码以 `docs/server/api/` 为准。
+具体字段、响应和错误码以 `docs/server/api/tickets.md` 为准。
 
 用户端只调用 `/api/*`，不得调用 `/admin-api/*`。
 

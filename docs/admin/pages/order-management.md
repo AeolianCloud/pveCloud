@@ -53,7 +53,7 @@ admin/src/views/orders/index.vue
 
 ## 关联接口
 
-接口字段和响应结构以 `docs/server/api/endpoints.md` 为准。
+接口字段和响应结构以 `docs/server/api/README.md` 索引到的订单、支付和实例领域接口文件为准。
 
 - `GET /admin-api/orders`
 - `GET /admin-api/orders/{order_no}`
