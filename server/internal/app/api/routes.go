@@ -12,6 +12,7 @@ import (
 	dashboardhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/dashboard"
 	fileattachmenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/fileattachment"
 	admininstancehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/instance"
+	admininvoicehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/invoice"
 	adminlogshttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/logs"
 	adminmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/middleware"
 	adminorderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/admin/order"
@@ -27,6 +28,7 @@ import (
 	webauthhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/auth"
 	cataloghttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/catalog"
 	webinstancehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/instance"
+	webinvoicehttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/invoice"
 	webmiddleware "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/middleware"
 	weborderhttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/order"
 	webpaymenthttp "github.com/AeolianCloud/pveCloud/server/internal/delivery/http/web/payment"
@@ -47,6 +49,7 @@ import (
 	dashboardusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/dashboard"
 	fileattachmentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/fileattachment"
 	admininstanceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/instance"
+	admininvoiceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/invoice"
 	logsusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/logs"
 	adminorderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/order"
 	adminpaymentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/admin/payment"
@@ -60,6 +63,7 @@ import (
 	webauthusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/auth"
 	catalogusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/catalog"
 	webinstanceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/instance"
+	webinvoiceusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/invoice"
 	weborderusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/order"
 	webpaymentusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/payment"
 	webrealnameusecase "github.com/AeolianCloud/pveCloud/server/internal/usecase/web/realname"
@@ -85,6 +89,7 @@ type AdminRouteSet struct {
 	Order          *adminorderhttp.Handler
 	Payment        *adminpaymenthttp.Handler
 	Wallet         *adminwallethttp.Handler
+	Invoice        *admininvoicehttp.Handler
 	Instance       *admininstancehttp.Handler
 	AsyncTask      *asynctaskhttp.Handler
 	Ticket         *admintickethttp.Handler
@@ -102,6 +107,7 @@ type WebRouteSet struct {
 	Order          *weborderhttp.Handler
 	Payment        *webpaymenthttp.Handler
 	Wallet         *webwallethttp.Handler
+	Invoice        *webinvoicehttp.Handler
 	Instance       *webinstancehttp.Handler
 	Ticket         *webtickethttp.Handler
 	ClientLogs     *clientlogshttp.Handler
@@ -145,6 +151,7 @@ func NewRouteSets(app *App) RouteSets {
 			Order:          adminorderhttp.NewHandler(adminorderusecase.NewService(app.DB, auditService, app.Config.InstanceLifecycle)),
 			Payment:        adminpaymenthttp.NewHandler(adminpaymentusecase.NewService(app.DB, webPaymentService, auditService).SetAlertRecorder(paymentAlertRecorder)),
 			Wallet:         adminwallethttp.NewHandler(adminwalletusecase.NewService(app.DB)),
+			Invoice:        admininvoicehttp.NewHandler(admininvoiceusecase.NewService(app.DB, auditService, app.Config.Storage)),
 			Instance:       admininstancehttp.NewHandler(admininstanceusecase.NewService(app.DB, app.MCPPVE, auditService, app.Config.InstanceLifecycle)),
 			AsyncTask:      asynctaskhttp.NewHandler(asynctaskusecase.NewService(app.DB, auditService)),
 			Ticket:         admintickethttp.NewHandler(adminticketusecase.NewService(app.DB, auditService, app.Config.Storage)),
@@ -161,6 +168,7 @@ func NewRouteSets(app *App) RouteSets {
 			Order:          weborderhttp.NewHandler(weborderusecase.NewService(app.DB, webRealNameService)),
 			Payment:        webpaymenthttp.NewHandler(webPaymentService),
 			Wallet:         webwallethttp.NewHandler(webWalletService),
+			Invoice:        webinvoicehttp.NewHandler(webinvoiceusecase.NewService(app.DB, app.Config.Storage)),
 			Instance:       webinstancehttp.NewHandler(webinstanceusecase.NewService(app.DB, app.MCPPVE)),
 			Ticket:         webtickethttp.NewHandler(webticketusecase.NewService(app.DB, app.Config.Storage)),
 			ClientLogs:     clientlogshttp.NewHandler("web", app.Redis, app.LogRecorder),

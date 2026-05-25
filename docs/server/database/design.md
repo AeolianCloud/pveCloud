@@ -59,7 +59,7 @@ user_sessions
 user_password_reset_tokens
 ```
 
-`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、支付、钱包、续费订单、实例和工单，不开放发票或其它业务资料。
+`users` 用于用户端账号。当前阶段开放用户注册、登录、资料编辑、密码修改、个人实名、订单、支付、钱包、发票、续费订单、实例和工单，不开放其它业务资料。
 
 `user_sessions` 用于记录用户端登录会话。用户端 access token 的 `jti` 必须对应 `user_sessions.session_id`，服务端受保护用户接口需要校验 token 和会话状态。
 
@@ -235,6 +235,33 @@ wallet_recharges
 
 钱包充值回调必须锁定充值记录和钱包账户，只有 `pending` 充值可以推进为 `paid` 并入账；重复回调不得重复写流水或重复增加余额。余额支付必须锁定订单和钱包账户，只有订单 `status=pending` 且 `payment_status=unpaid`、钱包 `status=active` 且余额充足时才能扣款。余额支付退款必须锁定退款、支付、订单、钱包账户和必要的支付生效记录，退回钱包余额后写入 `refund` 类型流水。
 
+### 发票
+
+```text
+invoice_applications
+invoice_application_orders
+```
+
+发票 v1 保存用户端已支付订单的人工电子普通发票申请和管理端运营处理事实。发票申请编号使用 `invoice_no` 对外展示，不直接暴露自增 ID。一张发票申请可以合并当前用户自己的多笔可开票订单，申请金额由订单金额汇总得到，币种 v1 固定为 `CNY`。
+
+发票申请状态使用字符串字段，不使用数据库 enum。当前允许以下状态：
+
+- `pending`：用户已提交，等待运营处理。
+- `processing`：运营已受理，线下开票处理中。
+- `issued`：运营已完成开票登记并绑定 PDF 文件。
+- `rejected`：运营驳回申请。
+- `cancelled`：用户取消申请。
+
+发票类型 v1 固定为 `electronic_normal`。抬头类型允许 `personal` 和 `company`；企业抬头必须保存税号，个人抬头可不保存税号。v1 不保存专票地址电话、开户行或银行账号。
+
+`invoice_applications` 保存申请主记录、抬头资料、申请金额、状态时间、运营处理人、发票号码、PDF 文件引用和后台备注。PDF 文件通过 `invoice_file_id` 引用 `file_attachments.id`，并同时写入 `file_attachment_references`，`ref_type=invoice_application`。
+
+`invoice_application_orders` 保存申请关联订单明细和订单快照。每条明细保存订单 ID、订单编号、订单类型、金额、币种、支付状态和支付完成时间。该表使用有效占用投影约束同一订单同时最多被一条 `pending`、`processing` 或 `issued` 发票申请占用；`cancelled` 和 `rejected` 释放订单开票资格。
+
+创建发票申请必须同事务锁定所选订单、校验订单归属、支付状态、退款状态、币种和有效占用，再写入申请主表和订单明细。用户创建申请幂等依赖 `user_id + client_token` 唯一约束；重复提交同一幂等键返回已有申请，不重复创建发票事实。
+
+管理端受理、驳回、开票和后台备注更新必须检查当前状态并与普通后台审计写入保持同事务。受理、驳回、开票和用户取消申请时，必须同事务同步更新对应 `invoice_application_orders.status_snapshot`，确保订单占用投影与主申请状态一致。退款接口在创建退款本地记录前必须检查订单是否存在 `pending`、`processing` 或 `issued` 发票申请；存在时拒绝退款。v1 不支持红冲或开票后在线退款。
+
 ### 实例交付
 
 ```text
@@ -402,7 +429,7 @@ ticket_events
 
 ## 当前阶段说明
 
-当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单、支付、钱包、续费订单、实例、异步任务、通知和工单阶段。
+当前仓库已经从“基础后台阶段”继续演进到用户账号自助、用户实名、服务器产品目录、订单、支付、钱包、发票、续费订单、实例、异步任务、通知和工单阶段。
 数据库契约保留以下管理域：
 
 - 认证
@@ -416,14 +443,13 @@ ticket_events
 - 订单
 - 支付
 - 钱包
+- 发票
 - 实例
 - 异步任务
 - 通知
 - 工单
 
-以下业务域表不属于当前数据库契约，后续如需恢复，必须先补新的迁移和文档确认：
-
-- 发票
+后续如需新增专票、红冲、作废、第三方开票平台、发票邮件发送、钱包充值开票、部分退款、提现、人工调账、余额转账或自动对账批处理，必须先补新的迁移和文档确认。
 
 ## 关键唯一约束示例
 
@@ -448,6 +474,10 @@ ticket_events
 - `server_os_templates.code`
 - `orders.order_no`
 - `orders(user_id, client_token)`，只约束有效幂等键
+- `invoice_applications.invoice_no`
+- `invoice_applications(user_id, client_token)`
+- `invoice_application_orders(invoice_id, order_id)`
+- `invoice_application_orders(active_order_id)`，只约束 `pending`、`processing`、`issued` 发票申请的订单占用
 - `instance_provision_mappings.mapping_no`
 - `instance_provision_mappings(plan_no, region_no, template_no, network_type_no, status)`
 - `instances.instance_no`
@@ -538,9 +568,18 @@ Web 用户管理需要新增以下管理端权限目录：
 - `payment:sync`
 - `payment:retry-provision`
 
+发票运营需要新增以下管理端权限目录：
+
+- `page.invoices`
+- `invoice:*`
+- `invoice:view`
+- `invoice:update`
+- `invoice:issue`
+- `invoice:reject`
+
 ## 一致性原则
 
 - MariaDB 是基础后台事实来源
 - Redis 只做缓存、限流、短 TTL 状态和辅助幂等
-- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放、真实支付一期、钱包 v1 和异步任务为现行数据库契约，不以通用 PVE 运维管理、发票、提现、人工调账、余额转账或部分退款为现行数据库契约
+- 当前阶段只以 MCP PVE client API 支撑的实例交付、基础操作、到期释放、真实支付一期、钱包 v1、发票 v1 和异步任务为现行数据库契约，不以通用 PVE 运维管理、提现、人工调账、余额转账或部分退款为现行数据库契约
 - 未来创建订单时必须复制产品、套餐、价格、销售地域和服务器系统模板快照，不能只依赖当前产品表引用

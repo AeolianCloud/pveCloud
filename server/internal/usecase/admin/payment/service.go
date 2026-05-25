@@ -16,6 +16,7 @@ import (
 	domainwallet "github.com/AeolianCloud/pveCloud/server/internal/domain/wallet"
 	integrationpayment "github.com/AeolianCloud/pveCloud/server/internal/integration/payment"
 	mysqlinstance "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/instance"
+	mysqlinvoice "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/invoice"
 	mysqlorder "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/order"
 	mysqlpayment "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/payment"
 	mysqltx "github.com/AeolianCloud/pveCloud/server/internal/repository/mysql/tx"
@@ -34,6 +35,7 @@ type AdminAuditWriteInput = adminaudit.AdminAuditWriteInput
 type Service struct {
 	db        *gorm.DB
 	orders    *mysqlorder.Repository
+	invoices  *mysqlinvoice.Repository
 	payments  *mysqlpayment.Repository
 	wallets   *mysqlwallet.Repository
 	instances *mysqlinstance.Repository
@@ -51,7 +53,7 @@ func NewService(db *gorm.DB, web *webpayment.Service, audit *AdminAuditService, 
 	if len(registries) > 0 && registries[0] != nil {
 		registry = registries[0]
 	}
-	return &Service{db: db, orders: mysqlorder.NewRepository(db), payments: mysqlpayment.NewRepository(db), wallets: mysqlwallet.NewRepository(db), instances: mysqlinstance.NewRepository(db), web: web, audit: audit, adapters: registry}
+	return &Service{db: db, orders: mysqlorder.NewRepository(db), invoices: mysqlinvoice.NewRepository(db), payments: mysqlpayment.NewRepository(db), wallets: mysqlwallet.NewRepository(db), instances: mysqlinstance.NewRepository(db), web: web, audit: audit, adapters: registry}
 }
 
 func (s *Service) SetAlertRecorder(alerts *paymentalert.Recorder) *Service {
@@ -147,6 +149,12 @@ func (s *Service) CreateRefund(ctx context.Context, operatorID uint64, paymentNo
 			if instance, err := s.instances.InstanceByOrderID(ctx, order.ID); err == nil && instance.Status != domaininstance.StatusReleased {
 				return apperrors.ErrConflict.WithMessage("新购已交付订单需先释放实例")
 			}
+		}
+		// 发票 v1 不支持红冲或作废，退款本地事实创建前必须阻断已被有效发票占用的订单。
+		if blocked, err := s.invoices.HasActiveOrderInvoice(ctx, tx, order.ID); err != nil {
+			return err
+		} else if blocked {
+			return apperrors.ErrConflict.WithMessage("订单存在有效发票申请，不能退款")
 		}
 		refund := mysqlpayment.RefundTransaction{RefundNo: fmt.Sprintf("RF-%d", time.Now().UnixNano()), PaymentID: payment.ID, PaymentNo: payment.PaymentNo, OrderID: payment.OrderID, OrderNo: payment.OrderNo, UserID: payment.UserID, Provider: payment.Provider, Status: domainpayment.RefundStatusPending, AmountCents: payment.AmountCents, Currency: payment.Currency, Reason: strings.TrimSpace(req.Reason), RequestedByAdminID: operatorID, UpstreamTradeNo: payment.UpstreamTradeNo}
 		if err := s.payments.CreateRefund(ctx, tx, &refund); err != nil {

@@ -95,6 +95,33 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/user/invoices',
+    name: 'invoices',
+    component: () => import('../views/invoices/index.vue'),
+    meta: {
+      title: '发票管理',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/invoices/new',
+    name: 'invoice-create',
+    component: () => import('../views/invoices/create.vue'),
+    meta: {
+      title: '申请发票',
+      requiresAuth: true,
+    },
+  },
+  {
+    path: '/user/invoices/:invoiceNo',
+    name: 'invoice-detail',
+    component: () => import('../views/invoices/detail.vue'),
+    meta: {
+      title: '发票详情',
+      requiresAuth: true,
+    },
+  },
+  {
     path: '/user/orders/:orderNo',
     name: 'order-detail',
     component: () => import('../views/orders/detail.vue'),

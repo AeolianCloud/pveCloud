@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { getInvoiceEligibleOrders } from '../../api/invoice'
 import { cancelOrder, getOrderDetail, type OrderDetail } from '../../api/order'
 import { createPayment, type PaymentMethod, type PaymentProvider } from '../../api/payment'
 import { getApiErrorMessage } from '../../api/request'
@@ -15,6 +16,7 @@ const loading = ref(false)
 const paying = ref('')
 const errorMessage = ref('')
 const order = ref<OrderDetail | null>(null)
+const invoiceEligible = ref(false)
 const statusText: Record<string, string> = { pending: '待处理', provisioning: '交付中', fulfilled: '已交付', error: '交付异常', cancelled: '已取消', closed: '已关闭' }
 const orderTypeText: Record<string, string> = { purchase: '新购', renewal: '续费' }
 const paymentStatusText: Record<string, string> = { unpaid: '未支付', paid: '已支付', manual_confirmed: '人工确认', refunded: '已退款' }
@@ -27,10 +29,22 @@ async function loadDetail() {
   errorMessage.value = ''
   try {
     order.value = await getOrderDetail(String(route.params.orderNo || ''))
+    await loadInvoiceEligibility(order.value.order_no)
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, '订单详情加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function loadInvoiceEligibility(orderNo: string) {
+  invoiceEligible.value = false
+  try {
+    // 只根据后端可开票接口决定入口显隐，避免前端复制订单/退款/发票占用规则。
+    const data = await getInvoiceEligibleOrders({ page: 1, per_page: 5, keyword: orderNo })
+    invoiceEligible.value = data.list.some((item) => item.order_no === orderNo)
+  } catch {
+    invoiceEligible.value = false
   }
 }
 
@@ -107,7 +121,7 @@ onMounted(loadDetail)
             <button type="button" class="action-pill border border-neutral-300 px-4 py-2 text-sm font-black hover:bg-neutral-100 disabled:opacity-50" :disabled="!!paying" @click="startPayment('wechat', 'wechat_h5')">{{ paying === 'wechat:wechat_h5' ? '创建中...' : '微信 H5' }}</button>
           </div>
         </section>
-        <div class="mt-6 flex flex-wrap gap-3"><button v-if="order.status === 'pending'" type="button" class="action-pill border border-red-300 px-5 py-2 text-sm font-black text-red-700 hover:bg-red-50" @click="cancel">取消订单</button><RouterLink to="/user/orders" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">返回订单列表</RouterLink></div>
+        <div class="mt-6 flex flex-wrap gap-3"><RouterLink v-if="invoiceEligible" :to="{ path: '/user/invoices/new', query: { order_no: order.order_no } }" class="action-pill border border-sky-500 px-5 py-2 text-sm font-black text-sky-700 hover:bg-sky-50">申请发票</RouterLink><button v-if="order.status === 'pending'" type="button" class="action-pill border border-red-300 px-5 py-2 text-sm font-black text-red-700 hover:bg-red-50" @click="cancel">取消订单</button><RouterLink to="/user/orders" class="action-pill border border-neutral-950 px-5 py-2 text-sm font-black hover:bg-neutral-950 hover:text-white">返回订单列表</RouterLink></div>
       </article>
     </div>
   </div>

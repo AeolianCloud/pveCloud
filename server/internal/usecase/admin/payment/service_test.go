@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	domaininvoice "github.com/AeolianCloud/pveCloud/server/internal/domain/invoice"
 	domainorder "github.com/AeolianCloud/pveCloud/server/internal/domain/order"
 	domainpayment "github.com/AeolianCloud/pveCloud/server/internal/domain/payment"
 	integrationpayment "github.com/AeolianCloud/pveCloud/server/internal/integration/payment"
@@ -21,7 +22,7 @@ import (
 
 func TestCreateRefundForRenewalRollsBackEffectAndOrder(t *testing.T) {
 	db := mysqltest.Open(t)
-	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentInvoiceOrdersSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema)
 	seedAdminPaymentConfigs(t, db)
 
 	instanceNo := "INS-refund-renew-1"
@@ -88,7 +89,7 @@ func TestCreateRefundForRenewalRollsBackEffectAndOrder(t *testing.T) {
 
 func TestCreateRefundPendingWritesAlertEvent(t *testing.T) {
 	db := mysqltest.Open(t)
-	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentBackendRuntimeLogsSchema)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentInvoiceOrdersSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentBackendRuntimeLogsSchema)
 	seedAdminPaymentConfigs(t, db)
 	seedAdminPaymentOrder(t, db, 44, "ORD-refund-pending-1", domainorder.TypePurchase, nil, domainorder.StatusFulfilled, domainorder.PaymentStatusPaid)
 	seedAdminPayment(t, db, 44, "PAY-refund-pending-1", "ORD-refund-pending-1", domainpayment.StatusPaid)
@@ -113,7 +114,7 @@ func TestCreateRefundPendingWritesAlertEvent(t *testing.T) {
 
 func TestCreateRefundFailureWritesAlertEvent(t *testing.T) {
 	db := mysqltest.Open(t)
-	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentBackendRuntimeLogsSchema)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentInvoiceOrdersSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentBackendRuntimeLogsSchema)
 	seedAdminPaymentConfigs(t, db)
 	seedAdminPaymentOrder(t, db, 55, "ORD-refund-failed-1", domainorder.TypePurchase, nil, domainorder.StatusFulfilled, domainorder.PaymentStatusPaid)
 	seedAdminPayment(t, db, 55, "PAY-refund-failed-1", "ORD-refund-failed-1", domainpayment.StatusPaid)
@@ -138,7 +139,7 @@ func TestCreateRefundFailureWritesAlertEvent(t *testing.T) {
 
 func TestCreateRefundForWalletPaymentCreditsWallet(t *testing.T) {
 	db := mysqltest.Open(t)
-	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentWalletAccountsSchema, adminPaymentWalletLedgerSchema)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentInvoiceOrdersSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema, adminPaymentWalletAccountsSchema, adminPaymentWalletLedgerSchema)
 	seedAdminPaymentOrder(t, db, 66, "ORD-wallet-refund-1", domainorder.TypePurchase, nil, domainorder.StatusFulfilled, domainorder.PaymentStatusPaid)
 	seedAdminPaymentWithChannel(t, db, 66, "PAY-wallet-refund-1", "ORD-wallet-refund-1", domainpayment.ProviderWallet, domainpayment.MethodWalletBalance, domainpayment.StatusPaid)
 	seedAdminWalletAccount(t, db, 6601, "WAL-refund-1", 66, 1200)
@@ -180,6 +181,33 @@ func TestCreateRefundForWalletPaymentCreditsWallet(t *testing.T) {
 	}
 	if order.Status != domainorder.StatusClosed || order.PaymentStatus != domainorder.PaymentStatusRefunded {
 		t.Fatalf("wallet refund should close and refund order, got %#v", order)
+	}
+}
+
+func TestCreateRefundBlocksActiveInvoiceApplication(t *testing.T) {
+	db := mysqltest.Open(t)
+	mysqltest.Exec(t, db, adminPaymentSystemConfigsSchema, adminPaymentOrdersSchema, adminPaymentTransactionsSchema, adminRefundTransactionsSchema, adminPaymentInvoiceOrdersSchema, adminPaymentEffectsSchema, adminPaymentInstancesSchema, adminPaymentAuditLogsSchema)
+	seedAdminPaymentConfigs(t, db)
+	seedAdminPaymentOrder(t, db, 77, "ORD-invoice-refund-block", domainorder.TypePurchase, nil, domainorder.StatusFulfilled, domainorder.PaymentStatusPaid)
+	seedAdminPayment(t, db, 77, "PAY-invoice-refund-block", "ORD-invoice-refund-block", domainpayment.StatusPaid)
+	seedAdminInvoiceOrder(t, db, 77, "INV-refund-block", "ORD-invoice-refund-block", domaininvoice.StatusIssued)
+
+	service := NewService(db, nil, nil, integrationpayment.StaticRegistry{
+		domainpayment.ProviderAlipay: integrationpayment.FakeAdapter{CreateRefundFunc: func(ctx context.Context, cfg integrationpayment.Config, req integrationpayment.CreateRefundRequest) (integrationpayment.RefundResult, error) {
+			t.Fatalf("channel refund must not be called when order has active invoice")
+			return integrationpayment.RefundResult{}, nil
+		}},
+	})
+	_, err := service.CreateRefund(context.Background(), 99, "PAY-invoice-refund-block", admindto.RefundCreateRequest{Reason: "申请退款"})
+	if err == nil || !strings.Contains(err.Error(), "发票") {
+		t.Fatalf("active invoice should block refund, got %v", err)
+	}
+	var refundCount int64
+	if err := db.Table("refund_transactions").Where("payment_no = ?", "PAY-invoice-refund-block").Count(&refundCount).Error; err != nil {
+		t.Fatalf("count refunds: %v", err)
+	}
+	if refundCount != 0 {
+		t.Fatalf("refund row must not be created when invoice blocks refund, got %d", refundCount)
 	}
 }
 
@@ -274,6 +302,19 @@ instance_id, instance_no, before_expires_at, after_expires_at
 		effectNo, 3033, paymentNo, 1033, orderNo, domainorder.TypeRenewal, domainpayment.EffectTypeRenewalExtension, domainpayment.EffectStatusActive, 2033, instanceNo, before, after,
 	).Error; err != nil {
 		t.Fatalf("seed effect: %v", err)
+	}
+}
+
+func seedAdminInvoiceOrder(t *testing.T, db *gorm.DB, userID uint64, invoiceNo string, orderNo string, status string) {
+	t.Helper()
+	if err := db.Exec(`INSERT INTO invoice_application_orders (
+invoice_id, invoice_no, user_id, order_id, order_no, order_type, order_amount_cents,
+currency, payment_status, status_snapshot
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID+4000, invoiceNo, userID, userID+1000, orderNo, domainorder.TypePurchase, 3000,
+		"CNY", domainorder.PaymentStatusPaid, status,
+	).Error; err != nil {
+		t.Fatalf("seed invoice order: %v", err)
 	}
 }
 
@@ -378,6 +419,27 @@ CREATE TABLE refund_transactions (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uk_refund_transactions_refund_no (refund_no),
   UNIQUE KEY uk_refund_transactions_payment (payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const adminPaymentInvoiceOrdersSchema = `
+CREATE TABLE invoice_application_orders (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  invoice_id BIGINT UNSIGNED NOT NULL,
+  invoice_no VARCHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  order_id BIGINT UNSIGNED NOT NULL,
+  order_no VARCHAR(64) NOT NULL,
+  order_type VARCHAR(32) NOT NULL,
+  order_amount_cents BIGINT UNSIGNED NOT NULL,
+  currency VARCHAR(16) NOT NULL DEFAULT 'CNY',
+  payment_status VARCHAR(32) NOT NULL,
+  paid_at DATETIME(3) NULL,
+  product_name VARCHAR(128) NULL,
+  plan_name VARCHAR(128) NULL,
+  status_snapshot VARCHAR(32) NOT NULL DEFAULT 'pending',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  KEY idx_invoice_application_orders_order (order_id, status_snapshot)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 const adminPaymentEffectsSchema = `

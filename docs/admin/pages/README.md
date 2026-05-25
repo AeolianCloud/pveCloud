@@ -17,6 +17,7 @@
 - `Order Management`：`docs/admin/pages/order-management.md`
 - `Payment Management`：`docs/admin/pages/payment-management.md`
 - `Wallet Management`：`docs/admin/pages/wallet-management.md`
+- `Invoice Management`：`docs/admin/pages/invoice-management.md`
 - `Instance Management`：`docs/admin/pages/instance-management.md`
 - `Async Tasks`：`docs/admin/pages/async-tasks.md`
 - `Ticket Management`：`docs/admin/pages/ticket-management.md`

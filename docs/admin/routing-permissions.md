@@ -29,6 +29,7 @@
 | 订单管理 | `/orders` | `page.orders` |
 | 支付管理 | `/payments` | `page.payments` |
 | 钱包管理 | `/wallets` | `page.wallets` |
+| 发票运营 | `/invoices` | `page.invoices` |
 | 实例管理 | `/instances` | `page.instances` |
 | 异步任务 | `/async-tasks` | `page.async-tasks` |
 | 工单管理 | `/tickets` | `page.tickets` |
@@ -60,6 +61,7 @@ Web 用户管理页面使用 `permissionMode: any` 时，只要具备 Web 用户
 - 异步任务页面内操作权限包括 `async-task:retry`，由 `async-task:*` 覆盖；`page.async-tasks` 控制任务页面读取。
 - 支付管理页面内操作权限包括 `payment:view`、`payment:refund`、`payment:sync`、`payment:retry-provision`，均由 `payment:*` 覆盖；`page.payments` 控制支付管理页面和支付/退款主数据读取。
 - 钱包管理页面 v1 只读，操作权限仅包括 `wallet:view`；`page.wallets` 控制钱包页面和钱包主数据读取。
+- 发票运营页面内操作权限包括 `invoice:view`、`invoice:update`、`invoice:issue`、`invoice:reject`，均由 `invoice:*` 覆盖；`page.invoices` 控制发票运营页面和发票主数据读取。
 
 ## 新增页面流程
 

@@ -93,6 +93,7 @@ AI workflow changes include `AGENTS.md`, `.codex/skills/`, skill metadata, and s
 - For AI workflow-only changes, update AI workflow files directly after checking they do not introduce or override project contracts.
 - For AI workflow changes, use `$pvecloud-skill-quality` before final verification.
 - For security, permission, cross-surface, migration, config, or large refactor work, do a code-review pass before final verification.
+- For non-trivial feature, fix, or stage-completion work, update the relevant completion and stability record before the final response. Use current progress docs for status and verification evidence, and owner docs or machine contracts for durable facts.
 - Before final response, check git state, scope, contract alignment, validation evidence, temporary artifacts, sensitive output, and skill metadata when relevant.
 - Verify with the smallest meaningful tests, builds, or text checks.
 - Do not mutate Git staging, commits, or remotes unless the maintainer explicitly asks.

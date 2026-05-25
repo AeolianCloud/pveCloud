@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getInvoiceEligibleOrders } from '../../api/invoice'
 import { cancelOrder, getOrders, type OrderItem } from '../../api/order'
 import { getApiErrorMessage } from '../../api/request'
 import { useConfirm } from '../../composables/useConfirm'
@@ -11,6 +12,7 @@ const toast = useToast()
 const loading = ref(false)
 const errorMessage = ref('')
 const orders = ref<OrderItem[]>([])
+const invoiceEligibleNos = ref<Set<string>>(new Set())
 const total = ref(0)
 const query = reactive({ page: 1, per_page: 15, status: '' })
 
@@ -27,11 +29,29 @@ async function loadOrders() {
     const data = await getOrders(query)
     orders.value = data.list
     total.value = data.total
+    await loadInvoiceEligibility(data.list)
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err, '订单加载失败')
   } finally {
     loading.value = false
   }
+}
+
+async function loadInvoiceEligibility(currentOrders: OrderItem[]) {
+  const next = new Set<string>()
+  try {
+    // 发票入口显隐只缓存后端可开票接口的返回结果；最终创建仍由发票接口事务校验。
+    await Promise.all(currentOrders.map(async (order) => {
+      const data = await getInvoiceEligibleOrders({ page: 1, per_page: 5, keyword: order.order_no })
+      if (data.list.some((item) => item.order_no === order.order_no)) {
+        next.add(order.order_no)
+      }
+    }))
+  } catch {
+    invoiceEligibleNos.value = new Set()
+    return
+  }
+  invoiceEligibleNos.value = next
 }
 
 async function cancel(order: OrderItem) {
@@ -100,6 +120,7 @@ onMounted(loadOrders)
             </div>
             <div class="flex flex-wrap gap-2 lg:justify-end">
               <RouterLink :to="`/user/orders/${order.order_no}`" class="action-pill border border-neutral-950 px-3 py-1.5 text-xs font-black hover:bg-neutral-950 hover:text-white">查看详情</RouterLink>
+              <RouterLink v-if="invoiceEligibleNos.has(order.order_no)" :to="{ path: '/user/invoices/new', query: { order_no: order.order_no } }" class="action-pill border border-sky-500 px-3 py-1.5 text-xs font-black text-sky-700 hover:bg-sky-50">申请发票</RouterLink>
               <RouterLink v-if="order.status === 'pending' && order.payment_status === 'unpaid'" :to="`/user/orders/${order.order_no}`" class="action-pill border border-emerald-500 px-3 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-50">去支付</RouterLink>
               <button v-if="order.status === 'pending'" type="button" class="action-pill border border-red-300 px-3 py-1.5 text-xs font-black text-red-700 hover:bg-red-50" @click="cancel(order)">取消</button>
             </div>

@@ -219,6 +219,18 @@ export const viewRoutes: RouteRecordRaw[] = [
     },
   },
   {
+    path: ADMIN_ROUTE_PATH.invoices,
+    name: ADMIN_ROUTE_NAME.invoices,
+    component: () => import('../views/invoices/index.vue'),
+    meta: {
+      title: '发票运营',
+      icon: 'Document',
+      requiresAuth: true,
+      permission: ['page.invoices', 'invoice:view'],
+      permissionMode: 'any',
+    },
+  },
+  {
     path: ADMIN_ROUTE_PATH.instances,
     name: ADMIN_ROUTE_NAME.instances,
     component: () => import('../views/instances/index.vue'),

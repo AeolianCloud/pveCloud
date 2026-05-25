@@ -28,6 +28,7 @@
 - 实名认证：`/user/real-name`
 - 订单管理：`/user/orders`
 - 钱包管理：`/user/wallet`
+- 发票管理：`/user/invoices`
 - 实例管理：`/user/instances`
 - 工单管理：`/user/tickets`
 
@@ -45,6 +46,7 @@
   - 实名认证：`/user/real-name`
   - 订单管理：`/user/orders`
   - 钱包管理：`/user/wallet`
+  - 发票管理：`/user/invoices`
   - 实例管理：`/user/instances`
   - 工单管理：`/user/tickets`
 
@@ -54,6 +56,7 @@
 - `GET /api/site-config` - 获取站点配置（用于实名状态等）
 - `GET /api/orders` - 获取当前用户订单列表摘要
 - `GET /api/wallet` - 获取当前用户钱包摘要
+- `GET /api/invoices` - 获取当前用户发票申请摘要
 - `GET /api/instances` - 获取当前用户实例列表摘要
 - `GET /api/tickets` - 获取当前用户工单列表摘要
 
